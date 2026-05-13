@@ -1,0 +1,26 @@
+# Build
+bin/
+obj/
+
+# Rider
+.idea/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# EF Core local db files
+*.mdf
+*.ldf
+
+# app secrets
+appsettings.Development.json
+
+# OS
+.DS_Store
+Thumbs.db
