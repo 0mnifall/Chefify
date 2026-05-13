@@ -4,6 +4,7 @@ obj/
 
 # Rider
 .idea/
+.idea
 
 # User-specific files
 *.user
