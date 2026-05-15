@@ -1,0 +1,37 @@
+﻿# syntax=docker/dockerfile:1.7
+
+FROM debian:bookworm-slim AS build
+
+ARG FLUTTER_VERSION=3.41.9
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    libglu1-mesa \
+    unzip \
+    xz-utils \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN curl -fsSL -o flutter.tar.xz "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
+  && tar -xf flutter.tar.xz \
+  && rm flutter.tar.xz
+
+ENV PATH="/opt/flutter/bin:${PATH}"
+
+WORKDIR /app
+COPY . .
+
+RUN flutter config --enable-web \
+  && flutter pub get \
+  && flutter build web --release
+
+FROM nginx:1.27-alpine AS runtime
+
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/build/web /usr/share/nginx/html
+
+EXPOSE 80
