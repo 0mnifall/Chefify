@@ -21,11 +21,15 @@ RUN curl -fsSL -o flutter.tar.xz "https://storage.googleapis.com/flutter_infra_r
   && rm flutter.tar.xz
 
 ENV PATH="/opt/flutter/bin:${PATH}"
+RUN useradd --create-home --shell /bin/bash flutter \
+  && chown -R flutter:flutter /opt/flutter
 
+USER flutter
 WORKDIR /app
-COPY . .
+COPY --chown=flutter:flutter . .
 
-RUN flutter config --enable-web \
+RUN git config --global --add safe.directory /opt/flutter \
+  && flutter config --enable-web \
   && flutter pub get \
   && flutter build web --release
 
