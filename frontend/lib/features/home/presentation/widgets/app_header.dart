@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/core/widgets/app_button.dart';
 
 class AppHeader extends StatelessWidget {
@@ -9,11 +10,14 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final strings = AppStrings.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSpacing.contentMaxWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.contentMaxWidth,
+          ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 920;
@@ -26,15 +30,12 @@ class AppHeader extends StatelessWidget {
                     const _MainNavigation(),
                     const SizedBox(width: AppSpacing.lg),
                     AppButton(
-                      label: 'Log in',
+                      label: strings.logIn,
                       variant: AppButtonVariant.ghost,
                       onPressed: () {},
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    AppButton(
-                      label: 'Get started',
-                      onPressed: () {},
-                    ),
+                    AppButton(label: strings.getStarted, onPressed: () {}),
                   ] else ...[
                     IconButton(
                       onPressed: () {},
@@ -96,16 +97,19 @@ class _MainNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = ['Recipes', 'Meal Plans', 'Pricing', 'Community'];
+    final strings = AppStrings.of(context);
+    final items = [
+      strings.recipes,
+      strings.mealPlans,
+      strings.pricing,
+      strings.community,
+    ];
     return Row(
       children: [
         for (final item in items)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            child: TextButton(
-              onPressed: () {},
-              child: Text(item),
-            ),
+            child: TextButton(onPressed: () {}, child: Text(item)),
           ),
       ],
     );

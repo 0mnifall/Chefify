@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
+import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/features/home/data/home_mock_data.dart';
 import 'package:frontend/features/home/presentation/widgets/app_footer.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
@@ -22,6 +23,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final content = HomeMockData.content;
     final palette = context.palette;
+    final strings = AppStrings.of(context);
 
     return Scaffold(
       body: DecoratedBox(
@@ -44,8 +46,8 @@ class HomePage extends StatelessWidget {
                     children: [
                       SizedBox(height: headerHeight),
                       HeroSection(
-                        title: content.heroTitle,
-                        subtitle: content.heroSubtitle,
+                        title: strings.heroTitle,
+                        subtitle: strings.heroSubtitle,
                         featuredRecipe: content.featuredRecipe,
                       ),
                       CategorySection(categories: content.categories),
