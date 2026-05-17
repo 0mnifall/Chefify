@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/features/home/data/home_mock_data.dart';
@@ -30,25 +32,82 @@ class HomePage extends StatelessWidget {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const AppHeader(),
-              HeroSection(
-                title: content.heroTitle,
-                subtitle: content.heroSubtitle,
-                featuredRecipe: content.featuredRecipe,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 920;
+            final headerHeight = compact ? 92.0 : 98.0;
+
+            return Stack(
+              children: [
+                SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      SizedBox(height: headerHeight),
+                      HeroSection(
+                        title: content.heroTitle,
+                        subtitle: content.heroSubtitle,
+                        featuredRecipe: content.featuredRecipe,
+                      ),
+                      CategorySection(categories: content.categories),
+                      TrendingRecipesSection(recipes: content.trendingRecipes),
+                      BenefitsSection(benefits: content.benefits),
+                      FeaturedRecipeSection(recipe: content.featuredRecipe),
+                      StatsBanner(stats: content.stats),
+                      TestimonialsSection(testimonials: content.testimonials),
+                      const MobileAppPromoSection(),
+                      const NewsletterSection(),
+                      const AppFooter(),
+                    ],
+                  ),
+                ),
+                _StickyHeaderShell(
+                  height: headerHeight,
+                  child: const AppHeader(),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _StickyHeaderShell extends StatelessWidget {
+  const _StickyHeaderShell({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Positioned(
+      left: 0,
+      top: 0,
+      right: 0,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            height: height,
+            decoration: BoxDecoration(
+              color: palette.navbarBackground.withValues(alpha: 0.84),
+              border: Border(
+                bottom: BorderSide(
+                  color: palette.borders.withValues(alpha: 0.55),
+                ),
               ),
-              CategorySection(categories: content.categories),
-              TrendingRecipesSection(recipes: content.trendingRecipes),
-              BenefitsSection(benefits: content.benefits),
-              FeaturedRecipeSection(recipe: content.featuredRecipe),
-              StatsBanner(stats: content.stats),
-              TestimonialsSection(testimonials: content.testimonials),
-              const MobileAppPromoSection(),
-              const NewsletterSection(),
-              const AppFooter(),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: child,
           ),
         ),
       ),
