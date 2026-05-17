@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 const double _heroMaxWidth = 1520;
@@ -234,6 +235,7 @@ class HeroTextBlock extends StatelessWidget {
         : Theme.of(context).textTheme.displayLarge;
     final subtitleStyle = Theme.of(context).textTheme.bodyLarge;
     final palette = context.palette;
+    final strings = AppStrings.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +257,7 @@ class HeroTextBlock extends StatelessWidget {
             ),
           ),
           child: Text(
-            'Trusted by 120K+ home cooks',
+            strings.trustedBy,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
               color: onDarkBackground
                   ? const Color(0xFFE8C7A7)
@@ -298,6 +300,7 @@ class HeroActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final strings = AppStrings.of(context);
 
     return Wrap(
       spacing: AppSpacing.sm,
@@ -306,7 +309,7 @@ class HeroActions extends StatelessWidget {
         FilledButton.icon(
           onPressed: () {},
           icon: const Icon(Icons.play_arrow_rounded, size: 18),
-          label: const Text('Start free trial'),
+          label: Text(strings.startFreeTrial),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFE18D59),
             foregroundColor: Colors.white,
@@ -338,7 +341,7 @@ class HeroActions extends StatelessWidget {
             ),
             textStyle: Theme.of(context).textTheme.labelLarge,
           ),
-          child: const Text('Browse recipes'),
+          child: Text(strings.browseRecipes),
         ),
       ],
     );
@@ -352,6 +355,8 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -398,7 +403,7 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    'Photo placeholder',
+                    strings.photoPlaceholder,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.88),
                     ),
@@ -422,6 +427,7 @@ class _TiltedRecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final strings = AppStrings.of(context);
     final likes = _formatLikes((recipe.rating * 390).round() + 610);
 
     return Transform.rotate(
@@ -450,7 +456,7 @@ class _TiltedRecipeCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Recipe of the day',
+                    strings.recipeOfTheDay,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: palette.secondaryText,
                     ),
@@ -497,12 +503,12 @@ class _TiltedRecipeCard extends StatelessWidget {
                 ),
                 _MetaChip(
                   icon: Icons.schedule_rounded,
-                  label: '${recipe.minutes} min',
+                  label: '${recipe.minutes} ${strings.minutesShort}',
                   iconColor: palette.icons,
                 ),
                 _MetaChip(
                   icon: Icons.local_fire_department_rounded,
-                  label: _difficulty(recipe.minutes),
+                  label: _difficulty(recipe.minutes, strings),
                   iconColor: recipe.accentColor,
                 ),
                 _MetaChip(
@@ -560,14 +566,14 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
-String _difficulty(int minutes) {
+String _difficulty(int minutes, AppStrings strings) {
   if (minutes <= 25) {
-    return 'Easy';
+    return strings.easy;
   }
   if (minutes <= 45) {
-    return 'Medium';
+    return strings.medium;
   }
-  return 'Hard';
+  return strings.hard;
 }
 
 String _formatLikes(int likes) {
