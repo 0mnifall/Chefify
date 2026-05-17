@@ -8,13 +8,17 @@
 - [UA Scope](#ua-scope)
 - [UA Flutter SDK Setup](#ua-flutter-sdk-setup)
 - [UA Flutter Commands](#ua-flutter-commands)
-- [UA Docker Frontend](#ua-docker-frontend)
+- [UA Docker Full Stack](#ua-docker-full-stack)
+- [UA Docker Frontend Only](#ua-docker-frontend-only)
+- [UA Troubleshooting](#ua-troubleshooting)
 - [UA Key Files](#ua-key-files)
 - [English](#english)
 - [EN Scope](#en-scope)
 - [EN Flutter SDK Setup](#en-flutter-sdk-setup)
 - [EN Flutter Commands](#en-flutter-commands)
-- [EN Docker Frontend](#en-docker-frontend)
+- [EN Docker Full Stack](#en-docker-full-stack)
+- [EN Docker Frontend Only](#en-docker-frontend-only)
+- [EN Troubleshooting](#en-troubleshooting)
 - [EN Key Files](#en-key-files)
 
 ---
@@ -23,10 +27,9 @@
 
 ### UA Scope
 
-- `frontend/` - Flutter клієнт.
-- `backend/` - .NET API.
-
-Цей документ покриває тільки frontend/tooling. Бекенд у цьому кроці не змінюється.
+- `frontend/` - Flutter web клієнт.
+- `backend/` - .NET 9 API.
+- `docker-compose.yml` - єдиний compose для БД, API та frontend.
 
 ### UA Flutter SDK Setup
 
@@ -59,33 +62,65 @@ cd .\frontend
 
 `flutterw` сам викличе setup-логіку, якщо шлях до SDK ще не налаштований.
 
-### UA Docker Frontend
+### UA Docker Full Stack
 
-Файл: `docker-compose.frontend.yml`
-Шаблон змінних: `.env.frontend.example`
+Повний запуск (db + api + frontend-web):
 
-Варіант 1: зібрати Flutter Web повністю в Docker і запустити nginx:
-
-```bash
-docker compose -f docker-compose.frontend.yml --profile frontend up --build
+```powershell
+docker compose --profile frontend up --build
 ```
 
-- Порт за замовчуванням: `8088`.
-- Змінити порт: `FRONTEND_HTTP_PORT=8090`.
-- Змінити Flutter у build-контейнері: `FLUTTER_VERSION=3.41.9`.
-- Можна створити `.env` з `.env.frontend.example` і запускати без інлайн-змінних.
+Сервіси і порти:
 
-Варіант 2: зібрати web локально своїм SDK і віддати через контейнер nginx:
+- `db` (PostgreSQL): `localhost:5432`
+- `api` (.NET): `http://localhost:8080`
+- `frontend-web` (nginx + Flutter web): `http://localhost:8088`
+
+Тільки backend (db + api):
+
+```powershell
+docker compose up --build
+```
+
+Зупинка:
+
+```powershell
+docker compose --profile frontend down --remove-orphans
+```
+
+### UA Docker Frontend Only
+
+Frontend only (через build у Docker):
+
+```powershell
+docker compose --profile frontend up --build frontend-web
+```
+
+Frontend preview з локального `flutter build web`:
 
 ```powershell
 cd .\frontend
 ..\flutterw.ps1 build web
 cd ..
-docker compose -f docker-compose.frontend.yml --profile frontend-local-build up
+docker compose --profile frontend-local-build up --build frontend-preview
 ```
 
-- Порт за замовчуванням: `8089`.
-- Змінити порт: `FRONTEND_PREVIEW_PORT=8091`.
+### UA Troubleshooting
+
+- Порт `8088` зайнятий:
+
+```powershell
+$env:FRONTEND_HTTP_PORT='8090'; docker compose --profile frontend up --build
+```
+
+- Помилка `unknown directive "﻿server"` у nginx: перевір, що використовується актуальний образ, і перебілдь frontend:
+
+```powershell
+docker compose --profile frontend build --no-cache frontend-web
+docker compose --profile frontend up -d frontend-web
+```
+
+- `api` віддає `500` через відсутні таблиці: у поточній версії міграції застосовуються автоматично при старті API контейнера.
 
 ### UA Key Files
 
@@ -93,9 +128,10 @@ docker compose -f docker-compose.frontend.yml --profile frontend-local-build up
 - `tools/setup-flutter.sh`
 - `flutterw.ps1`
 - `flutterw.bat`
+- `backend/Program.cs`
 - `frontend/Dockerfile.web`
 - `frontend/docker/nginx.conf`
-- `docker-compose.frontend.yml`
+- `docker-compose.yml`
 - `.env.frontend.example`
 
 ---
@@ -104,10 +140,9 @@ docker compose -f docker-compose.frontend.yml --profile frontend-local-build up
 
 ### EN Scope
 
-- `frontend/` - Flutter client.
-- `backend/` - .NET API.
-
-This document covers frontend/tooling only. Backend is intentionally untouched in this step.
+- `frontend/` - Flutter web client.
+- `backend/` - .NET 9 API.
+- `docker-compose.yml` - single compose file for DB, API, and frontend.
 
 ### EN Flutter SDK Setup
 
@@ -140,33 +175,65 @@ cd .\frontend
 
 `flutterw` automatically triggers setup if SDK path is not configured yet.
 
-### EN Docker Frontend
+### EN Docker Full Stack
 
-File: `docker-compose.frontend.yml`
-Variables template: `.env.frontend.example`
+Full run (db + api + frontend-web):
 
-Option 1: build Flutter Web inside Docker and serve via nginx:
-
-```bash
-docker compose -f docker-compose.frontend.yml --profile frontend up --build
+```powershell
+docker compose --profile frontend up --build
 ```
 
-- Default port: `8088`.
-- Override port: `FRONTEND_HTTP_PORT=8090`.
-- Override Flutter version for container build: `FLUTTER_VERSION=3.41.9`.
-- You can copy `.env.frontend.example` to `.env` and run without inline variables.
+Services and ports:
 
-Option 2: build web locally with your SDK and serve via nginx container:
+- `db` (PostgreSQL): `localhost:5432`
+- `api` (.NET): `http://localhost:8080`
+- `frontend-web` (nginx + Flutter web): `http://localhost:8088`
+
+Backend only (db + api):
+
+```powershell
+docker compose up --build
+```
+
+Stop:
+
+```powershell
+docker compose --profile frontend down --remove-orphans
+```
+
+### EN Docker Frontend Only
+
+Frontend only (Docker build):
+
+```powershell
+docker compose --profile frontend up --build frontend-web
+```
+
+Frontend preview from local `flutter build web`:
 
 ```powershell
 cd .\frontend
 ..\flutterw.ps1 build web
 cd ..
-docker compose -f docker-compose.frontend.yml --profile frontend-local-build up
+docker compose --profile frontend-local-build up --build frontend-preview
 ```
 
-- Default port: `8089`.
-- Override port: `FRONTEND_PREVIEW_PORT=8091`.
+### EN Troubleshooting
+
+- Port `8088` is already in use:
+
+```powershell
+$env:FRONTEND_HTTP_PORT='8090'; docker compose --profile frontend up --build
+```
+
+- `unknown directive "﻿server"` from nginx: rebuild frontend image without cache:
+
+```powershell
+docker compose --profile frontend build --no-cache frontend-web
+docker compose --profile frontend up -d frontend-web
+```
+
+- API returns `500` due to missing tables: current setup applies EF Core migrations automatically on API startup.
 
 ### EN Key Files
 
@@ -174,7 +241,8 @@ docker compose -f docker-compose.frontend.yml --profile frontend-local-build up
 - `tools/setup-flutter.sh`
 - `flutterw.ps1`
 - `flutterw.bat`
+- `backend/Program.cs`
 - `frontend/Dockerfile.web`
 - `frontend/docker/nginx.conf`
-- `docker-compose.frontend.yml`
+- `docker-compose.yml`
 - `.env.frontend.example`
