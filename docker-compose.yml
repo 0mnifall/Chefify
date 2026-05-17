@@ -1,0 +1,53 @@
+﻿name: chefify
+
+services:
+  db:
+    image: postgres:17
+    container_name: chefify_db
+    restart: always
+    environment:
+      POSTGRES_DB: chefify_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: chefify_api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=chefify_db;Username=postgres;Password=postgres"
+      
+  frontend-web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.web
+      args:
+        FLUTTER_VERSION: ${FLUTTER_VERSION:-3.41.9}
+    image: chefify/frontend-web:${FLUTTER_VERSION:-3.41.9}
+    ports:
+      - "${FRONTEND_HTTP_PORT:-8088}:80"
+    profiles:
+      - frontend
+
+  frontend-preview:
+    image: nginx:1.27-alpine
+    ports:
+      - "${FRONTEND_PREVIEW_PORT:-8089}:80"
+    volumes:
+      - ./frontend/build/web:/usr/share/nginx/html:ro
+      - ./frontend/docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    profiles:
+      - frontend-local-build
+       
+volumes:
+  postgres_data:
