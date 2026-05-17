@@ -4,3 +4,8 @@
 /.env
 .idea
 .idea/
+bin/
+obj/
+.vs/
+*.user
+*.suo
