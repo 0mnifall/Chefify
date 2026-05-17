@@ -33,6 +33,7 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/global.json" root0="FORCE_HIGHLIGHTING" />
   </component>
+  <component name="KubernetesApiPersistence"><![CDATA[{}]]></component>
   <component name="KubernetesApiProvider"><![CDATA[{
   "isMigrated": true
 }]]></component>
@@ -98,7 +99,7 @@
       <workItem from="1778695429900" duration="105000" />
       <workItem from="1778696440411" duration="1385000" />
       <workItem from="1778698366283" duration="1353000" />
-      <workItem from="1778865706423" duration="11120000" />
+      <workItem from="1778865706423" duration="12431000" />
     </task>
     <servers />
   </component>
