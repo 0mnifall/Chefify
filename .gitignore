@@ -2,3 +2,5 @@
 /.flutter-sdk/
 /.tooling/
 /.env
+.idea
+.idea/
