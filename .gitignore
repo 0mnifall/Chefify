@@ -2,3 +2,10 @@
 /.flutter-sdk/
 /.tooling/
 /.env
+.idea
+.idea/
+bin/
+obj/
+.vs/
+*.user
+*.suo
