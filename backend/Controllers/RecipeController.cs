@@ -49,6 +49,10 @@ public class RecipeController(AppDbContext context) : ControllerBase
                 Creator = r.Creator.Username
             })
             .ToListAsync();
+        if (recipes == null)
+        {
+            return NotFound();
+        }
         return Ok(recipes);
     }
 
