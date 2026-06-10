@@ -1,13 +1,10 @@
-using backend.Models;
-
 namespace backend.Dto;
 
-public class RecipeDto
+public class RecipePreviewDto
 {
     public required string Title { get; set; }
     public required string Description { get; set; }
     public int CookingTime { get; set; }
     public int Difficulty { get; set; }
-    public int CreatorId { get; set; }
-    public UserDto Creator { get; set; }
+    public string Creator { get; set; }
 }
