@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
+import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 const double _heroMaxWidth = 1520;
@@ -424,49 +425,24 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
   }
 }
 
-class _TiltedRecipeCard extends StatefulWidget {
+class _TiltedRecipeCard extends StatelessWidget {
   const _TiltedRecipeCard({required this.recipe, this.compact = false});
 
   final RecipeModel recipe;
   final bool compact;
 
   @override
-  State<_TiltedRecipeCard> createState() => _TiltedRecipeCardState();
-}
-
-class _TiltedRecipeCardState extends State<_TiltedRecipeCard> {
-  late bool _isSaved;
-
-  @override
-  void initState() {
-    super.initState();
-    _isSaved = widget.recipe.isSaved;
-  }
-
-  @override
-  void didUpdateWidget(covariant _TiltedRecipeCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.recipe != widget.recipe) {
-      _isSaved = widget.recipe.isSaved;
-    }
-  }
-
-  void _toggleSaved() {
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final strings = AppStrings.of(context);
-    final likes = _formatLikes((widget.recipe.rating * 390).round() + 610);
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isRecipeSaved(recipe);
+    final likes = _formatLikes((recipe.rating * 390).round() + 610);
 
     return Transform.rotate(
-      angle: widget.compact ? 0.025 : 0.055,
+      angle: compact ? 0.025 : 0.055,
       child: Container(
-        width: widget.compact ? 268 : 292,
+        width: compact ? 268 : 292,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         decoration: BoxDecoration(
           color: palette.recipeCardBackground.withValues(alpha: 0.96),
@@ -496,8 +472,10 @@ class _TiltedRecipeCardState extends State<_TiltedRecipeCard> {
                   ),
                 ),
                 IconButton(
-                  isSelected: _isSaved,
-                  onPressed: _toggleSaved,
+                  isSelected: isSaved,
+                  onPressed: () {
+                    bookmarks.toggleRecipe(recipe);
+                  },
                   selectedIcon: const Icon(Icons.bookmark_rounded, size: 20),
                   icon: const Icon(Icons.bookmark_add_rounded, size: 20),
                   style: IconButton.styleFrom(
@@ -519,7 +497,7 @@ class _TiltedRecipeCardState extends State<_TiltedRecipeCard> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              widget.recipe.title,
+              recipe.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(
@@ -533,18 +511,18 @@ class _TiltedRecipeCardState extends State<_TiltedRecipeCard> {
               children: [
                 _MetaChip(
                   icon: Icons.star_rounded,
-                  label: widget.recipe.rating.toStringAsFixed(1),
+                  label: recipe.rating.toStringAsFixed(1),
                   iconColor: const Color(0xFFE5A03C),
                 ),
                 _MetaChip(
                   icon: Icons.schedule_rounded,
-                  label: '${widget.recipe.minutes} ${strings.minutesShort}',
+                  label: '${recipe.minutes} ${strings.minutesShort}',
                   iconColor: palette.icons,
                 ),
                 _MetaChip(
                   icon: Icons.local_fire_department_rounded,
-                  label: _difficulty(widget.recipe.minutes, strings),
-                  iconColor: widget.recipe.accentColor,
+                  label: _difficulty(recipe.minutes, strings),
+                  iconColor: recipe.accentColor,
                 ),
                 _MetaChip(
                   icon: Icons.favorite_rounded,

@@ -11,6 +11,7 @@ class HomeMockData {
         'Chefify helps you discover recipes, manage meal plans, and cook faster without sacrificing flavor.',
     categories: [
       CategoryModel(
+        id: 'quick-meals',
         title: 'Quick Meals',
         description: '30-minute dishes for busy days.',
         icon: Icons.flash_on_rounded,
@@ -20,6 +21,7 @@ class HomeMockData {
         isSaved: true,
       ),
       CategoryModel(
+        id: 'plant-based',
         title: 'Plant-Based',
         description: 'Colorful bowls, soups, and mains.',
         icon: Icons.eco_rounded,
@@ -28,6 +30,7 @@ class HomeMockData {
             'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
       ),
       CategoryModel(
+        id: 'comfort-classics',
         title: 'Comfort Classics',
         description: 'Family favorites with modern twists.',
         icon: Icons.restaurant_rounded,
@@ -36,6 +39,7 @@ class HomeMockData {
             'https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?auto=format&fit=crop&w=1200&q=80',
       ),
       CategoryModel(
+        id: 'desserts',
         title: 'Desserts',
         description: 'Sweet ideas for every occasion.',
         icon: Icons.cake_rounded,
@@ -46,6 +50,7 @@ class HomeMockData {
     ],
     trendingRecipes: [
       RecipeModel(
+        id: 'roasted-tomato-pasta',
         title: 'Roasted Tomato Pasta',
         tag: 'Italian',
         author: 'Chef Aria',
@@ -54,6 +59,7 @@ class HomeMockData {
         accentColor: Color(0xFFED7A3A),
       ),
       RecipeModel(
+        id: 'miso-glazed-salmon',
         title: 'Miso Glazed Salmon',
         tag: 'Japanese',
         author: 'Chef Kaito',
@@ -62,6 +68,7 @@ class HomeMockData {
         accentColor: Color(0xFF5E8B7E),
       ),
       RecipeModel(
+        id: 'spiced-chickpea-bowl',
         title: 'Spiced Chickpea Bowl',
         tag: 'Healthy',
         author: 'Chef Noor',
@@ -70,6 +77,7 @@ class HomeMockData {
         accentColor: Color(0xFFB1784A),
       ),
       RecipeModel(
+        id: 'lemon-ricotta-pancakes',
         title: 'Lemon Ricotta Pancakes',
         tag: 'Breakfast',
         author: 'Chef Mila',
@@ -98,6 +106,7 @@ class HomeMockData {
       ),
     ],
     featuredRecipe: RecipeModel(
+      id: 'citrus-herb-chicken-quinoa',
       title: 'Citrus Herb Chicken with Warm Quinoa',
       tag: 'Chef Pick',
       author: 'Chef Luna',
