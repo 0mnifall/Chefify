@@ -82,50 +82,27 @@ class _DesktopHeroLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final heroHeight = (width / 2.25).clamp(560.0, 680.0);
 
     return SizedBox(
       height: heroHeight,
       child: Stack(
         children: [
-          Positioned.fill(child: _HeroPhotoPlaceholder(recipe: recipe)),
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color(0xFF1F140F),
-                      Color(0xF71F140F),
-                      Color(0xD81F140F),
-                      Color(0x8A1F140F),
-                      Color(0x2D1F140F),
-                      Colors.transparent,
-                    ],
-                    stops: [0.0, 0.34, 0.5, 0.64, 0.76, 0.94],
-                  ),
-                ),
-              ),
+          Positioned.fill(
+            child: _HeroPhotoPlaceholder(
+              recipe: recipe,
+              isDarkTheme: isDarkTheme,
             ),
           ),
           Positioned.fill(
             child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0x4D2C1307),
-                      Colors.transparent,
-                      const Color(0x332C1307),
-                    ],
-                    stops: const [0.0, 0.56, 1.0],
-                  ),
-                ),
-              ),
+              child: _HeroSplitOverlay(isDarkTheme: isDarkTheme),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _HeroTintOverlay(isDarkTheme: isDarkTheme),
             ),
           ),
           Positioned.fill(
@@ -138,15 +115,15 @@ class _DesktopHeroLayout extends StatelessWidget {
                   child: HeroTextBlock(
                     title: title,
                     subtitle: subtitle,
-                    onDarkBackground: true,
+                    onDarkBackground: isDarkTheme,
                   ),
                 ),
               ),
             ),
           ),
           Positioned(
-            top: 54,
-            right: 36,
+            top: 18,
+            right: 8,
             child: _TiltedRecipeCard(recipe: recipe),
           ),
         ],
@@ -168,17 +145,22 @@ class _MobileHeroLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final palette = context.palette;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          color: const Color(0xFF1F140F),
+          color: isDarkTheme
+              ? const Color(0xFF1F140F)
+              : const Color(0xFFF5E8DC),
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
           child: HeroTextBlock(
             title: title,
             subtitle: subtitle,
             compact: true,
-            onDarkBackground: true,
+            onDarkBackground: isDarkTheme,
           ),
         ),
         SizedBox(
@@ -186,14 +168,19 @@ class _MobileHeroLayout extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              _HeroPhotoPlaceholder(recipe: recipe),
-              const IgnorePointer(
+              _HeroPhotoPlaceholder(recipe: recipe, isDarkTheme: isDarkTheme),
+              IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: [Color(0xCC1F140F), Colors.transparent],
+                      colors: [
+                        isDarkTheme
+                            ? const Color(0xCC1F140F)
+                            : palette.pageBackground.withValues(alpha: 0.8),
+                        Colors.transparent,
+                      ],
                       stops: [0.0, 0.64],
                     ),
                   ),
@@ -349,22 +336,31 @@ class HeroActions extends StatelessWidget {
 }
 
 class _HeroPhotoPlaceholder extends StatelessWidget {
-  const _HeroPhotoPlaceholder({required this.recipe});
+  const _HeroPhotoPlaceholder({
+    required this.recipe,
+    required this.isDarkTheme,
+  });
 
   final RecipeModel recipe;
+  final bool isDarkTheme;
 
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final leadingColor = isDarkTheme
+        ? recipe.accentColor.withValues(alpha: 0.96)
+        : Color.lerp(recipe.accentColor, Colors.white, 0.28)!;
+    final middleColor = isDarkTheme
+        ? recipe.accentColor.withValues(alpha: 0.76)
+        : Color.lerp(recipe.accentColor, const Color(0xFFEDE4D7), 0.4)!;
+    final trailingColor = isDarkTheme
+        ? const Color(0xFF2B332A)
+        : const Color(0xFF8EA79A);
 
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            recipe.accentColor.withValues(alpha: 0.96),
-            recipe.accentColor.withValues(alpha: 0.76),
-            const Color(0xFF2B332A),
-          ],
+          colors: [leadingColor, middleColor, trailingColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -389,23 +385,33 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.24),
+                color: isDarkTheme
+                    ? Colors.black.withValues(alpha: 0.24)
+                    : Colors.white.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: isDarkTheme
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : Colors.white.withValues(alpha: 0.78),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.image_outlined,
-                    color: Colors.white70,
+                    color: isDarkTheme
+                        ? Colors.white70
+                        : const Color(0xFF6E655F),
                     size: 18,
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     strings.photoPlaceholder,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.88),
+                      color: isDarkTheme
+                          ? Colors.white.withValues(alpha: 0.88)
+                          : const Color(0xFF544A43),
                     ),
                   ),
                 ],
@@ -561,6 +567,68 @@ class _MetaChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroSplitOverlay extends StatelessWidget {
+  const _HeroSplitOverlay({required this.isDarkTheme});
+
+  final bool isDarkTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: isDarkTheme
+              ? const [
+                  Color(0xFF1F140F),
+                  Color(0xF71F140F),
+                  Color(0xD81F140F),
+                  Color(0x8A1F140F),
+                  Color(0x2D1F140F),
+                  Colors.transparent,
+                ]
+              : const [
+                  Color(0xFFF8EDE2),
+                  Color(0xF4F5EBDD),
+                  Color(0xDCEFE3D4),
+                  Color(0x91EEE8DF),
+                  Color(0x32FFFFFF),
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.34, 0.5, 0.64, 0.76, 0.94],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroTintOverlay extends StatelessWidget {
+  const _HeroTintOverlay({required this.isDarkTheme});
+
+  final bool isDarkTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDarkTheme
+              ? const [Color(0x4D2C1307), Colors.transparent, Color(0x332C1307)]
+              : const [
+                  Color(0x2DFFFFFF),
+                  Colors.transparent,
+                  Color(0x1FF2E9DD),
+                ],
+          stops: const [0.0, 0.56, 1.0],
+        ),
       ),
     );
   }
