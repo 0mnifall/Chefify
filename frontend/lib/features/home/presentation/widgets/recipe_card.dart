@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/shared/bookmarks/bookmark_button.dart';
+import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class RecipeCard extends StatelessWidget {
@@ -12,50 +14,101 @@ class RecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isRecipeSaved(recipe);
+
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 130,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              gradient: LinearGradient(
-                colors: [
-                  recipe.accentColor.withValues(alpha: 0.9),
-                  recipe.accentColor.withValues(alpha: 0.55),
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 162,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          recipe.accentColor.withValues(alpha: 0.9),
+                          recipe.accentColor.withValues(alpha: 0.55),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.restaurant_menu_rounded,
+                        size: 52,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: AppSpacing.sm,
+                    right: AppSpacing.sm,
+                    child: BookmarkButton(
+                      isSaved: isSaved,
+                      onPressed: () {
+                        bookmarks.toggleRecipe(recipe);
+                      },
+                    ),
+                  ),
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
             ),
-            child: const Center(
-              child: Icon(Icons.restaurant_menu_rounded, size: 48, color: Colors.white),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recipe.tag,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: palette.categoryTags,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    recipe.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 16,
+                        color: palette.icons,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        '${recipe.minutes} min',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: palette.activeElements,
+                      ),
+                      const SizedBox(width: AppSpacing.xxs),
+                      Text(
+                        recipe.rating.toStringAsFixed(1),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            recipe.tag,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: palette.categoryTags,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(recipe.title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Icon(Icons.schedule_rounded, size: 16, color: palette.icons),
-              const SizedBox(width: AppSpacing.xs),
-              Text('${recipe.minutes} min', style: Theme.of(context).textTheme.bodyMedium),
-              const Spacer(),
-              Icon(Icons.star_rounded, size: 18, color: palette.activeElements),
-              const SizedBox(width: AppSpacing.xxs),
-              Text(recipe.rating.toStringAsFixed(1), style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

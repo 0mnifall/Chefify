@@ -5,6 +5,7 @@ import 'package:frontend/app/app_settings.dart';
 import 'package:frontend/app/theme.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
+import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
@@ -77,6 +78,23 @@ void main() {
           height: 248,
           child: CategoryCard(category: _category),
         ),
+      ),
+    );
+
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsOneWidget);
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsNothing);
+
+    await tester.tap(find.byTooltip(BookmarkButton.saveTooltip));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsNothing);
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsOneWidget);
+  });
+
+  testWidgets('toggles trending recipe card bookmark icon', (tester) async {
+    await tester.pumpWidget(
+      const _TestApp(
+        child: SizedBox(width: 320, child: RecipeCard(recipe: _featuredRecipe)),
       ),
     );
 
