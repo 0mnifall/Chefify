@@ -23,6 +23,7 @@ import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
 import 'package:frontend/features/home/presentation/widgets/stats_banner.dart';
 import 'package:frontend/features/home/presentation/widgets/testimonials_section.dart';
 import 'package:frontend/features/home/presentation/widgets/trending_recipes_section.dart';
+import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 const _previewSurfacePadding = EdgeInsets.all(16);
@@ -47,6 +48,7 @@ class _PreviewScope extends StatefulWidget {
 
 class _PreviewScopeState extends State<_PreviewScope> {
   late final AppSettingsController _settingsController;
+  late final BookmarkStore _bookmarkStore;
 
   @override
   void initState() {
@@ -54,28 +56,38 @@ class _PreviewScopeState extends State<_PreviewScope> {
     _settingsController = AppSettingsController(
       initialThemeMode: ThemeMode.dark,
     );
+    _bookmarkStore = BookmarkStore.memory(
+      const BookmarkSnapshot(
+        categoryIds: <String>{'quick-meals'},
+        recipeIds: <String>{'citrus-herb-chicken-quinoa'},
+      ),
+    );
   }
 
   @override
   void dispose() {
     _settingsController.dispose();
+    _bookmarkStore.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppSettingsScope(
-      controller: _settingsController,
-      child: Builder(
-        builder: (context) {
-          return Material(
-            color: context.palette.pageBackground,
-            child: Padding(
-              padding: _previewSurfacePadding,
-              child: widget.child,
-            ),
-          );
-        },
+    return BookmarkScope(
+      store: _bookmarkStore,
+      child: AppSettingsScope(
+        controller: _settingsController,
+        child: Builder(
+          builder: (context) {
+            return Material(
+              color: context.palette.pageBackground,
+              child: Padding(
+                padding: _previewSurfacePadding,
+                child: widget.child,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

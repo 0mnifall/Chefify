@@ -2,43 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
-class CategoryCard extends StatefulWidget {
+class CategoryCard extends StatelessWidget {
   const CategoryCard({super.key, required this.category});
 
   final CategoryModel category;
 
   @override
-  State<CategoryCard> createState() => _CategoryCardState();
-}
-
-class _CategoryCardState extends State<CategoryCard> {
-  late bool _isSaved;
-
-  @override
-  void initState() {
-    super.initState();
-    _isSaved = widget.category.isSaved;
-  }
-
-  @override
-  void didUpdateWidget(covariant CategoryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.category != widget.category) {
-      _isSaved = widget.category.isSaved;
-    }
-  }
-
-  void _toggleSaved() {
-    setState(() {
-      _isSaved = !_isSaved;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isCategorySaved(category);
+
     return AppCard(
       padding: EdgeInsets.zero,
       child: ClipRRect(
@@ -46,7 +23,7 @@ class _CategoryCardState extends State<CategoryCard> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _CategoryBackground(imageUrl: widget.category.imageUrl),
+            _CategoryBackground(imageUrl: category.imageUrl),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -79,14 +56,16 @@ class _CategoryCardState extends State<CategoryCard> {
                           ),
                         ),
                         child: Icon(
-                          widget.category.icon,
+                          category.icon,
                           color: const Color(0xFF7B4D32),
                         ),
                       ),
                       const Spacer(),
                       IconButton(
-                        isSelected: _isSaved,
-                        onPressed: _toggleSaved,
+                        isSelected: isSaved,
+                        onPressed: () {
+                          bookmarks.toggleCategory(category);
+                        },
                         selectedIcon: const Icon(
                           Icons.bookmark_rounded,
                           size: 20,
@@ -111,7 +90,7 @@ class _CategoryCardState extends State<CategoryCard> {
                   ),
                   const Spacer(),
                   Text(
-                    widget.category.title,
+                    category.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -119,7 +98,7 @@ class _CategoryCardState extends State<CategoryCard> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    widget.category.description,
+                    category.description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -128,7 +107,7 @@ class _CategoryCardState extends State<CategoryCard> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    '${widget.category.recipesCount} recipes',
+                    '${category.recipesCount} recipes',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.92),
                     ),

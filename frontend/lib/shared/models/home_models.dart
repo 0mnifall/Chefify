@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class CategoryModel {
   const CategoryModel({
+    required this.id,
     required this.title,
     required this.description,
     required this.icon,
@@ -10,6 +11,7 @@ class CategoryModel {
     this.isSaved = false,
   });
 
+  final String id;
   final String title;
   final String description;
   final IconData icon;
@@ -20,6 +22,7 @@ class CategoryModel {
 
 class RecipeModel {
   const RecipeModel({
+    required this.id,
     required this.title,
     required this.tag,
     required this.author,
@@ -29,6 +32,7 @@ class RecipeModel {
     this.isSaved = false,
   });
 
+  final String id;
   final String title;
   final String tag;
   final String author;
