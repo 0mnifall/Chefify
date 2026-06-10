@@ -16,14 +16,7 @@ public class UsersController(AppDbContext context) : ControllerBase
             .Select(u => new UserDto
             {
                 Username = u.Username,
-                Recipes = u.Recipes.Select(r => new RecipeDto
-                {
-                    Title = r.Title,
-                    Description = r.Description,
-                    CookingTime = r.CookingTime,
-                    Difficulty = r.Difficulty,
-                    Creator = u.Username
-                }).ToList()
+                ProfilePictureRef = u.ProfilePictureRef,
             })
             .ToListAsync();
         
@@ -40,22 +33,26 @@ public class UsersController(AppDbContext context) : ControllerBase
             return NotFound();
         }
 
-        var recipes = await context.Recipes
-            .Where(r => r.CreatorId == id)
-            .Select(r => new RecipeDto
+        var userDto = new UserDto
+        {
+            Username = user.Username,
+            ProfilePictureRef = user.ProfilePictureRef
+        };
+        return Ok(userDto);
+    }
+
+    [HttpGet("{id}/recipes")]
+    public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetUserRecipes(int id)
+    {
+        var recipes = await context.Recipes.Where(r => r.CreatorId == id).Select(r => new RecipePreviewDto
             {
                 Title = r.Title,
                 Description = r.Description,
                 CookingTime = r.CookingTime,
                 Difficulty = r.Difficulty,
-                Creator = user.Username
-            }).ToListAsync();
-
-        var userDto = new UserDto
-        {
-            Username = user.Username,
-            Recipes = recipes
-        };
-        return Ok(userDto);
+                Creator = r.Creator.Username
+            })
+            .ToListAsync();
+        return Ok(recipes);
     }
 }

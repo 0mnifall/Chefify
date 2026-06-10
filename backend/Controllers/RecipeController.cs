@@ -36,11 +36,11 @@ public class RecipeController(AppDbContext context) : ControllerBase
     
     
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Recipe>>> GetRecipes()
+    public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetRecipes()
     {
         var recipes = await context.Recipes
             .Include(r => r.Creator)
-            .Select(r => new RecipeDto
+            .Select(r => new RecipePreviewDto
             {
                 Title = r.Title,
                 Description = r.Description,
@@ -49,16 +49,12 @@ public class RecipeController(AppDbContext context) : ControllerBase
                 Creator = r.Creator.Username
             })
             .ToListAsync();
-        if (recipes == null)
-        {
-            return NotFound();
-        }
         return Ok(recipes);
     }
 
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Recipe>> GetRecipe(int id)
+    public async Task<ActionResult<RecipeDto>> GetRecipe(int id)
     {
         var recipe = await context.Recipes
             .Include(r => r.Creator)
@@ -74,7 +70,12 @@ public class RecipeController(AppDbContext context) : ControllerBase
             Description = recipe.Description,
             CookingTime = recipe.CookingTime,
             Difficulty = recipe.Difficulty,
-            Creator = recipe.Creator.Username
+            CreatorId = recipe.Creator.Id,
+            Creator = new UserDto
+            {
+                Username = recipe.Creator.Username,
+                ProfilePictureRef = recipe.Creator.ProfilePictureRef
+            }
         };
         return Ok(recipeDto);
     }
