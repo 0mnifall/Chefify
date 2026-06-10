@@ -26,6 +26,7 @@ class RecipeModel {
     required this.minutes,
     required this.rating,
     required this.accentColor,
+    this.isSaved = false,
   });
 
   final String title;
@@ -34,6 +35,7 @@ class RecipeModel {
   final int minutes;
   final double rating;
   final Color accentColor;
+  final bool isSaved;
 }
 
 class BenefitModel {

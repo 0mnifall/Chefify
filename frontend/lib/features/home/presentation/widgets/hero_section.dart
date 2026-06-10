@@ -424,22 +424,49 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
   }
 }
 
-class _TiltedRecipeCard extends StatelessWidget {
+class _TiltedRecipeCard extends StatefulWidget {
   const _TiltedRecipeCard({required this.recipe, this.compact = false});
 
   final RecipeModel recipe;
   final bool compact;
 
   @override
+  State<_TiltedRecipeCard> createState() => _TiltedRecipeCardState();
+}
+
+class _TiltedRecipeCardState extends State<_TiltedRecipeCard> {
+  late bool _isSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSaved = widget.recipe.isSaved;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TiltedRecipeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.recipe != widget.recipe) {
+      _isSaved = widget.recipe.isSaved;
+    }
+  }
+
+  void _toggleSaved() {
+    setState(() {
+      _isSaved = !_isSaved;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final strings = AppStrings.of(context);
-    final likes = _formatLikes((recipe.rating * 390).round() + 610);
+    final likes = _formatLikes((widget.recipe.rating * 390).round() + 610);
 
     return Transform.rotate(
-      angle: compact ? 0.025 : 0.055,
+      angle: widget.compact ? 0.025 : 0.055,
       child: Container(
-        width: compact ? 268 : 292,
+        width: widget.compact ? 268 : 292,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         decoration: BoxDecoration(
           color: palette.recipeCardBackground.withValues(alpha: 0.96),
@@ -469,7 +496,9 @@ class _TiltedRecipeCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
+                  isSelected: _isSaved,
+                  onPressed: _toggleSaved,
+                  selectedIcon: const Icon(Icons.bookmark_rounded, size: 20),
                   icon: const Icon(Icons.bookmark_add_rounded, size: 20),
                   style: IconButton.styleFrom(
                     foregroundColor: palette.mainText,
@@ -490,7 +519,7 @@ class _TiltedRecipeCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              recipe.title,
+              widget.recipe.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(
@@ -504,18 +533,18 @@ class _TiltedRecipeCard extends StatelessWidget {
               children: [
                 _MetaChip(
                   icon: Icons.star_rounded,
-                  label: recipe.rating.toStringAsFixed(1),
+                  label: widget.recipe.rating.toStringAsFixed(1),
                   iconColor: const Color(0xFFE5A03C),
                 ),
                 _MetaChip(
                   icon: Icons.schedule_rounded,
-                  label: '${recipe.minutes} ${strings.minutesShort}',
+                  label: '${widget.recipe.minutes} ${strings.minutesShort}',
                   iconColor: palette.icons,
                 ),
                 _MetaChip(
                   icon: Icons.local_fire_department_rounded,
-                  label: _difficulty(recipe.minutes, strings),
-                  iconColor: recipe.accentColor,
+                  label: _difficulty(widget.recipe.minutes, strings),
+                  iconColor: widget.recipe.accentColor,
                 ),
                 _MetaChip(
                   icon: Icons.favorite_rounded,
