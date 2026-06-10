@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/app/app.dart';
 import 'package:frontend/app/app_settings.dart';
 import 'package:frontend/app/theme.dart';
+import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
+import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -15,6 +17,14 @@ const _featuredRecipe = RecipeModel(
   minutes: 40,
   rating: 4.9,
   accentColor: Color(0xFF5F7C67),
+);
+
+const _category = CategoryModel(
+  id: 'quick-meals',
+  title: 'Quick Meals',
+  description: '30-minute dishes for busy days.',
+  icon: Icons.flash_on_rounded,
+  recipesCount: 124,
 );
 
 void main() {
@@ -45,14 +55,39 @@ void main() {
       ),
     );
 
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsOneWidget);
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsNothing);
     expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.bookmark_add_rounded), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
 
-    await tester.tap(find.byType(IconButton));
-    await tester.pump();
+    await tester.tap(find.byTooltip(BookmarkButton.removeTooltip));
+    await tester.pumpAndSettle();
 
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsNothing);
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsOneWidget);
     expect(find.byIcon(Icons.bookmark_rounded), findsNothing);
-    expect(find.byIcon(Icons.bookmark_add_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsOneWidget);
+  });
+
+  testWidgets('toggles category bookmark icon', (tester) async {
+    await tester.pumpWidget(
+      const _TestApp(
+        child: SizedBox(
+          width: 340,
+          height: 248,
+          child: CategoryCard(category: _category),
+        ),
+      ),
+    );
+
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsOneWidget);
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsNothing);
+
+    await tester.tap(find.byTooltip(BookmarkButton.saveTooltip));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip(BookmarkButton.saveTooltip), findsNothing);
+    expect(find.byTooltip(BookmarkButton.removeTooltip), findsOneWidget);
   });
 
   testWidgets('persists recipe bookmarks to storage', (tester) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
+import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -471,27 +472,11 @@ class _TiltedRecipeCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  isSelected: isSaved,
+                BookmarkButton(
+                  isSaved: isSaved,
                   onPressed: () {
                     bookmarks.toggleRecipe(recipe);
                   },
-                  selectedIcon: const Icon(Icons.bookmark_rounded, size: 20),
-                  icon: const Icon(Icons.bookmark_add_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    foregroundColor: palette.mainText,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(32, 32),
-                    backgroundColor: palette.cardsSurface.withValues(
-                      alpha: 0.9,
-                    ),
-                    side: BorderSide(
-                      color: palette.borders.withValues(alpha: 0.72),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
                 ),
               ],
             ),

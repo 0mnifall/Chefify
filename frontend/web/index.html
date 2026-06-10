@@ -33,6 +33,25 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations
+          .filter((registration) =>
+            [registration.active, registration.installing, registration.waiting]
+              .some((worker) => worker && worker.scriptURL.includes('flutter_service_worker.js')))
+          .forEach((registration) => registration.unregister());
+      });
+    }
+
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        keys
+          .filter((key) => key.toLowerCase().includes('flutter'))
+          .forEach((key) => caches.delete(key));
+      });
+    }
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
