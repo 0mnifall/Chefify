@@ -5,11 +5,17 @@ class CategoryModel {
     required this.title,
     required this.description,
     required this.icon,
+    required this.recipesCount,
+    this.imageUrl,
+    this.isSaved = false,
   });
 
   final String title;
   final String description;
   final IconData icon;
+  final int recipesCount;
+  final String? imageUrl;
+  final bool isSaved;
 }
 
 class RecipeModel {

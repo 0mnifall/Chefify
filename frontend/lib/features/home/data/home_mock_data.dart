@@ -14,21 +14,34 @@ class HomeMockData {
         title: 'Quick Meals',
         description: '30-minute dishes for busy days.',
         icon: Icons.flash_on_rounded,
+        recipesCount: 124,
+        imageUrl:
+            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
+        isSaved: true,
       ),
       CategoryModel(
         title: 'Plant-Based',
         description: 'Colorful bowls, soups, and mains.',
         icon: Icons.eco_rounded,
+        recipesCount: 89,
+        imageUrl:
+            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
       ),
       CategoryModel(
         title: 'Comfort Classics',
         description: 'Family favorites with modern twists.',
         icon: Icons.restaurant_rounded,
+        recipesCount: 156,
+        imageUrl:
+            'https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?auto=format&fit=crop&w=1200&q=80',
       ),
       CategoryModel(
         title: 'Desserts',
         description: 'Sweet ideas for every occasion.',
         icon: Icons.cake_rounded,
+        recipesCount: 72,
+        imageUrl:
+            'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80',
       ),
     ],
     trendingRecipes: [
