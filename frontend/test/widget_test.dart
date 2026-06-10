@@ -42,6 +42,42 @@ void main() {
     expect(find.text('Weekly recipes in your inbox'), findsOneWidget);
   });
 
+  testWidgets('opens recipes page and filters recipe catalog', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(ChefifyApp(bookmarkStore: bookmarks));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Find your next cook'), findsOneWidget);
+    expect(find.text('Roasted Tomato Pasta'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'salmon',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Miso Glazed Salmon'), findsOneWidget);
+    expect(find.text('Roasted Tomato Pasta'), findsNothing);
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Breakfast'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lemon Ricotta Pancakes'), findsOneWidget);
+    expect(find.text('Miso Glazed Salmon'), findsNothing);
+  });
+
   testWidgets('toggles featured recipe bookmark icon', (tester) async {
     await tester.pumpWidget(
       const _TestApp(

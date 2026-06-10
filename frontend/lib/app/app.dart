@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/app/app_settings.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/app/theme.dart';
-import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 
 class ChefifyApp extends StatefulWidget {
@@ -51,7 +51,7 @@ class _ChefifyAppState extends State<ChefifyApp> {
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: _settingsController.themeMode,
-              home: const HomePage(),
+              onGenerateRoute: AppRouter.onGenerateRoute,
             );
           },
         ),

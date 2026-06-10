@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
@@ -313,7 +314,9 @@ class HeroActions extends StatelessWidget {
           ),
         ),
         OutlinedButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(context).pushNamed(AppRouter.recipes);
+          },
           style: OutlinedButton.styleFrom(
             foregroundColor: onDarkBackground ? Colors.white : palette.mainText,
             side: BorderSide(
