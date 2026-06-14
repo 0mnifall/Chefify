@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260517130118_InitialCreate")]
+    [Migration("20260610125314_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -105,6 +105,10 @@ namespace backend.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProfilePictureRef")
                         .IsRequired()
                         .HasColumnType("text");
 
