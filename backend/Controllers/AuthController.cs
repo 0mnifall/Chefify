@@ -67,7 +67,7 @@ public class AuthController : ControllerBase
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.Now.AddHours(1),
+            expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
@@ -95,7 +95,7 @@ public class AuthController : ControllerBase
         var refreshToken = GenerateRefreshToken();
         
         user.RefreshToken = refreshToken;
-        user.Expires = DateTime.Now.AddDays(7);
+        user.Expires = DateTime.UtcNow.AddDays(7);
         
         await _context.SaveChangesAsync();
         

@@ -13,10 +13,11 @@ public class UsersController(AppDbContext context) : ControllerBase
     public async Task<IActionResult> GetAllUsers()
     {
         var users = await context.Users
-            .Select(u => new UserDto
+            .Select(u => new UserPreviewDto
             {
+                Id = u.Id,
                 Username = u.Username,
-                ProfilePictureRef = u.ProfilePictureRef,
+                //ProfilePictureRef = u.ProfilePictureRef,
             })
             .ToListAsync();
         
@@ -36,7 +37,7 @@ public class UsersController(AppDbContext context) : ControllerBase
         var userDto = new UserDto
         {
             Username = user.Username,
-            ProfilePictureRef = user.ProfilePictureRef
+            //ProfilePictureRef = user.ProfilePictureRef
         };
         return Ok(userDto);
     }

@@ -42,6 +42,7 @@ public class RecipeController(AppDbContext context) : ControllerBase
             .Include(r => r.Creator)
             .Select(r => new RecipePreviewDto
             {
+                Id = r.Id,
                 Title = r.Title,
                 Description = r.Description,
                 CookingTime = r.CookingTime,
@@ -74,7 +75,7 @@ public class RecipeController(AppDbContext context) : ControllerBase
             Creator = new UserDto
             {
                 Username = recipe.Creator.Username,
-                ProfilePictureRef = recipe.Creator.ProfilePictureRef
+                //ProfilePictureRef = recipe.Creator.ProfilePictureRef
             }
         };
         return Ok(recipeDto);

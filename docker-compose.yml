@@ -14,12 +14,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
   
-  ef:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
-    working_dir: /src/backend
-    volumes:
-      - .:/src
-    entrypoint: [ "dotnet", "ef" ]
 
   api:
     build:
