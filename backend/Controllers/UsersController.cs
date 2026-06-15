@@ -51,7 +51,7 @@ public class UsersController(AppDbContext context) : ControllerBase
                 Description = r.Description,
                 CookingTime = r.CookingTime,
                 Difficulty = r.Difficulty,
-                Creator = r.Creator.Username
+                CreatorUsername = r.Creator.Username
             })
             .ToListAsync();
         return Ok(recipes);
