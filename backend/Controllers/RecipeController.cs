@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using backend.Data;
 using backend.Dto;
@@ -18,13 +17,19 @@ public class RecipeController(AppDbContext context) : ControllerBase
     public async Task<IActionResult> Create(CreateRecipeDto dto)
     {
         var creatorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        
+
+        var tags = await context.Tags
+            .Where(t => dto.TagsId.Contains(t.Id))
+            .ToListAsync();
+
         var recipe = new Recipe
         {
             Title = dto.Title,
             Description = dto.Description,
             CookingTime = dto.CookingTime,
             Difficulty = dto.Difficulty,
+            Category = await context.Categories.FindAsync(dto.CategoryId),
+            Tags = tags,
             CreatorId = creatorId
         };
         
@@ -33,13 +38,44 @@ public class RecipeController(AppDbContext context) : ControllerBase
         
         return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
     }
-    
+
+    [Authorize]
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> Patch(int id, PatchRecipeDto dto)
+    {
+        var recipe = await context.Recipes
+            .Include(r => r.Tags)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (recipe == null)
+        {
+            return NotFound();
+        }
+        
+        if (recipe.CreatorId != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value))
+        {
+            return Forbid();
+        }
+        
+        recipe.Description = dto.Description ?? recipe.Description;
+        recipe.CookingTime = dto.CookingTime ?? recipe.CookingTime;
+        recipe.Difficulty = dto.Difficulty ?? recipe.Difficulty;
+        
+        if (dto.TagIds != null)
+        {
+            recipe.Tags = await context.Tags
+                .Where(t => dto.TagIds.Contains(t.Id))
+                .ToListAsync();
+        }
+        
+        await  context.SaveChangesAsync();
+        
+        return NoContent();
+    }
     
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetRecipes()
     {
         var recipes = await context.Recipes
-            .Include(r => r.Creator)
             .Select(r => new RecipePreviewDto
             {
                 Id = r.Id,
@@ -47,9 +83,12 @@ public class RecipeController(AppDbContext context) : ControllerBase
                 Description = r.Description,
                 CookingTime = r.CookingTime,
                 Difficulty = r.Difficulty,
-                Creator = r.Creator.Username
+                CategoryName = r.Category != null ? r.Category.Name : null,
+                Tags = r.Tags.Select(t => t.Name).ToList(),
+                CreatorUsername = r.Creator.Username
             })
             .ToListAsync();
+        
         return Ok(recipes);
     }
 
@@ -59,6 +98,8 @@ public class RecipeController(AppDbContext context) : ControllerBase
     {
         var recipe = await context.Recipes
             .Include(r => r.Creator)
+            .Include(r => r.Category)
+            .Include(r => r.Tags)
             .FirstOrDefaultAsync(r => r.Id == id);
         if (recipe == null)
         {
@@ -71,6 +112,13 @@ public class RecipeController(AppDbContext context) : ControllerBase
             Description = recipe.Description,
             CookingTime = recipe.CookingTime,
             Difficulty = recipe.Difficulty,
+            
+            Category = recipe.Category != null ? new CategoryPreviewDto
+            {
+                Id = recipe.Category.Id,
+                Name = recipe.Category.Name
+            } : null,
+            Tags = recipe.Tags.Select(t => t.Name).ToList(),
             CreatorId = recipe.Creator.Id,
             Creator = new UserDto
             {
@@ -81,6 +129,7 @@ public class RecipeController(AppDbContext context) : ControllerBase
         return Ok(recipeDto);
     }
 
+    [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRecipe(int id)
     {
@@ -88,6 +137,11 @@ public class RecipeController(AppDbContext context) : ControllerBase
         if (recipe == null)
         {
             return NotFound();
+        }
+
+        if (recipe.CreatorId != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value))
+        {
+            return Forbid();
         }
         
         context.Recipes.Remove(recipe);

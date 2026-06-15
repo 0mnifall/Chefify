@@ -11,6 +11,10 @@ public class AppDbContext : DbContext
     }
     
     public DbSet<Recipe> Recipes { get; set; }
+    
+    public DbSet<Category> Categories { get; set; }
+    
+    public DbSet<Tag> Tags { get; set; }
 
     public DbSet<Ingredient> Ingredients { get; set; }
 
@@ -24,6 +28,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RecipeIngredient>()
             .HasKey(ri => new { ri.RecipeId, ri.IngredientId });
 
+        modelBuilder.Entity<Tag>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
+        
+        modelBuilder.Entity<Category>()
+            .HasIndex(c => c.Name)
+            .IsUnique();
+        
         base.OnModelCreating(modelBuilder);
     }
 }
