@@ -36,8 +36,7 @@ public class AuthController(AppDbContext context, IConfiguration configuration) 
         context.Users.Add(user);
 
         await context.SaveChangesAsync();
-
-        //return CreatedAtAction();
+        
         return Ok();
     }
 
