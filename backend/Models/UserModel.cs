@@ -4,13 +4,13 @@ namespace backend.Models;
 
 public enum Role
 {
-    User,
-    Admin
+    User = 0,
+    Admin = 1
 }
 public class User
 {
     public int Id { get; set; }
-    public Role Role { get; set; }
+    public Role Role { get; set; } = Role.User;
     public required string Username { get; set; }
     //public string ProfilePictureRef { get; set; }
     

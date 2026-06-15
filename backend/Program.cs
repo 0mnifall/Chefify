@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -80,6 +81,25 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+    var adminEmail = config["ADMIN_EMAIL"];
+    var adminPassword = config["ADMIN_PASSWORD"];
+
+    if (!context.Users.Any(u => u.Email == adminEmail))
+    {
+        context.Users.Add(new User
+        {
+            Username = "admin",
+            Email = adminEmail!,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+            Role = Role.Admin
+        });
+
+        context.SaveChanges();
+    }
 }
 
 if (app.Environment.IsDevelopment())
