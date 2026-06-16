@@ -72,6 +72,13 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
+    
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Chefify API",
+        Version = "v1",
+        Description = "API for cooking"
+    });
 });
 
 builder.Services.AddControllers();
