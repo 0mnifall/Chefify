@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Controllers.Admin;
 
 [ApiController]
-[Route("api/[controller]")]
-public class AdminUserController(AppDbContext context) : ControllerBase
+[Route("api/admin/[controller]")]
+public class UserController(AppDbContext context) : ControllerBase
 {
     [Authorize(Roles = "Admin")]
     [HttpPost]
