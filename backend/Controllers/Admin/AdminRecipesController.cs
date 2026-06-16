@@ -28,7 +28,7 @@ public class RecipesController(AppDbContext context) : ControllerBase
             Difficulty = dto.Difficulty,
             Category = await context.Categories.FindAsync(dto.CategoryId),
             Tags = tags,
-            CreatorId = -1
+            CreatorId = 1
         };
         
         context.Recipes.Add(recipe);

@@ -92,6 +92,7 @@ using (var scope = app.Services.CreateScope())
     {
         context.Users.Add(new User
         {
+            Id = 1,
             Username = "admin",
             Email = adminEmail!,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
