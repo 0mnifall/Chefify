@@ -12,7 +12,7 @@ namespace backend.Controllers;
 [Route("api/[controller]s")]
 public class RecipeController(AppDbContext context) : ControllerBase
 {
-    [Authorize]
+    [Authorize(Roles = "User,Admin")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateRecipeDto dto)
     {
@@ -39,7 +39,7 @@ public class RecipeController(AppDbContext context) : ControllerBase
         return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
     }
 
-    [Authorize]
+    [Authorize(Roles = "User,Admin")]
     [HttpPatch("{id}")]
     public async Task<IActionResult> Patch(int id, PatchRecipeDto dto)
     {
@@ -129,7 +129,7 @@ public class RecipeController(AppDbContext context) : ControllerBase
         return Ok(recipeDto);
     }
 
-    [Authorize]
+    [Authorize(Roles = "User,Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRecipe(int id)
     {
