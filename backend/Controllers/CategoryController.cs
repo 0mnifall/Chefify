@@ -1,84 +1,29 @@
-using backend.Data;
 using backend.Dto;
-using backend.Models;
-using Microsoft.AspNetCore.Authorization;
+using backend.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CategoryController(AppDbContext context) : ControllerBase
+public class CategoryController(CategoryService service) : ControllerBase
 {
-    [Authorize]
-    [HttpPost]
-    public async Task<IActionResult> CreateCategory(string name)
-    {
-        var category = new Category
-        {
-            Name = name
-        };
-        
-        context.Categories.Add(category);
-        await context.SaveChangesAsync();
-        
-        return CreatedAtAction(
-            nameof(GetCategory),
-            new { id = category.Id },
-            new CategoryPreviewDto
-            {
-                Id = category.Id,
-                Name = category.Name
-            }
-        );
-    }
-
     [HttpGet]
-    public async Task<IActionResult> GetCategories()
+    public async Task<ActionResult<IEnumerable<CategoryPreviewDto>>> GetCategories()
     {
-        var categories = await context.Categories
-            .Select(c => new CategoryPreviewDto
-            {
-                Id = c.Id,
-                Name = c.Name
-            })
-            .ToListAsync();
-        
-        return Ok(categories);
+        return Ok(await service.GetAllCategories());
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetCategory(int id)
     {
-        var category = await context.Categories
-            .Include(c => c.Recipes)
-            .ThenInclude(r => r.Creator)
-            .FirstOrDefaultAsync(c => c.Id == id);
+        var category = await service.GetCategoryEntity(id);
 
         if (category == null)
         {
             return NotFound();
         }
-
-        var recipes = category.Recipes.Select(r => new RecipePreviewDto
-            {
-                Id = r.Id,
-                Title = r.Title,
-                Description = r.Description,
-                CookingTime = r.CookingTime,
-                Difficulty = r.Difficulty,
-                CategoryName = category.Name,
-                CreatorUsername = r.Creator.Username
-            })
-            .ToList();
         
-        var categoryDto = new CategoryDto
-        {
-            Name = category.Name,
-            Recipes = recipes
-        };
-        
-        return Ok(categoryDto);
+        return Ok(service.GetCategory(category));
     }
 }

@@ -4,9 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddScoped<RecipeService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<CategoryService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
