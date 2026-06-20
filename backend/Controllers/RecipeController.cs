@@ -1,16 +1,14 @@
 using System.Security.Claims;
-using backend.Data;
 using backend.Dto;
-using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class RecipeController(AppDbContext context) : ControllerBase
+public class RecipeController(RecipeService service) : ControllerBase
 {
     [Authorize(Roles = "User,Admin")]
     [HttpPost]
@@ -18,34 +16,17 @@ public class RecipeController(AppDbContext context) : ControllerBase
     {
         var creatorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-        var tags = await context.Tags
-            .Where(t => dto.TagsId.Contains(t.Id))
-            .ToListAsync();
-
-        var recipe = new Recipe
-        {
-            Title = dto.Title,
-            Description = dto.Description,
-            CookingTime = dto.CookingTime,
-            Difficulty = dto.Difficulty,
-            Category = await context.Categories.FindAsync(dto.CategoryId),
-            Tags = tags,
-            CreatorId = creatorId
-        };
+        var id = await service.AddRecipe(dto, creatorId);
         
-        context.Recipes.Add(recipe);
-        await context.SaveChangesAsync();
-        
-        return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
+        return CreatedAtAction(nameof(GetRecipe), new { id });
     }
 
     [Authorize(Roles = "User,Admin")]
     [HttpPatch("{id}")]
     public async Task<IActionResult> Patch(int id, PatchRecipeDto dto)
     {
-        var recipe = await context.Recipes
-            .Include(r => r.Tags)
-            .FirstOrDefaultAsync(r => r.Id == id);
+        var recipe = await service.GetRecipeForPatch(id);
+
         if (recipe == null)
         {
             return NotFound();
@@ -55,19 +36,8 @@ public class RecipeController(AppDbContext context) : ControllerBase
         {
             return Forbid();
         }
-        
-        recipe.Description = dto.Description ?? recipe.Description;
-        recipe.CookingTime = dto.CookingTime ?? recipe.CookingTime;
-        recipe.Difficulty = dto.Difficulty ?? recipe.Difficulty;
-        
-        if (dto.TagIds != null)
-        {
-            recipe.Tags = await context.Tags
-                .Where(t => dto.TagIds.Contains(t.Id))
-                .ToListAsync();
-        }
-        
-        await  context.SaveChangesAsync();
+
+        await service.PatchRecipe(id, dto, recipe);
         
         return NoContent();
     }
@@ -75,57 +45,22 @@ public class RecipeController(AppDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetRecipes()
     {
-        var recipes = await context.Recipes
-            .Select(r => new RecipePreviewDto
-            {
-                Id = r.Id,
-                Title = r.Title,
-                Description = r.Description,
-                CookingTime = r.CookingTime,
-                Difficulty = r.Difficulty,
-                CategoryName = r.Category != null ? r.Category.Name : null,
-                Tags = r.Tags.Select(t => t.Name).ToList(),
-                CreatorUsername = r.Creator.Username
-            })
-            .ToListAsync();
-        
-        return Ok(recipes);
+        return Ok(await service.GetAllRecipes());
     }
 
 
     [HttpGet("{id}")]
     public async Task<ActionResult<RecipeDto>> GetRecipe(int id)
     {
-        var recipe = await context.Recipes
-            .Include(r => r.Creator)
-            .Include(r => r.Category)
-            .Include(r => r.Tags)
-            .FirstOrDefaultAsync(r => r.Id == id);
+        var recipe = await service.GetRecipeForReview(id);
+        
         if (recipe == null)
         {
             return NotFound();
         }
-
-        var recipeDto = new RecipeDto
-        {
-            Title = recipe.Title,
-            Description = recipe.Description,
-            CookingTime = recipe.CookingTime,
-            Difficulty = recipe.Difficulty,
-            
-            Category = recipe.Category != null ? new CategoryPreviewDto
-            {
-                Id = recipe.Category.Id,
-                Name = recipe.Category.Name
-            } : null,
-            Tags = recipe.Tags.Select(t => t.Name).ToList(),
-            CreatorId = recipe.Creator.Id,
-            Creator = new UserDto
-            {
-                Username = recipe.Creator.Username,
-                //ProfilePictureRef = recipe.Creator.ProfilePictureRef
-            }
-        };
+        
+        var recipeDto = service.GetRecipeDto(id,  recipe);
+        
         return Ok(recipeDto);
     }
 
@@ -133,7 +68,8 @@ public class RecipeController(AppDbContext context) : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRecipe(int id)
     {
-        var recipe = await context.Recipes.FindAsync(id);
+        var recipe = await service.GetRecipeForDeleting(id);
+        
         if (recipe == null)
         {
             return NotFound();
@@ -143,9 +79,8 @@ public class RecipeController(AppDbContext context) : ControllerBase
         {
             return Forbid();
         }
-        
-        context.Recipes.Remove(recipe);
-        await context.SaveChangesAsync();
+
+        await service.DeleteRecipe(recipe);
         
         return NoContent();
     }
