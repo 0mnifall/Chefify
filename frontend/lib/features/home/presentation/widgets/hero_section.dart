@@ -7,7 +7,7 @@ import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
-const double _heroMaxWidth = 1520;
+const double _heroMaxWidth = 1440;
 
 class HeroSection extends StatelessWidget {
   const HeroSection({
@@ -26,13 +26,13 @@ class HeroSection extends StatelessWidget {
     final palette = context.palette;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, AppSpacing.sectionGap),
+      padding: AppSpacing.sectionInsets(context, top: 10),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _heroMaxWidth),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 960;
+              final stacked = constraints.maxWidth < 1120;
 
               return Container(
                 decoration: BoxDecoration(
@@ -54,6 +54,7 @@ class HeroSection extends StatelessWidget {
                         title: title,
                         subtitle: subtitle,
                         recipe: featuredRecipe,
+                        width: constraints.maxWidth,
                       )
                     : _DesktopHeroLayout(
                         title: title,
@@ -86,11 +87,12 @@ class _DesktopHeroLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final heroHeight = (width / 2.25).clamp(560.0, 680.0);
+    final heroHeight = width < 1280 ? 540.0 : 560.0;
 
     return SizedBox(
       height: heroHeight,
       child: Stack(
+        fit: StackFit.expand,
         children: [
           Positioned.fill(
             child: _HeroPhotoPlaceholder(
@@ -108,26 +110,32 @@ class _DesktopHeroLayout extends StatelessWidget {
               child: _HeroTintOverlay(isDarkTheme: isDarkTheme),
             ),
           ),
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(52, 52, 58, 52),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: HeroTextBlock(
-                    title: title,
-                    subtitle: subtitle,
-                    onDarkBackground: isDarkTheme,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(52, 48, 52, 48),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: HeroTextBlock(
+                      title: title,
+                      subtitle: subtitle,
+                      onDarkBackground: isDarkTheme,
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: AppSpacing.xxl),
+                Expanded(
+                  flex: 4,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _TiltedRecipeCard(recipe: recipe),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            top: 18,
-            right: 8,
-            child: _TiltedRecipeCard(recipe: recipe),
           ),
         ],
       ),
@@ -140,16 +148,25 @@ class _MobileHeroLayout extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.recipe,
+    required this.width,
   });
 
   final String title;
   final String subtitle;
   final RecipeModel recipe;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final palette = context.palette;
+    final horizontalPadding = width < 360 ? AppSpacing.md : 20.0;
+    final imageHeight = width < 520
+        ? 300.0
+        : width < 760
+        ? 340.0
+        : 400.0;
+    final cardMaxWidth = width > 32 ? width - 32 : width;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,7 +175,12 @@ class _MobileHeroLayout extends StatelessWidget {
           color: isDarkTheme
               ? const Color(0xFF1F140F)
               : const Color(0xFFF5E8DC),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            24,
+            horizontalPadding,
+            28,
+          ),
           child: HeroTextBlock(
             title: title,
             subtitle: subtitle,
@@ -167,7 +189,7 @@ class _MobileHeroLayout extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 280,
+          height: imageHeight,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -193,7 +215,11 @@ class _MobileHeroLayout extends StatelessWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
-                  child: _TiltedRecipeCard(recipe: recipe, compact: true),
+                  child: _TiltedRecipeCard(
+                    recipe: recipe,
+                    compact: true,
+                    maxWidth: cardMaxWidth,
+                  ),
                 ),
               ),
             ],
@@ -292,50 +318,65 @@ class HeroActions extends StatelessWidget {
     final palette = context.palette;
     final strings = AppStrings.of(context);
 
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        FilledButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.play_arrow_rounded, size: 18),
-          label: Text(strings.startFreeTrial),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFE18D59),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            textStyle: Theme.of(context).textTheme.labelLarge,
-          ),
+    final primaryButton = FilledButton.icon(
+      onPressed: () {},
+      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+      label: Text(strings.startFreeTrial, overflow: TextOverflow.ellipsis),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFFE18D59),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
         ),
-        OutlinedButton(
-          onPressed: () {
-            Navigator.of(context).pushNamed(AppRouter.recipes);
-          },
-          style: OutlinedButton.styleFrom(
-            foregroundColor: onDarkBackground ? Colors.white : palette.mainText,
-            side: BorderSide(
-              color: onDarkBackground
-                  ? Colors.white.withValues(alpha: 0.28)
-                  : palette.borders,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            textStyle: Theme.of(context).textTheme.labelLarge,
-          ),
-          child: Text(strings.browseRecipes),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
-      ],
+        textStyle: Theme.of(context).textTheme.labelLarge,
+      ),
+    );
+    final secondaryButton = OutlinedButton(
+      onPressed: () {
+        Navigator.of(context).pushNamed(AppRouter.recipes);
+      },
+      style: OutlinedButton.styleFrom(
+        foregroundColor: onDarkBackground ? Colors.white : palette.mainText,
+        side: BorderSide(
+          color: onDarkBackground
+              ? Colors.white.withValues(alpha: 0.28)
+              : palette.borders,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        ),
+        textStyle: Theme.of(context).textTheme.labelLarge,
+      ),
+      child: Text(strings.browseRecipes, overflow: TextOverflow.ellipsis),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 420) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              primaryButton,
+              const SizedBox(height: AppSpacing.sm),
+              secondaryButton,
+            ],
+          );
+        }
+
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [primaryButton, secondaryButton],
+        );
+      },
     );
   }
 }
@@ -411,12 +452,16 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
                     size: 18,
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    strings.photoPlaceholder,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: isDarkTheme
-                          ? Colors.white.withValues(alpha: 0.88)
-                          : const Color(0xFF544A43),
+                  Flexible(
+                    child: Text(
+                      strings.photoPlaceholder,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: isDarkTheme
+                            ? Colors.white.withValues(alpha: 0.88)
+                            : const Color(0xFF544A43),
+                      ),
                     ),
                   ),
                 ],
@@ -430,10 +475,15 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
 }
 
 class _TiltedRecipeCard extends StatelessWidget {
-  const _TiltedRecipeCard({required this.recipe, this.compact = false});
+  const _TiltedRecipeCard({
+    required this.recipe,
+    this.compact = false,
+    this.maxWidth,
+  });
 
   final RecipeModel recipe;
   final bool compact;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -442,11 +492,15 @@ class _TiltedRecipeCard extends StatelessWidget {
     final bookmarks = BookmarkScope.of(context);
     final isSaved = bookmarks.isRecipeSaved(recipe);
     final likes = _formatLikes((recipe.rating * 390).round() + 610);
+    final baseWidth = compact ? 268.0 : 292.0;
+    final cardWidth = maxWidth == null || maxWidth! > baseWidth
+        ? baseWidth
+        : maxWidth!;
 
     return Transform.rotate(
       angle: compact ? 0.025 : 0.055,
       child: Container(
-        width: compact ? 268 : 292,
+        width: cardWidth,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         decoration: BoxDecoration(
           color: palette.recipeCardBackground.withValues(alpha: 0.96),
