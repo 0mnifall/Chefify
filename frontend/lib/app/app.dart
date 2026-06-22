@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/app/app_settings.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/app/theme.dart';
-import 'package:frontend/features/home/presentation/pages/home_page.dart';
+import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 
 class ChefifyApp extends StatefulWidget {
-  const ChefifyApp({super.key, this.bookmarkStore});
+  const ChefifyApp({
+    super.key,
+    this.bookmarkStore,
+    this.recipeRepository = const ApiRecipeRepository(),
+  });
 
   final BookmarkStore? bookmarkStore;
+  final RecipeRepository recipeRepository;
 
   @override
   State<ChefifyApp> createState() => _ChefifyAppState();
@@ -51,7 +57,10 @@ class _ChefifyAppState extends State<ChefifyApp> {
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: _settingsController.themeMode,
-              home: const HomePage(),
+              onGenerateRoute: (settings) => AppRouter.onGenerateRoute(
+                settings,
+                recipeRepository: widget.recipeRepository,
+              ),
             );
           },
         ),

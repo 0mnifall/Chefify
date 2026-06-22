@@ -18,34 +18,51 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    final textBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
+        if (eyebrow != null) ...[
+          Text(
+            eyebrow!,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: context.palette.categoryTags,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+        ],
+        Text(title, style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: AppSpacing.xs),
+        Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
+      ],
+    );
+
+    if (action == null) {
+      return textBlock;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 640) {
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (eyebrow != null) ...[
-                Text(
-                  eyebrow!,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: context.palette.categoryTags,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-              ],
-              Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: AppSpacing.xs),
-              Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
+              textBlock,
+              const SizedBox(height: AppSpacing.md),
+              action!,
             ],
-          ),
-        ),
-        if (action != null) ...[
-          const SizedBox(width: AppSpacing.lg),
-          action!,
-        ],
-      ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: textBlock),
+            const SizedBox(width: AppSpacing.lg),
+            action!,
+          ],
+        );
+      },
     );
   }
 }

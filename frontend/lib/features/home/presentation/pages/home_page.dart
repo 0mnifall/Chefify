@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
+import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
+import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/data/home_mock_data.dart';
 import 'package:frontend/features/home/presentation/widgets/app_footer.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
@@ -15,15 +17,63 @@ import 'package:frontend/features/home/presentation/widgets/newsletter_section.d
 import 'package:frontend/features/home/presentation/widgets/stats_banner.dart';
 import 'package:frontend/features/home/presentation/widgets/testimonials_section.dart';
 import 'package:frontend/features/home/presentation/widgets/trending_recipes_section.dart';
+import 'package:frontend/features/recipes/data/recipe_catalog.dart';
+import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/shared/models/home_models.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({
+    super.key,
+    this.recipeRepository = const ApiRecipeRepository(),
+  });
+
+  final RecipeRepository recipeRepository;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<RecipeModel> _trendingRecipes = RecipeCatalog.popular(take: 4);
+  List<CategoryModel> _popularCategories = CategoryCatalog.popularForRecipes(
+    RecipeCatalog.items,
+    take: 4,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHomeRecipeData();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.recipeRepository != widget.recipeRepository) {
+      _loadHomeRecipeData();
+    }
+  }
+
+  Future<void> _loadHomeRecipeData() async {
+    final recipes = await widget.recipeRepository.fetchRecipes();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _trendingRecipes = _popularRecipesFor(recipes, take: 4);
+      _popularCategories = CategoryCatalog.popularForRecipes(recipes, take: 4);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final content = HomeMockData.content;
     final palette = context.palette;
     final strings = AppStrings.of(context);
+    final heroRecipe = _trendingRecipes.isEmpty
+        ? content.featuredRecipe
+        : _trendingRecipes.first;
 
     return Scaffold(
       body: DecoratedBox(
@@ -36,8 +86,9 @@ class HomePage extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 920;
-            final headerHeight = compact ? 92.0 : 98.0;
+            final headerHeight = AppSpacing.headerHeightForViewport(
+              constraints.maxWidth,
+            );
 
             return Stack(
               children: [
@@ -48,10 +99,10 @@ class HomePage extends StatelessWidget {
                       HeroSection(
                         title: strings.heroTitle,
                         subtitle: strings.heroSubtitle,
-                        featuredRecipe: content.featuredRecipe,
+                        featuredRecipe: heroRecipe,
                       ),
-                      CategorySection(categories: content.categories),
-                      TrendingRecipesSection(recipes: content.trendingRecipes),
+                      CategorySection(categories: _popularCategories),
+                      TrendingRecipesSection(recipes: _trendingRecipes),
                       BenefitsSection(benefits: content.benefits),
                       FeaturedRecipeSection(recipe: content.featuredRecipe),
                       StatsBanner(stats: content.stats),
@@ -72,6 +123,26 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<RecipeModel> _popularRecipesFor(
+    List<RecipeModel> recipes, {
+    required int take,
+  }) {
+    final sortedRecipes = [...recipes];
+    sortedRecipes.sort((left, right) {
+      final rating = right.rating.compareTo(left.rating);
+      if (rating != 0) {
+        return rating;
+      }
+
+      return left.title.compareTo(right.title);
+    });
+
+    final safeTake = sortedRecipes.isEmpty
+        ? 0
+        : take.clamp(1, sortedRecipes.length).toInt();
+    return sortedRecipes.take(safeTake).toList(growable: false);
   }
 }
 

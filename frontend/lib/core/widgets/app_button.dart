@@ -48,17 +48,18 @@ class AppButton extends StatelessWidget {
   }
 
   Widget _content() {
-    final text = Text(label);
+    final text = Text(label, overflow: TextOverflow.ellipsis, softWrap: false);
     if (icon == null) {
       return text;
     }
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: isExpanded ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(icon, size: 18),
         const SizedBox(width: AppSpacing.xs),
-        text,
+        Flexible(child: text),
       ],
     );
   }

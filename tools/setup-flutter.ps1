@@ -74,7 +74,26 @@ function Save-SdkPath {
   param([string]$SdkRoot)
 
   New-Item -ItemType Directory -Force -Path $toolingDir | Out-Null
-  Set-Content -Path $configFile -Value $SdkRoot -Encoding UTF8
+
+  if (Test-Path -LiteralPath $configFile) {
+    $savedPath = (Get-Content -LiteralPath $configFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($savedPath -eq $SdkRoot) {
+      return
+    }
+  }
+
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+      Set-Content -LiteralPath $configFile -Value $SdkRoot -Encoding UTF8
+      return
+    }
+    catch {
+      if ($attempt -eq 3) {
+        throw
+      }
+      Start-Sleep -Milliseconds (100 * $attempt)
+    }
+  }
 }
 
 function Resolve-InstalledSdk {

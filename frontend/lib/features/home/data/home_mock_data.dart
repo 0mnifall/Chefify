@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/domain/home_content.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -9,45 +10,7 @@ class HomeMockData {
     heroTitle: 'Cook with confidence.\nServe with style.',
     heroSubtitle:
         'Chefify helps you discover recipes, manage meal plans, and cook faster without sacrificing flavor.',
-    categories: [
-      CategoryModel(
-        id: 'quick-meals',
-        title: 'Quick Meals',
-        description: '30-minute dishes for busy days.',
-        icon: Icons.flash_on_rounded,
-        recipesCount: 124,
-        imageUrl:
-            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=1200&q=80',
-        isSaved: true,
-      ),
-      CategoryModel(
-        id: 'plant-based',
-        title: 'Plant-Based',
-        description: 'Colorful bowls, soups, and mains.',
-        icon: Icons.eco_rounded,
-        recipesCount: 89,
-        imageUrl:
-            'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
-      ),
-      CategoryModel(
-        id: 'comfort-classics',
-        title: 'Comfort Classics',
-        description: 'Family favorites with modern twists.',
-        icon: Icons.restaurant_rounded,
-        recipesCount: 156,
-        imageUrl:
-            'https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?auto=format&fit=crop&w=1200&q=80',
-      ),
-      CategoryModel(
-        id: 'desserts',
-        title: 'Desserts',
-        description: 'Sweet ideas for every occasion.',
-        icon: Icons.cake_rounded,
-        recipesCount: 72,
-        imageUrl:
-            'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80',
-      ),
-    ],
+    categories: CategoryCatalog.items,
     trendingRecipes: [
       RecipeModel(
         id: 'roasted-tomato-pasta',
@@ -57,6 +20,8 @@ class HomeMockData {
         minutes: 25,
         rating: 4.8,
         accentColor: Color(0xFFED7A3A),
+        imageUrl:
+            'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'miso-glazed-salmon',
@@ -66,6 +31,8 @@ class HomeMockData {
         minutes: 35,
         rating: 4.9,
         accentColor: Color(0xFF5E8B7E),
+        imageUrl:
+            'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'spiced-chickpea-bowl',
@@ -75,6 +42,8 @@ class HomeMockData {
         minutes: 20,
         rating: 4.7,
         accentColor: Color(0xFFB1784A),
+        imageUrl:
+            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'lemon-ricotta-pancakes',
@@ -84,6 +53,8 @@ class HomeMockData {
         minutes: 18,
         rating: 4.6,
         accentColor: Color(0xFFC89B3C),
+        imageUrl:
+            'https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=900&q=80',
       ),
     ],
     benefits: [
@@ -113,6 +84,8 @@ class HomeMockData {
       minutes: 40,
       rating: 4.9,
       accentColor: Color(0xFF5F7C67),
+      imageUrl:
+          'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=900&q=80',
     ),
     stats: [
       StatItemModel(label: 'Active users', value: '120K+'),

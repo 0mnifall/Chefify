@@ -31,7 +31,7 @@ COPY --chown=flutter:flutter . .
 RUN git config --global --add safe.directory /opt/flutter \
   && flutter config --enable-web \
   && flutter pub get \
-  && flutter build web --release
+  && flutter build web --release --pwa-strategy=none
 
 FROM nginx:1.27-alpine AS runtime
 

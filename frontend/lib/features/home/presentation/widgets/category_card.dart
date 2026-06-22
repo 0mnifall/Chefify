@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class CategoryCard extends StatelessWidget {
-  const CategoryCard({super.key, required this.category});
+  const CategoryCard({super.key, required this.category, this.onTap});
 
   final CategoryModel category;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
     final bookmarks = BookmarkScope.of(context);
     final isSaved = bookmarks.isCategorySaved(category);
 
     return AppCard(
       padding: EdgeInsets.zero,
+      onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
         child: Stack(
@@ -61,30 +62,11 @@ class CategoryCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      IconButton(
-                        isSelected: isSaved,
+                      BookmarkButton(
+                        isSaved: isSaved,
                         onPressed: () {
                           bookmarks.toggleCategory(category);
                         },
-                        selectedIcon: const Icon(
-                          Icons.bookmark_rounded,
-                          size: 20,
-                        ),
-                        icon: const Icon(Icons.bookmark_add_rounded, size: 20),
-                        style: IconButton.styleFrom(
-                          foregroundColor: palette.mainText,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(32, 32),
-                          backgroundColor: palette.cardsSurface.withValues(
-                            alpha: 0.9,
-                          ),
-                          side: BorderSide(
-                            color: palette.borders.withValues(alpha: 0.72),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
                       ),
                     ],
                   ),
