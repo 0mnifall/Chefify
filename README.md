@@ -96,6 +96,12 @@ Frontend only (через build у Docker):
 docker compose --profile frontend up --build frontend-web
 ```
 
+Перший build може довго качати Flutter SDK. Після нього `frontend-web`
+експортує BuildKit cache у `.docker-cache/frontend-web`, тому наступні build-и
+мають брати Flutter SDK шар із cache. Якщо знову довго висить на `RUN curl ...
+flutter.tar.xz`, перевір, що не запускався `--no-cache`, `docker builder prune`
+або очищення Docker Desktop build cache.
+
 Frontend preview з локального `flutter build web`:
 
 ```powershell
@@ -208,6 +214,12 @@ Frontend only (Docker build):
 ```powershell
 docker compose --profile frontend up --build frontend-web
 ```
+
+The first build can spend a while downloading the Flutter SDK. After that,
+`frontend-web` exports BuildKit cache into `.docker-cache/frontend-web`, so
+later builds should reuse the Flutter SDK layer. If it hangs again on `RUN curl
+... flutter.tar.xz`, check that nobody used `--no-cache`, `docker builder prune`,
+or Docker Desktop build-cache cleanup.
 
 Frontend preview from local `flutter build web`:
 

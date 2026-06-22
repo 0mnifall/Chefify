@@ -1,6 +1,7 @@
 # Local tooling
 /.flutter-sdk/
 /.tooling/
+/.docker-cache/
 /.env
 .idea
 .idea/
