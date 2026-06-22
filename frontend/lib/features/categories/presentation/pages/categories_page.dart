@@ -10,6 +10,7 @@ import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/features/recipes/data/recipe_catalog.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class CategoriesPage extends StatefulWidget {
@@ -27,6 +28,7 @@ class CategoriesPage extends StatefulWidget {
 class _CategoriesPageState extends State<CategoriesPage> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  bool _savedOnly = false;
   List<RecipeModel> _recipes = RecipeCatalog.items;
 
   @override
@@ -91,6 +93,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       const SizedBox(height: AppSpacing.lg),
                       _CategorySearch(
                         controller: _searchController,
+                        savedOnly: _savedOnly,
                         onChanged: (value) {
                           setState(() {
                             _query = value;
@@ -100,6 +103,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           _searchController.clear();
                           setState(() {
                             _query = '';
+                          });
+                        },
+                        onSavedOnlyChanged: (value) {
+                          setState(() {
+                            _savedOnly = value;
                           });
                         },
                       ),
@@ -131,16 +139,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   List<CategoryModel> get _visibleCategories {
+    final bookmarks = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
     final categories = CategoryCatalog.withRecipeCounts(_recipes);
 
-    if (normalizedQuery.isEmpty) {
-      return categories;
-    }
-
     return categories
         .where(
-          (category) => category.title.toLowerCase().contains(normalizedQuery),
+          (category) =>
+              (normalizedQuery.isEmpty ||
+                  category.title.toLowerCase().contains(normalizedQuery)) &&
+              (!_savedOnly || bookmarks.isCategorySaved(category)),
         )
         .toList(growable: false);
   }
@@ -238,33 +246,116 @@ class _CategoryCountBadge extends StatelessWidget {
 class _CategorySearch extends StatelessWidget {
   const _CategorySearch({
     required this.controller,
+    required this.savedOnly,
     required this.onChanged,
     required this.onClear,
+    required this.onSavedOnlyChanged,
   });
 
   final TextEditingController controller;
+  final bool savedOnly;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final ValueChanged<bool> onSavedOnlyChanged;
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.md),
-      child: TextField(
-        key: const ValueKey('categories-search-field'),
-        controller: controller,
-        onChanged: onChanged,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'Search categories',
-          prefixIcon: const Icon(Icons.search_rounded),
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Clear category search',
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close_rounded),
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 640;
+          final searchField = TextField(
+            key: const ValueKey('categories-search-field'),
+            controller: controller,
+            onChanged: onChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: 'Search categories',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear category search',
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+            ),
+          );
+          final savedButton = _SavedOnlyButton(
+            selected: savedOnly,
+            onChanged: onSavedOnlyChanged,
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                searchField,
+                const SizedBox(height: AppSpacing.sm),
+                savedButton,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: searchField),
+              const SizedBox(width: AppSpacing.md),
+              SizedBox(width: 168, child: savedButton),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SavedOnlyButton extends StatelessWidget {
+  const _SavedOnlyButton({required this.selected, required this.onChanged});
+
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = selected
+        ? Icons.bookmark_rounded
+        : Icons.bookmark_border_rounded;
+    final label = Text(
+      'Saved only',
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+
+    if (selected) {
+      return FilledButton.icon(
+        onPressed: () => onChanged(false),
+        icon: Icon(icon, size: 18),
+        label: label,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: () => onChanged(true),
+      icon: Icon(icon, size: 18),
+      label: label,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
       ),
     );
