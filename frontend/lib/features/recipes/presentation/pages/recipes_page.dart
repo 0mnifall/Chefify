@@ -407,7 +407,7 @@ class _RecipeControls extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 820;
+          final compact = constraints.maxWidth < 900;
           final search = TextField(
             key: const ValueKey('recipes-search-field'),
             controller: searchController,
@@ -425,43 +425,42 @@ class _RecipeControls extends StatelessWidget {
                     ),
             ),
           );
-          final sortPicker = DropdownButtonFormField<_RecipeSort>(
-            key: const ValueKey('recipes-sort-dropdown'),
-            initialValue: sort,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Sort by'),
-            items: const [
-              DropdownMenuItem(
-                value: _RecipeSort.featured,
-                child: Text('Featured'),
-              ),
-              DropdownMenuItem(
-                value: _RecipeSort.rating,
-                child: Text('Highest rated'),
-              ),
-              DropdownMenuItem(
-                value: _RecipeSort.quickest,
-                child: Text('Quickest'),
-              ),
-              DropdownMenuItem(value: _RecipeSort.title, child: Text('A-Z')),
-            ],
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-              onSortChanged(value);
-            },
+          final sortPicker = _SortDropdown(
+            sort: sort,
+            onChanged: onSortChanged,
           );
+          final savedButton = _SavedOnlyButton(
+            selected: savedOnly,
+            onChanged: onSavedOnlyChanged,
+          );
+          final sideControlWidth = constraints.maxWidth < 1040 ? 184.0 : 204.0;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (compact)
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     search,
                     const SizedBox(height: AppSpacing.sm),
-                    sortPicker,
+                    if (constraints.maxWidth < 520)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          sortPicker,
+                          const SizedBox(height: AppSpacing.sm),
+                          savedButton,
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(child: sortPicker),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(child: savedButton),
+                        ],
+                      ),
                   ],
                 )
               else
@@ -469,10 +468,9 @@ class _RecipeControls extends StatelessWidget {
                   children: [
                     Expanded(flex: 3, child: search),
                     const SizedBox(width: AppSpacing.md),
-                    SizedBox(
-                      width: constraints.maxWidth < 960 ? 200 : 220,
-                      child: sortPicker,
-                    ),
+                    SizedBox(width: sideControlWidth, child: sortPicker),
+                    const SizedBox(width: AppSpacing.md),
+                    SizedBox(width: sideControlWidth, child: savedButton),
                   ],
                 ),
               const SizedBox(height: AppSpacing.md),
@@ -528,22 +526,93 @@ class _RecipeControls extends StatelessWidget {
                     selectedFilter: timeFilter,
                     onSelected: onTimeFilterChanged,
                   ),
-                  FilterChip(
-                    avatar: Icon(
-                      savedOnly
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      size: 18,
-                    ),
-                    label: const Text('Saved'),
-                    selected: savedOnly,
-                    onSelected: onSavedOnlyChanged,
-                  ),
                 ],
               ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _SortDropdown extends StatelessWidget {
+  const _SortDropdown({required this.sort, required this.onChanged});
+
+  final _RecipeSort sort;
+  final ValueChanged<_RecipeSort> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<_RecipeSort>(
+      key: const ValueKey('recipes-sort-dropdown'),
+      initialSelection: sort,
+      expandedInsets: EdgeInsets.zero,
+      requestFocusOnTap: false,
+      label: const Text('Sort by'),
+      menuHeight: 216,
+      dropdownMenuEntries: const [
+        DropdownMenuEntry(value: _RecipeSort.featured, label: 'Featured'),
+        DropdownMenuEntry(value: _RecipeSort.rating, label: 'Highest rated'),
+        DropdownMenuEntry(value: _RecipeSort.quickest, label: 'Quickest'),
+        DropdownMenuEntry(value: _RecipeSort.title, label: 'A-Z'),
+      ],
+      onSelected: (value) {
+        if (value == null) {
+          return;
+        }
+        onChanged(value);
+      },
+    );
+  }
+}
+
+class _SavedOnlyButton extends StatelessWidget {
+  const _SavedOnlyButton({required this.selected, required this.onChanged});
+
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = selected
+        ? Icons.bookmark_rounded
+        : Icons.bookmark_border_rounded;
+    final label = Text(
+      'Saved only',
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+
+    if (selected) {
+      return FilledButton.icon(
+        onPressed: () => onChanged(false),
+        icon: Icon(icon, size: 18),
+        label: label,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: () => onChanged(true),
+      icon: Icon(icon, size: 18),
+      label: label,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        ),
       ),
     );
   }
