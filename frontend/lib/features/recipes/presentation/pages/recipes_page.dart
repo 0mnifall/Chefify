@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
-import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
+import 'package:frontend/core/widgets/responsive_sliver_grid.dart';
 import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
@@ -60,7 +61,7 @@ class _RecipesPageState extends State<RecipesPage> {
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
-  List<RecipeModel>? _recipes;
+  List<RecipeModel> _recipes = RecipeCatalog.items;
 
   @override
   void initState() {
@@ -109,11 +110,9 @@ class _RecipesPageState extends State<RecipesPage> {
     final palette = context.palette;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
+    final bottomPadding = AppSpacing.sectionGapForWidth(viewportWidth);
     final recipes = _visibleRecipes(context);
-    final categories = CategoryCatalog.withRecipeCounts(
-      _recipes ?? RecipeCatalog.items,
-    );
-    final isLoading = _recipes == null;
+    final categories = CategoryCatalog.withRecipeCounts(_recipes);
 
     return Scaffold(
       body: DecoratedBox(
@@ -126,76 +125,72 @@ class _RecipesPageState extends State<RecipesPage> {
         ),
         child: Stack(
           children: [
-            SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  headerHeight + AppSpacing.xl,
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  AppSpacing.sectionGapForWidth(viewportWidth),
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppSpacing.contentMaxWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _RecipesHeader(totalCount: recipes.length),
-                        const SizedBox(height: AppSpacing.lg),
-                        _RecipeControls(
-                          searchController: _searchController,
-                          selectedCategoryIds: _selectedCategoryIds,
-                          timeFilter: _timeFilter,
-                          sort: _sort,
-                          savedOnly: _savedOnly,
-                          categories: categories,
-                          onSearchChanged: (value) {
-                            setState(() {
-                              _query = value;
-                            });
-                          },
-                          onClearSearch: () {
-                            _searchController.clear();
-                            setState(() {
-                              _query = '';
-                            });
-                          },
-                          onCategoryToggled: _toggleCategory,
-                          onClearCategories: () {
-                            setState(() {
-                              _selectedCategoryIds = const {};
-                            });
-                          },
-                          onTimeFilterChanged: (filter) {
-                            setState(() {
-                              _timeFilter = filter;
-                            });
-                          },
-                          onSortChanged: (sort) {
-                            setState(() {
-                              _sort = sort;
-                            });
-                          },
-                          onSavedOnlyChanged: (value) {
-                            setState(() {
-                              _savedOnly = value;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        if (isLoading)
-                          const _RecipesLoadingState()
-                        else if (recipes.isEmpty)
-                          const _EmptyRecipesState()
-                        else
-                          _RecipesGrid(recipes: recipes),
-                      ],
-                    ),
+            CustomScrollView(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+              slivers: [
+                _RecipesContentSliver(
+                  topPadding: headerHeight + AppSpacing.xl,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RecipesHeader(totalCount: recipes.length),
+                      const SizedBox(height: AppSpacing.lg),
+                      _RecipeControls(
+                        searchController: _searchController,
+                        selectedCategoryIds: _selectedCategoryIds,
+                        timeFilter: _timeFilter,
+                        sort: _sort,
+                        savedOnly: _savedOnly,
+                        categories: categories,
+                        onSearchChanged: (value) {
+                          setState(() {
+                            _query = value;
+                          });
+                        },
+                        onClearSearch: () {
+                          _searchController.clear();
+                          setState(() {
+                            _query = '';
+                          });
+                        },
+                        onCategoryToggled: _toggleCategory,
+                        onClearCategories: () {
+                          setState(() {
+                            _selectedCategoryIds = const {};
+                          });
+                        },
+                        onTimeFilterChanged: (filter) {
+                          setState(() {
+                            _timeFilter = filter;
+                          });
+                        },
+                        onSortChanged: (sort) {
+                          setState(() {
+                            _sort = sort;
+                          });
+                        },
+                        onSavedOnlyChanged: (value) {
+                          setState(() {
+                            _savedOnly = value;
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                if (recipes.isEmpty)
+                  _RecipesContentSliver(
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: bottomPadding,
+                    child: const _EmptyRecipesState(),
+                  )
+                else
+                  _RecipesGrid(
+                    recipes: recipes,
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: bottomPadding,
+                  ),
+              ],
             ),
             _RecipesHeaderShell(height: headerHeight, child: const AppHeader()),
           ],
@@ -207,7 +202,7 @@ class _RecipesPageState extends State<RecipesPage> {
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
-    final sourceRecipes = _recipes ?? const <RecipeModel>[];
+    final sourceRecipes = _recipes;
     final recipes = sourceRecipes.where((recipe) {
       final categoryText = _recipeCategoryText(recipe);
       final matchesSearch =
@@ -624,16 +619,23 @@ class _TimeFilterChip extends StatelessWidget {
 }
 
 class _RecipesGrid extends StatelessWidget {
-  const _RecipesGrid({required this.recipes});
+  const _RecipesGrid({
+    required this.recipes,
+    required this.topPadding,
+    required this.bottomPadding,
+  });
 
   final List<RecipeModel> recipes;
+  final double topPadding;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapGrid<RecipeModel>(
+    return ResponsiveSliverGrid<RecipeModel>(
       items: recipes,
       minItemWidth: 240,
       maxColumns: 4,
+      padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       itemHeightBuilder: _recipeCardHeight,
       itemBuilder: (context, recipe) {
         return RecipeCard(recipe: recipe);
@@ -648,6 +650,45 @@ double _recipeCardHeight(double width, int columns) {
   }
 
   return 348;
+}
+
+class _RecipesContentSliver extends StatelessWidget {
+  const _RecipesContentSliver({
+    required this.child,
+    this.topPadding = 0,
+    this.bottomPadding = 0,
+  });
+
+  final Widget child;
+  final double topPadding;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = AppSpacing.horizontalPaddingForWidth(
+      viewportWidth,
+    );
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          bottomPadding,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.contentMaxWidth,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _EmptyRecipesState extends StatelessWidget {
@@ -677,32 +718,6 @@ class _EmptyRecipesState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecipesLoadingState extends StatelessWidget {
-  const _RecipesLoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: SizedBox(
-        height: 220,
-        child: Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: palette.activeElements,
-            ),
-          ),
         ),
       ),
     );

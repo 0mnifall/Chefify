@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
-import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
+import 'package:frontend/core/widgets/responsive_sliver_grid.dart';
 import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
@@ -64,6 +65,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
     final palette = context.palette;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
+    final bottomPadding = AppSpacing.sectionGapForWidth(viewportWidth);
     final categories = _visibleCategories;
 
     return Scaffold(
@@ -77,48 +79,46 @@ class _CategoriesPageState extends State<CategoriesPage> {
         ),
         child: Stack(
           children: [
-            SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  headerHeight + AppSpacing.xl,
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  AppSpacing.sectionGapForWidth(viewportWidth),
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppSpacing.contentMaxWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _CategoriesHeader(totalCount: categories.length),
-                        const SizedBox(height: AppSpacing.lg),
-                        _CategorySearch(
-                          controller: _searchController,
-                          onChanged: (value) {
-                            setState(() {
-                              _query = value;
-                            });
-                          },
-                          onClear: () {
-                            _searchController.clear();
-                            setState(() {
-                              _query = '';
-                            });
-                          },
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        if (categories.isEmpty)
-                          const _EmptyCategoriesState()
-                        else
-                          _CategoriesGrid(categories: categories),
-                      ],
-                    ),
+            CustomScrollView(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+              slivers: [
+                _CategoriesContentSliver(
+                  topPadding: headerHeight + AppSpacing.xl,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CategoriesHeader(totalCount: categories.length),
+                      const SizedBox(height: AppSpacing.lg),
+                      _CategorySearch(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() {
+                            _query = value;
+                          });
+                        },
+                        onClear: () {
+                          _searchController.clear();
+                          setState(() {
+                            _query = '';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                if (categories.isEmpty)
+                  _CategoriesContentSliver(
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: bottomPadding,
+                    child: const _EmptyCategoriesState(),
+                  )
+                else
+                  _CategoriesGrid(
+                    categories: categories,
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: bottomPadding,
+                  ),
+              ],
             ),
             _CategoriesHeaderShell(
               height: headerHeight,
@@ -272,16 +272,23 @@ class _CategorySearch extends StatelessWidget {
 }
 
 class _CategoriesGrid extends StatelessWidget {
-  const _CategoriesGrid({required this.categories});
+  const _CategoriesGrid({
+    required this.categories,
+    required this.topPadding,
+    required this.bottomPadding,
+  });
 
   final List<CategoryModel> categories;
+  final double topPadding;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapGrid<CategoryModel>(
+    return ResponsiveSliverGrid<CategoryModel>(
       items: categories,
       minItemWidth: 210,
       maxColumns: 5,
+      padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       itemHeightBuilder: _categoryCardHeight,
       itemBuilder: (context, category) {
         return CategoryCard(
@@ -307,6 +314,45 @@ double _categoryCardHeight(double width, int columns) {
   }
 
   return 242;
+}
+
+class _CategoriesContentSliver extends StatelessWidget {
+  const _CategoriesContentSliver({
+    required this.child,
+    this.topPadding = 0,
+    this.bottomPadding = 0,
+  });
+
+  final Widget child;
+  final double topPadding;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = AppSpacing.horizontalPaddingForWidth(
+      viewportWidth,
+    );
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          bottomPadding,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.contentMaxWidth,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _EmptyCategoriesState extends StatelessWidget {
