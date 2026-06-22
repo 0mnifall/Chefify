@@ -54,14 +54,17 @@ class RecipesPage extends StatefulWidget {
 
 class _RecipesPageState extends State<RecipesPage> {
   static const _maxSelectedCategories = 3;
+  static const _recipesPerPage = 20;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _query = '';
   Set<String> _selectedCategoryIds = const {};
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
   List<RecipeModel> _recipes = RecipeCatalog.items;
+  int _currentPage = 1;
 
   @override
   void initState() {
@@ -91,6 +94,7 @@ class _RecipesPageState extends State<RecipesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -102,6 +106,7 @@ class _RecipesPageState extends State<RecipesPage> {
 
     setState(() {
       _recipes = recipes;
+      _currentPage = 1;
     });
   }
 
@@ -112,6 +117,9 @@ class _RecipesPageState extends State<RecipesPage> {
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
     final bottomPadding = AppSpacing.sectionGapForWidth(viewportWidth);
     final recipes = _visibleRecipes(context);
+    final pageCount = _pageCount(recipes.length);
+    final currentPage = _currentPage.clamp(1, pageCount).toInt();
+    final pageRecipes = _recipesForPage(recipes, currentPage);
     final categories = CategoryCatalog.withRecipeCounts(_recipes);
 
     return Scaffold(
@@ -126,6 +134,7 @@ class _RecipesPageState extends State<RecipesPage> {
         child: Stack(
           children: [
             CustomScrollView(
+              controller: _scrollController,
               scrollCacheExtent: const ScrollCacheExtent.pixels(720),
               slivers: [
                 _RecipesContentSliver(
@@ -145,33 +154,39 @@ class _RecipesPageState extends State<RecipesPage> {
                         onSearchChanged: (value) {
                           setState(() {
                             _query = value;
+                            _currentPage = 1;
                           });
                         },
                         onClearSearch: () {
                           _searchController.clear();
                           setState(() {
                             _query = '';
+                            _currentPage = 1;
                           });
                         },
                         onCategoryToggled: _toggleCategory,
                         onClearCategories: () {
                           setState(() {
                             _selectedCategoryIds = const {};
+                            _currentPage = 1;
                           });
                         },
                         onTimeFilterChanged: (filter) {
                           setState(() {
                             _timeFilter = filter;
+                            _currentPage = 1;
                           });
                         },
                         onSortChanged: (sort) {
                           setState(() {
                             _sort = sort;
+                            _currentPage = 1;
                           });
                         },
                         onSavedOnlyChanged: (value) {
                           setState(() {
                             _savedOnly = value;
+                            _currentPage = 1;
                           });
                         },
                       ),
@@ -186,9 +201,20 @@ class _RecipesPageState extends State<RecipesPage> {
                   )
                 else
                   _RecipesGrid(
-                    recipes: recipes,
+                    recipes: pageRecipes,
                     topPadding: AppSpacing.lg,
+                    bottomPadding: pageCount > 1
+                        ? AppSpacing.lg
+                        : bottomPadding,
+                  ),
+                if (pageCount > 1)
+                  _RecipesContentSliver(
                     bottomPadding: bottomPadding,
+                    child: _RecipePagination(
+                      currentPage: currentPage,
+                      pageCount: pageCount,
+                      onPageChanged: _changePage,
+                    ),
                   ),
               ],
             ),
@@ -251,7 +277,42 @@ class _RecipesPageState extends State<RecipesPage> {
         selectedCategoryIds.add(normalizedCategoryId);
       }
       _selectedCategoryIds = selectedCategoryIds;
+      _currentPage = 1;
     });
+  }
+
+  int _pageCount(int itemCount) {
+    if (itemCount <= 0) {
+      return 1;
+    }
+
+    return ((itemCount - 1) ~/ _recipesPerPage) + 1;
+  }
+
+  List<RecipeModel> _recipesForPage(List<RecipeModel> recipes, int page) {
+    if (recipes.isEmpty) {
+      return const [];
+    }
+
+    final startIndex = (page - 1) * _recipesPerPage;
+    return recipes
+        .skip(startIndex)
+        .take(_recipesPerPage)
+        .toList(growable: false);
+  }
+
+  void _changePage(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Set<String> _normalizedInitialCategoryIds(Iterable<String> categoryIds) {
@@ -895,6 +956,156 @@ class _RecipesContentSliver extends StatelessWidget {
             child: child,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecipePagination extends StatelessWidget {
+  const _RecipePagination({
+    required this.currentPage,
+    required this.pageCount,
+    required this.onPageChanged,
+  });
+
+  final int currentPage;
+  final int pageCount;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = _visiblePages;
+
+    return Center(
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _PaginationIconButton(
+            icon: Icons.chevron_left_rounded,
+            enabled: currentPage > 1,
+            onPressed: () => onPageChanged(currentPage - 1),
+          ),
+          for (var index = 0; index < pages.length; index++) ...[
+            if (index > 0 && pages[index] - pages[index - 1] > 1)
+              const _PaginationGap(),
+            _PaginationPageButton(
+              page: pages[index],
+              selected: pages[index] == currentPage,
+              onPressed: () => onPageChanged(pages[index]),
+            ),
+          ],
+          _PaginationIconButton(
+            icon: Icons.chevron_right_rounded,
+            enabled: currentPage < pageCount,
+            onPressed: () => onPageChanged(currentPage + 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<int> get _visiblePages {
+    if (pageCount <= 7) {
+      return [for (var page = 1; page <= pageCount; page++) page];
+    }
+
+    final pages = <int>{1, pageCount};
+    for (var page = currentPage - 1; page <= currentPage + 1; page++) {
+      if (page > 1 && page < pageCount) {
+        pages.add(page);
+      }
+    }
+
+    return pages.toList()..sort();
+  }
+}
+
+class _PaginationPageButton extends StatelessWidget {
+  const _PaginationPageButton({
+    required this.page,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final int page;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text('$page', overflow: TextOverflow.ellipsis);
+
+    if (selected) {
+      return SizedBox.square(
+        dimension: 42,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    }
+
+    return SizedBox.square(
+      dimension: 42,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _PaginationIconButton extends StatelessWidget {
+  const _PaginationIconButton({
+    required this.icon,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 42,
+      child: IconButton(
+        onPressed: enabled ? onPressed : null,
+        icon: Icon(icon),
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaginationGap extends StatelessWidget {
+  const _PaginationGap();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 42,
+      child: Center(
+        child: Text('...', style: Theme.of(context).textTheme.labelLarge),
       ),
     );
   }
