@@ -392,7 +392,51 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = AppStrings.of(context);
+    final imageUrl = recipe.imageUrl?.trim();
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hasImage)
+          Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (context, error, stackTrace) {
+              return _HeroPhotoFallback(
+                recipe: recipe,
+                isDarkTheme: isDarkTheme,
+              );
+            },
+          )
+        else
+          _HeroPhotoFallback(recipe: recipe, isDarkTheme: isDarkTheme),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0.6, -0.8),
+              radius: 1.3,
+              colors: [
+                Colors.white.withValues(alpha: 0.28),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroPhotoFallback extends StatelessWidget {
+  const _HeroPhotoFallback({required this.recipe, required this.isDarkTheme});
+
+  final RecipeModel recipe;
+  final bool isDarkTheme;
+
+  @override
+  Widget build(BuildContext context) {
     final leadingColor = isDarkTheme
         ? recipe.accentColor.withValues(alpha: 0.96)
         : Color.lerp(recipe.accentColor, Colors.white, 0.28)!;
@@ -411,60 +455,51 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Stack(
-        fit: StackFit.expand,
+      child: Center(child: _HeroPhotoFallbackBadge(isDarkTheme: isDarkTheme)),
+    );
+  }
+}
+
+class _HeroPhotoFallbackBadge extends StatelessWidget {
+  const _HeroPhotoFallbackBadge({required this.isDarkTheme});
+
+  final bool isDarkTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDarkTheme
+            ? Colors.black.withValues(alpha: 0.24)
+            : Colors.white.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isDarkTheme
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.78),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.6, -0.8),
-                radius: 1.3,
-                colors: [
-                  Colors.white.withValues(alpha: 0.28),
-                  Colors.transparent,
-                ],
-              ),
-            ),
+          Icon(
+            Icons.image_outlined,
+            color: isDarkTheme ? Colors.white70 : const Color(0xFF6E655F),
+            size: 18,
           ),
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              strings.photoPlaceholder,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: isDarkTheme
-                    ? Colors.black.withValues(alpha: 0.24)
-                    : Colors.white.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: isDarkTheme
-                      ? Colors.white.withValues(alpha: 0.25)
-                      : Colors.white.withValues(alpha: 0.78),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.image_outlined,
-                    color: isDarkTheme
-                        ? Colors.white70
-                        : const Color(0xFF6E655F),
-                    size: 18,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      strings.photoPlaceholder,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: isDarkTheme
-                            ? Colors.white.withValues(alpha: 0.88)
-                            : const Color(0xFF544A43),
-                      ),
-                    ),
-                  ),
-                ],
+                    ? Colors.white.withValues(alpha: 0.88)
+                    : const Color(0xFF544A43),
               ),
             ),
           ),

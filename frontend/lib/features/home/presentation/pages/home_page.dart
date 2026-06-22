@@ -64,6 +64,9 @@ class _HomePageState extends State<HomePage> {
     final content = HomeMockData.content;
     final palette = context.palette;
     final strings = AppStrings.of(context);
+    final heroRecipe = _trendingRecipes == null || _trendingRecipes!.isEmpty
+        ? content.featuredRecipe
+        : _trendingRecipes!.first;
 
     return Scaffold(
       body: DecoratedBox(
@@ -89,7 +92,7 @@ class _HomePageState extends State<HomePage> {
                       HeroSection(
                         title: strings.heroTitle,
                         subtitle: strings.heroSubtitle,
-                        featuredRecipe: content.featuredRecipe,
+                        featuredRecipe: heroRecipe,
                       ),
                       CategorySection(categories: content.categories),
                       TrendingRecipesSection(
