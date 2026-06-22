@@ -130,7 +130,7 @@ class _DesktopHeroLayout extends StatelessWidget {
                 Expanded(
                   flex: 4,
                   child: Align(
-                    alignment: Alignment.centerRight,
+                    alignment: Alignment.topRight,
                     child: _TiltedRecipeCard(recipe: recipe),
                   ),
                 ),
