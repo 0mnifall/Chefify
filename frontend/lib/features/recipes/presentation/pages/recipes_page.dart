@@ -833,20 +833,64 @@ class _CategoryFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilterChip(
+    final palette = context.palette;
+    final enabled = selected || !atLimit;
+    final borderRadius = BorderRadius.circular(AppSpacing.radiusSm);
+    final textStyle = Theme.of(context).textTheme.labelLarge;
+    final foregroundColor = enabled
+        ? palette.mainText
+        : palette.secondaryText.withValues(alpha: 0.58);
+    final accentColor = enabled
+        ? palette.primaryButtons
+        : palette.primaryButtons.withValues(alpha: 0.45);
+    final borderColor = selected
+        ? palette.primaryButtons
+        : palette.mainText.withValues(alpha: enabled ? 0.86 : 0.35);
+    final backgroundColor = selected
+        ? palette.primaryButtons.withValues(alpha: 0.18)
+        : Colors.transparent;
+
+    return Material(
       key: ValueKey('recipes-category-chip-${category.id}'),
-      label: Text(
-        '${category.title} ${category.recipesCount}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      color: backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: borderColor),
       ),
-      selected: selected,
-      avatar: selected
-          ? const Icon(Icons.check_rounded, size: 17)
-          : Icon(category.icon, size: 17),
-      onSelected: selected || !atLimit
-          ? (_) => onCategoryToggled(category.id)
-          : null,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? () => onCategoryToggled(category.id) : null,
+        borderRadius: borderRadius,
+        mouseCursor: enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Icon(
+                selected ? Icons.check_rounded : category.icon,
+                size: 17,
+                color: accentColor,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  '${category.title} ${category.recipesCount}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle?.copyWith(color: foregroundColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
