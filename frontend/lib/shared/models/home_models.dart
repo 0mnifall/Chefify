@@ -18,6 +18,26 @@ class CategoryModel {
   final int recipesCount;
   final String? imageUrl;
   final bool isSaved;
+
+  CategoryModel copyWith({
+    String? id,
+    String? title,
+    String? description,
+    IconData? icon,
+    int? recipesCount,
+    String? imageUrl,
+    bool? isSaved,
+  }) {
+    return CategoryModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      icon: icon ?? this.icon,
+      recipesCount: recipesCount ?? this.recipesCount,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isSaved: isSaved ?? this.isSaved,
+    );
+  }
 }
 
 class RecipeModel {
@@ -31,6 +51,7 @@ class RecipeModel {
     required this.accentColor,
     this.description = '',
     this.imageUrl,
+    this.categoryIds = const [],
     this.popularityScore = 0,
     this.isSaved = false,
   });
@@ -69,6 +90,7 @@ class RecipeModel {
             _jsonValue(json, 'photoUrl') ??
             _jsonValue(json, 'pictureUrl'),
       ),
+      categoryIds: _categoryIdsValue(json, fallbackTag: tag),
       popularityScore: _intValue(_jsonValue(json, 'popularityScore')),
       accentColor: _colorValue(_jsonValue(json, 'accentColor'), fallback: tag),
     );
@@ -83,6 +105,7 @@ class RecipeModel {
   final Color accentColor;
   final String description;
   final String? imageUrl;
+  final List<String> categoryIds;
   final int popularityScore;
   final bool isSaved;
 
@@ -132,6 +155,36 @@ class RecipeModel {
     }
 
     return null;
+  }
+
+  static List<String> _categoryIdsValue(
+    Map<String, dynamic> json, {
+    required String fallbackTag,
+  }) {
+    final values = <String>{};
+    final categoryIds = _jsonValue(json, 'categoryIds');
+
+    if (categoryIds is Iterable) {
+      for (final categoryId in categoryIds) {
+        final value = _stringValue(categoryId);
+        if (value.isNotEmpty) {
+          values.add(_slugFromTitle(value));
+        }
+      }
+    }
+
+    for (final key in ['categoryId', 'categoryName', 'category']) {
+      final value = _stringValue(_jsonValue(json, key));
+      if (value.isNotEmpty) {
+        values.add(_slugFromTitle(value));
+      }
+    }
+
+    if (values.isEmpty && fallbackTag.isNotEmpty) {
+      values.add(_slugFromTitle(fallbackTag));
+    }
+
+    return values.toList(growable: false);
   }
 
   static String _authorValue(Map<String, dynamic> json) {
