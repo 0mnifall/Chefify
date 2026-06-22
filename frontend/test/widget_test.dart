@@ -6,6 +6,9 @@ import 'package:frontend/app/theme.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
+import 'package:frontend/features/home/presentation/pages/home_page.dart';
+import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
@@ -33,13 +36,62 @@ void main() {
     final bookmarks = BookmarkStore.memory();
     addTearDown(bookmarks.dispose);
 
-    await tester.pumpWidget(ChefifyApp(bookmarkStore: bookmarks));
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Chefify'), findsWidgets);
     expect(find.text('Browse by category'), findsOneWidget);
     expect(find.text('Recipes everyone is saving'), findsOneWidget);
     expect(find.text('Weekly recipes in your inbox'), findsOneWidget);
+  });
+
+  testWidgets('home and recipes pages fit common viewport widths', (
+    tester,
+  ) async {
+    final sizes = [
+      const Size(320, 1200),
+      const Size(390, 1200),
+      const Size(768, 1200),
+      const Size(1024, 1200),
+      const Size(1440, 1200),
+    ];
+
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final size in sizes) {
+      tester.view.physicalSize = size;
+
+      await tester.pumpWidget(
+        const _PageTestApp(
+          child: HomePage(recipeRepository: MockRecipeRepository()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Home overflow at ${size.width}px',
+      );
+
+      await tester.pumpWidget(
+        const _PageTestApp(
+          child: RecipesPage(recipeRepository: MockRecipeRepository()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Recipes overflow at ${size.width}px',
+      );
+    }
   });
 
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {
@@ -51,7 +103,12 @@ void main() {
     final bookmarks = BookmarkStore.memory();
     addTearDown(bookmarks.dispose);
 
-    await tester.pumpWidget(ChefifyApp(bookmarkStore: bookmarks));
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
@@ -76,6 +133,37 @@ void main() {
 
     expect(find.text('Lemon Ricotta Pancakes'), findsOneWidget);
     expect(find.text('Miso Glazed Salmon'), findsNothing);
+  });
+
+  testWidgets('opens recipes page from trending see all action', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -1200),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See all').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Find your next cook'), findsOneWidget);
+    expect(find.byKey(const ValueKey('recipes-search-field')), findsOneWidget);
   });
 
   testWidgets('toggles featured recipe bookmark icon', (tester) async {
@@ -179,6 +267,50 @@ class _TestApp extends StatefulWidget {
 
   @override
   State<_TestApp> createState() => _TestAppState();
+}
+
+class _PageTestApp extends StatefulWidget {
+  const _PageTestApp({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_PageTestApp> createState() => _PageTestAppState();
+}
+
+class _PageTestAppState extends State<_PageTestApp> {
+  late final AppSettingsController _settingsController;
+  late final BookmarkStore _bookmarkStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _settingsController = AppSettingsController();
+    _bookmarkStore = BookmarkStore.memory();
+  }
+
+  @override
+  void dispose() {
+    _settingsController.dispose();
+    _bookmarkStore.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BookmarkScope(
+      store: _bookmarkStore,
+      child: AppSettingsScope(
+        controller: _settingsController,
+        child: MaterialApp(
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: _settingsController.themeMode,
+          home: widget.child,
+        ),
+      ),
+    );
+  }
 }
 
 class _TestAppState extends State<_TestApp> {

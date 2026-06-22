@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
-import 'package:frontend/features/recipes/data/recipe_catalog.dart';
+import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -13,7 +14,12 @@ enum _RecipeSort { featured, rating, quickest, title }
 enum _TimeFilter { any, under20, under30, over30 }
 
 class RecipesPage extends StatefulWidget {
-  const RecipesPage({super.key});
+  const RecipesPage({
+    super.key,
+    this.recipeRepository = const ApiRecipeRepository(),
+  });
+
+  final RecipeRepository recipeRepository;
 
   @override
   State<RecipesPage> createState() => _RecipesPageState();
@@ -28,6 +34,21 @@ class _RecipesPageState extends State<RecipesPage> {
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
+  List<RecipeModel>? _recipes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecipes();
+  }
+
+  @override
+  void didUpdateWidget(covariant RecipesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.recipeRepository != widget.recipeRepository) {
+      _loadRecipes();
+    }
+  }
 
   @override
   void dispose() {
@@ -35,11 +56,27 @@ class _RecipesPageState extends State<RecipesPage> {
     super.dispose();
   }
 
+  Future<void> _loadRecipes() async {
+    final recipes = await widget.recipeRepository.fetchRecipes();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _recipes = recipes;
+      if (!_tags.contains(_selectedTag)) {
+        _selectedTag = _allTags;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final headerHeight = MediaQuery.sizeOf(context).width < 920 ? 92.0 : 98.0;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
     final recipes = _visibleRecipes(context);
+    final isLoading = _recipes == null;
 
     return Scaffold(
       body: DecoratedBox(
@@ -55,10 +92,10 @@ class _RecipesPageState extends State<RecipesPage> {
             SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                  20,
+                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
                   headerHeight + AppSpacing.xl,
-                  20,
-                  AppSpacing.sectionGap,
+                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
+                  AppSpacing.sectionGapForWidth(viewportWidth),
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -110,7 +147,9 @@ class _RecipesPageState extends State<RecipesPage> {
                           },
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        if (recipes.isEmpty)
+                        if (isLoading)
+                          const _RecipesLoadingState()
+                        else if (recipes.isEmpty)
                           const _EmptyRecipesState()
                         else
                           _RecipesGrid(recipes: recipes),
@@ -129,7 +168,10 @@ class _RecipesPageState extends State<RecipesPage> {
 
   List<String> get _tags {
     final tags =
-        RecipeCatalog.items.map((recipe) => recipe.tag).toSet().toList()
+        (_recipes ?? const <RecipeModel>[])
+            .map((recipe) => recipe.tag)
+            .toSet()
+            .toList()
           ..sort();
     return [_allTags, ...tags];
   }
@@ -137,7 +179,8 @@ class _RecipesPageState extends State<RecipesPage> {
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
-    final recipes = RecipeCatalog.items.where((recipe) {
+    final sourceRecipes = _recipes ?? const <RecipeModel>[];
+    final recipes = sourceRecipes.where((recipe) {
       final matchesSearch =
           normalizedQuery.isEmpty ||
           recipe.title.toLowerCase().contains(normalizedQuery) ||
@@ -158,9 +201,7 @@ class _RecipesPageState extends State<RecipesPage> {
     recipes.sort((left, right) {
       return switch (_sort) {
         _RecipeSort.featured =>
-          RecipeCatalog.items
-              .indexOf(left)
-              .compareTo(RecipeCatalog.items.indexOf(right)),
+          sourceRecipes.indexOf(left).compareTo(sourceRecipes.indexOf(right)),
         _RecipeSort.rating => right.rating.compareTo(left.rating),
         _RecipeSort.quickest => left.minutes.compareTo(right.minutes),
         _RecipeSort.title => left.title.compareTo(right.title),
@@ -359,7 +400,10 @@ class _RecipeControls extends StatelessWidget {
                   children: [
                     Expanded(flex: 3, child: search),
                     const SizedBox(width: AppSpacing.md),
-                    SizedBox(width: 220, child: sortPicker),
+                    SizedBox(
+                      width: constraints.maxWidth < 960 ? 200 : 220,
+                      child: sortPicker,
+                    ),
                   ],
                 ),
               const SizedBox(height: AppSpacing.md),
@@ -459,27 +503,12 @@ class _RecipesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cardWidth = constraints.maxWidth >= 1080
-            ? (constraints.maxWidth - (AppSpacing.md * 3)) / 4
-            : constraints.maxWidth >= 760
-            ? (constraints.maxWidth - (AppSpacing.md * 2)) / 3
-            : constraints.maxWidth >= 520
-            ? (constraints.maxWidth - AppSpacing.md) / 2
-            : constraints.maxWidth;
-
-        return Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            for (final recipe in recipes)
-              SizedBox(
-                width: cardWidth,
-                child: RecipeCard(recipe: recipe),
-              ),
-          ],
-        );
+    return ResponsiveWrapGrid<RecipeModel>(
+      items: recipes,
+      minItemWidth: 240,
+      maxColumns: 4,
+      itemBuilder: (context, recipe) {
+        return RecipeCard(recipe: recipe);
       },
     );
   }
@@ -512,6 +541,32 @@ class _EmptyRecipesState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipesLoadingState extends StatelessWidget {
+  const _RecipesLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: SizedBox(
+        height: 220,
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: palette.activeElements,
+            ),
+          ),
         ),
       ),
     );

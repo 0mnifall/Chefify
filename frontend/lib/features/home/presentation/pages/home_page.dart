@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
+import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/features/home/data/home_mock_data.dart';
 import 'package:frontend/features/home/presentation/widgets/app_footer.dart';
@@ -15,9 +16,48 @@ import 'package:frontend/features/home/presentation/widgets/newsletter_section.d
 import 'package:frontend/features/home/presentation/widgets/stats_banner.dart';
 import 'package:frontend/features/home/presentation/widgets/testimonials_section.dart';
 import 'package:frontend/features/home/presentation/widgets/trending_recipes_section.dart';
+import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/shared/models/home_models.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({
+    super.key,
+    this.recipeRepository = const ApiRecipeRepository(),
+  });
+
+  final RecipeRepository recipeRepository;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<RecipeModel>? _trendingRecipes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPopularRecipes();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.recipeRepository != widget.recipeRepository) {
+      _loadPopularRecipes();
+    }
+  }
+
+  Future<void> _loadPopularRecipes() async {
+    final recipes = await widget.recipeRepository.fetchPopularRecipes(take: 4);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _trendingRecipes = recipes;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +76,9 @@ class HomePage extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 920;
-            final headerHeight = compact ? 92.0 : 98.0;
+            final headerHeight = AppSpacing.headerHeightForViewport(
+              constraints.maxWidth,
+            );
 
             return Stack(
               children: [
@@ -51,7 +92,10 @@ class HomePage extends StatelessWidget {
                         featuredRecipe: content.featuredRecipe,
                       ),
                       CategorySection(categories: content.categories),
-                      TrendingRecipesSection(recipes: content.trendingRecipes),
+                      TrendingRecipesSection(
+                        recipes: _trendingRecipes ?? const [],
+                        isLoading: _trendingRecipes == null,
+                      ),
                       BenefitsSection(benefits: content.benefits),
                       FeaturedRecipeSection(recipe: content.featuredRecipe),
                       StatsBanner(stats: content.stats),

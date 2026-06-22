@@ -114,4 +114,24 @@ class RecipeCatalog {
       accentColor: Color(0xFF7A4E68),
     ),
   ];
+
+  static List<RecipeModel> popular({int take = 4}) {
+    final recipes = [...items];
+    recipes.sort((left, right) {
+      final popularity = right.popularityScore.compareTo(left.popularityScore);
+      if (popularity != 0) {
+        return popularity;
+      }
+
+      final rating = right.rating.compareTo(left.rating);
+      if (rating != 0) {
+        return rating;
+      }
+
+      return items.indexOf(left).compareTo(items.indexOf(right));
+    });
+
+    final safeTake = take.clamp(1, recipes.length).toInt();
+    return recipes.take(safeTake).toList();
+  }
 }
