@@ -585,6 +585,7 @@ class _CategoryFilterCloud extends StatelessWidget {
       children: [
         for (final category in sortedCategories)
           FilterChip(
+            key: ValueKey('recipes-category-chip-${category.id}'),
             label: Text('${category.title} ${category.recipesCount}'),
             selected: selectedCategoryIds.contains(category.id),
             avatar: selectedCategoryIds.contains(category.id)

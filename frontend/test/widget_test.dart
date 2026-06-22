@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/app/app.dart';
 import 'package:frontend/app/app_settings.dart';
 import 'package:frontend/app/theme.dart';
+import 'package:frontend/features/categories/presentation/pages/categories_page.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
@@ -91,6 +92,18 @@ void main() {
         isNull,
         reason: 'Recipes overflow at ${size.width}px',
       );
+
+      await tester.pumpWidget(
+        const _PageTestApp(
+          child: CategoriesPage(recipeRepository: MockRecipeRepository()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Categories overflow at ${size.width}px',
+      );
     }
   });
 
@@ -128,11 +141,47 @@ void main() {
 
     await tester.tap(find.byTooltip('Clear search'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Breakfast'));
+    await tester.tap(
+      find.byKey(const ValueKey('recipes-category-chip-breakfast')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Lemon Ricotta Pancakes'), findsOneWidget);
     expect(find.text('Miso Glazed Salmon'), findsNothing);
+  });
+
+  testWidgets('opens categories page from category see all action', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -620),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('See all').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Explore every category'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('categories-search-field')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opens recipes page from trending see all action', (
