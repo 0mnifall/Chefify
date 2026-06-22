@@ -37,10 +37,6 @@ services:
       dockerfile: Dockerfile.web
       args:
         FLUTTER_VERSION: ${FLUTTER_VERSION:-3.41.9}
-      cache_from:
-        - type=local,src=.docker-cache/frontend-web
-      cache_to:
-        - type=local,dest=.docker-cache/frontend-web,mode=max
     image: chefify/frontend-web:${FLUTTER_VERSION:-3.41.9}
     ports:
       - "${FRONTEND_HTTP_PORT:-8088}:80"
