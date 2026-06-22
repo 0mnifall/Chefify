@@ -286,8 +286,8 @@ class _CategoriesGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return ResponsiveSliverGrid<CategoryModel>(
       items: categories,
-      minItemWidth: 210,
-      maxColumns: 5,
+      minItemWidth: 250,
+      maxColumns: 4,
       padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       itemHeightBuilder: _categoryCardHeight,
       itemBuilder: (context, category) {
@@ -305,15 +305,15 @@ class _CategoriesGrid extends StatelessWidget {
 }
 
 double _categoryCardHeight(double width, int columns) {
-  if (columns >= 5) {
-    return 236;
+  if (columns >= 4) {
+    return 272;
   }
 
-  if (columns == 1 || width < 260) {
-    return 226;
+  if (columns == 1 || width < 280) {
+    return 244;
   }
 
-  return 242;
+  return 260;
 }
 
 class _CategoriesContentSliver extends StatelessWidget {
