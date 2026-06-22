@@ -57,6 +57,8 @@ class HomeMockData {
         minutes: 25,
         rating: 4.8,
         accentColor: Color(0xFFED7A3A),
+        imageUrl:
+            'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'miso-glazed-salmon',
@@ -66,6 +68,8 @@ class HomeMockData {
         minutes: 35,
         rating: 4.9,
         accentColor: Color(0xFF5E8B7E),
+        imageUrl:
+            'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'spiced-chickpea-bowl',
@@ -75,6 +79,8 @@ class HomeMockData {
         minutes: 20,
         rating: 4.7,
         accentColor: Color(0xFFB1784A),
+        imageUrl:
+            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'lemon-ricotta-pancakes',
@@ -84,6 +90,8 @@ class HomeMockData {
         minutes: 18,
         rating: 4.6,
         accentColor: Color(0xFFC89B3C),
+        imageUrl:
+            'https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=900&q=80',
       ),
     ],
     benefits: [
@@ -113,6 +121,8 @@ class HomeMockData {
       minutes: 40,
       rating: 4.9,
       accentColor: Color(0xFF5F7C67),
+      imageUrl:
+          'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=900&q=80',
     ),
     stats: [
       StatItemModel(label: 'Active users', value: '120K+'),

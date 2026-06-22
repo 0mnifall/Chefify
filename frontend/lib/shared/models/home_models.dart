@@ -30,6 +30,7 @@ class RecipeModel {
     required this.rating,
     required this.accentColor,
     this.description = '',
+    this.imageUrl,
     this.popularityScore = 0,
     this.isSaved = false,
   });
@@ -63,6 +64,11 @@ class RecipeModel {
         _jsonValue(json, 'rating'),
         fallback: 4.2 + (normalizedDifficulty * 0.12),
       ).clamp(0, 5).toDouble(),
+      imageUrl: _stringValue(
+        _jsonValue(json, 'imageUrl') ??
+            _jsonValue(json, 'photoUrl') ??
+            _jsonValue(json, 'pictureUrl'),
+      ),
       popularityScore: _intValue(_jsonValue(json, 'popularityScore')),
       accentColor: _colorValue(_jsonValue(json, 'accentColor'), fallback: tag),
     );
@@ -76,6 +82,7 @@ class RecipeModel {
   final double rating;
   final Color accentColor;
   final String description;
+  final String? imageUrl;
   final int popularityScore;
   final bool isSaved;
 

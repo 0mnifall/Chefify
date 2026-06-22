@@ -30,25 +30,52 @@ class RecipeCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          recipe.accentColor.withValues(alpha: 0.9),
-                          recipe.accentColor.withValues(alpha: 0.55),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  if (recipe.imageUrl == null || recipe.imageUrl!.isEmpty)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            recipe.accentColor.withValues(alpha: 0.9),
+                            recipe.accentColor.withValues(alpha: 0.55),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.restaurant_menu_rounded,
-                        size: 52,
-                        color: Colors.white,
+                      child: const Center(
+                        child: Icon(
+                          Icons.restaurant_menu_rounded,
+                          size: 52,
+                          color: Colors.white,
+                        ),
                       ),
+                    )
+                  else
+                    Image.network(
+                      recipe.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                recipe.accentColor.withValues(alpha: 0.9),
+                                recipe.accentColor.withValues(alpha: 0.55),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.restaurant_menu_rounded,
+                              size: 52,
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
                   Positioned(
                     top: AppSpacing.sm,
                     right: AppSpacing.sm,
