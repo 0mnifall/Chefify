@@ -38,13 +38,7 @@ class RecipeCard extends StatelessWidget {
                       if (recipe.imageUrl == null || recipe.imageUrl!.isEmpty)
                         _RecipeImageFallback(recipe: recipe)
                       else
-                        Image.network(
-                          recipe.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _RecipeImageFallback(recipe: recipe);
-                          },
-                        ),
+                        _RecipeNetworkImage(recipe: recipe),
                       Positioned(
                         top: AppSpacing.sm,
                         right: AppSpacing.sm,
@@ -128,6 +122,44 @@ class _RecipeCardBody extends StatelessWidget {
   }
 }
 
+class _RecipeNetworkImage extends StatelessWidget {
+  const _RecipeNetworkImage({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = _cacheDimension(
+          constraints.maxWidth,
+          devicePixelRatio,
+          max: 720,
+        );
+        final cacheHeight = _cacheDimension(
+          constraints.maxHeight,
+          devicePixelRatio,
+          max: 520,
+        );
+
+        return Image.network(
+          recipe.imageUrl!,
+          fit: BoxFit.cover,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+          excludeFromSemantics: true,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return _RecipeImageFallback(recipe: recipe);
+          },
+        );
+      },
+    );
+  }
+}
+
 class _RecipeImageFallback extends StatelessWidget {
   const _RecipeImageFallback({required this.recipe});
 
@@ -155,4 +187,16 @@ class _RecipeImageFallback extends StatelessWidget {
       ),
     );
   }
+}
+
+int _cacheDimension(
+  double logicalPixels,
+  double devicePixelRatio, {
+  required int max,
+}) {
+  if (!logicalPixels.isFinite || logicalPixels <= 0) {
+    return max;
+  }
+
+  return (logicalPixels * devicePixelRatio).round().clamp(1, max).toInt();
 }

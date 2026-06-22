@@ -112,45 +112,71 @@ class _CategoryBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null || imageUrl!.isEmpty) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF8F684A), Color(0xFF4B5F52)],
-          ),
-        ),
-      );
+      return const _CategoryFallbackBackground();
     }
 
-    return Image.network(
-      imageUrl!,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF8F684A), Color(0xFF4B5F52)],
-            ),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = _cacheDimension(
+          constraints.maxWidth,
+          devicePixelRatio,
+          max: 760,
         );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          return child;
-        }
-        return const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF8F684A), Color(0xFF4B5F52)],
-            ),
-          ),
+        final cacheHeight = _cacheDimension(
+          constraints.maxHeight,
+          devicePixelRatio,
+          max: 640,
+        );
+
+        return Image.network(
+          imageUrl!,
+          fit: BoxFit.cover,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+          excludeFromSemantics: true,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return const _CategoryFallbackBackground();
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            return const _CategoryFallbackBackground();
+          },
         );
       },
     );
   }
+}
+
+class _CategoryFallbackBackground extends StatelessWidget {
+  const _CategoryFallbackBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF8F684A), Color(0xFF4B5F52)],
+        ),
+      ),
+    );
+  }
+}
+
+int _cacheDimension(
+  double logicalPixels,
+  double devicePixelRatio, {
+  required int max,
+}) {
+  if (!logicalPixels.isFinite || logicalPixels <= 0) {
+    return max;
+  }
+
+  return (logicalPixels * devicePixelRatio).round().clamp(1, max).toInt();
 }
