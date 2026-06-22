@@ -643,25 +643,165 @@ class _CategoryFilterCloud extends StatelessWidget {
     final atLimit =
         selectedCategoryIds.length >= _RecipesPageState._maxSelectedCategories;
 
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: [
-        for (final category in sortedCategories)
-          FilterChip(
-            key: ValueKey('recipes-category-chip-${category.id}'),
-            label: Text('${category.title} ${category.recipesCount}'),
-            selected: selectedCategoryIds.contains(category.id),
-            avatar: selectedCategoryIds.contains(category.id)
-                ? const Icon(Icons.check_rounded, size: 17)
-                : Icon(category.icon, size: 17),
-            onSelected: selectedCategoryIds.contains(category.id) || !atLimit
-                ? (_) => onCategoryToggled(category.id)
-                : null,
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = _buildCategoryChipRows(
+          context,
+          sortedCategories,
+          constraints.maxWidth,
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: rowIndex == rows.length - 1 ? 0 : AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    for (
+                      var itemIndex = 0;
+                      itemIndex < rows[rowIndex].length;
+                      itemIndex++
+                    ) ...[
+                      if (itemIndex > 0) const SizedBox(width: AppSpacing.xs),
+                      SizedBox(
+                        width: rows[rowIndex][itemIndex].width,
+                        child: _CategoryFilterChip(
+                          category: rows[rowIndex][itemIndex].category,
+                          selected: selectedCategoryIds.contains(
+                            rows[rowIndex][itemIndex].category.id,
+                          ),
+                          atLimit: atLimit,
+                          onCategoryToggled: onCategoryToggled,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
+
+  List<List<_CategoryChipLayout>> _buildCategoryChipRows(
+    BuildContext context,
+    List<CategoryModel> categories,
+    double maxWidth,
+  ) {
+    final safeWidth = maxWidth.isFinite ? maxWidth : AppSpacing.contentMaxWidth;
+    final rows = <List<_CategoryChipSeed>>[];
+    var currentRow = <_CategoryChipSeed>[];
+    var currentWidth = 0.0;
+
+    for (final category in categories) {
+      final baseWidth = _categoryChipBaseWidth(context, category, safeWidth);
+      final nextWidth =
+          currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xs) + baseWidth;
+
+      if (currentRow.isNotEmpty && nextWidth > safeWidth) {
+        rows.add(currentRow);
+        currentRow = [_CategoryChipSeed(category, baseWidth)];
+        currentWidth = baseWidth;
+      } else {
+        currentRow.add(_CategoryChipSeed(category, baseWidth));
+        currentWidth = nextWidth;
+      }
+    }
+
+    if (currentRow.isNotEmpty) {
+      rows.add(currentRow);
+    }
+
+    return [for (final row in rows) _justifyCategoryChipRow(row, safeWidth)];
+  }
+
+  List<_CategoryChipLayout> _justifyCategoryChipRow(
+    List<_CategoryChipSeed> row,
+    double maxWidth,
+  ) {
+    final spacing = AppSpacing.xs * (row.length - 1);
+    final baseWidth = row.fold<double>(0, (sum, item) => sum + item.baseWidth);
+    final extra = (maxWidth - spacing - baseWidth).clamp(0, double.infinity);
+    final extraPerChip = row.length <= 1 ? 0.0 : extra / row.length;
+
+    return [
+      for (final item in row)
+        _CategoryChipLayout(
+          category: item.category,
+          width: item.baseWidth + extraPerChip,
+        ),
+    ];
+  }
+
+  double _categoryChipBaseWidth(
+    BuildContext context,
+    CategoryModel category,
+    double maxWidth,
+  ) {
+    final label = '${category.title} ${category.recipesCount}';
+    final textStyle =
+        Theme.of(context).textTheme.labelLarge ??
+        DefaultTextStyle.of(context).style;
+    final textPainter = TextPainter(
+      text: TextSpan(text: label, style: textStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 72).clamp(118, maxWidth).toDouble();
+  }
+}
+
+class _CategoryFilterChip extends StatelessWidget {
+  const _CategoryFilterChip({
+    required this.category,
+    required this.selected,
+    required this.atLimit,
+    required this.onCategoryToggled,
+  });
+
+  final CategoryModel category;
+  final bool selected;
+  final bool atLimit;
+  final ValueChanged<String> onCategoryToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      key: ValueKey('recipes-category-chip-${category.id}'),
+      label: Text(
+        '${category.title} ${category.recipesCount}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      selected: selected,
+      avatar: selected
+          ? const Icon(Icons.check_rounded, size: 17)
+          : Icon(category.icon, size: 17),
+      onSelected: selected || !atLimit
+          ? (_) => onCategoryToggled(category.id)
+          : null,
+    );
+  }
+}
+
+class _CategoryChipSeed {
+  const _CategoryChipSeed(this.category, this.baseWidth);
+
+  final CategoryModel category;
+  final double baseWidth;
+}
+
+class _CategoryChipLayout {
+  const _CategoryChipLayout({required this.category, required this.width});
+
+  final CategoryModel category;
+  final double width;
 }
 
 class _TimeFilterChip extends StatelessWidget {
