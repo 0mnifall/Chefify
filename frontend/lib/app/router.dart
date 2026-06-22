@@ -20,8 +20,12 @@ class AppRouter {
           settings: settings,
         );
       case recipes:
+        final arguments = RecipesPageArguments.from(settings.arguments);
         return MaterialPageRoute<void>(
-          builder: (_) => RecipesPage(recipeRepository: recipeRepository),
+          builder: (_) => RecipesPage(
+            recipeRepository: recipeRepository,
+            initialCategoryIds: arguments.categoryIds,
+          ),
           settings: settings,
         );
       case categories:

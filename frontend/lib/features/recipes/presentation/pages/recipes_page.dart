@@ -3,8 +3,10 @@ import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
+import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
+import 'package:frontend/features/recipes/data/recipe_catalog.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
@@ -13,24 +15,48 @@ enum _RecipeSort { featured, rating, quickest, title }
 
 enum _TimeFilter { any, under20, under30, over30 }
 
+class RecipesPageArguments {
+  const RecipesPageArguments({this.categoryIds = const []});
+
+  factory RecipesPageArguments.from(Object? arguments) {
+    if (arguments is RecipesPageArguments) {
+      return arguments;
+    }
+
+    if (arguments is String) {
+      return RecipesPageArguments(categoryIds: [arguments]);
+    }
+
+    if (arguments is Iterable<String>) {
+      return RecipesPageArguments(categoryIds: arguments.toList());
+    }
+
+    return const RecipesPageArguments();
+  }
+
+  final List<String> categoryIds;
+}
+
 class RecipesPage extends StatefulWidget {
   const RecipesPage({
     super.key,
     this.recipeRepository = const ApiRecipeRepository(),
+    this.initialCategoryIds = const [],
   });
 
   final RecipeRepository recipeRepository;
+  final List<String> initialCategoryIds;
 
   @override
   State<RecipesPage> createState() => _RecipesPageState();
 }
 
 class _RecipesPageState extends State<RecipesPage> {
-  static const _allTags = 'All';
+  static const _maxSelectedCategories = 3;
 
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
-  String _selectedTag = _allTags;
+  Set<String> _selectedCategoryIds = const {};
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
@@ -39,6 +65,9 @@ class _RecipesPageState extends State<RecipesPage> {
   @override
   void initState() {
     super.initState();
+    _selectedCategoryIds = _normalizedInitialCategoryIds(
+      widget.initialCategoryIds,
+    );
     _loadRecipes();
   }
 
@@ -47,6 +76,14 @@ class _RecipesPageState extends State<RecipesPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.recipeRepository != widget.recipeRepository) {
       _loadRecipes();
+    }
+    if (!_sameCategoryIds(
+      oldWidget.initialCategoryIds,
+      widget.initialCategoryIds,
+    )) {
+      _selectedCategoryIds = _normalizedInitialCategoryIds(
+        widget.initialCategoryIds,
+      );
     }
   }
 
@@ -64,9 +101,6 @@ class _RecipesPageState extends State<RecipesPage> {
 
     setState(() {
       _recipes = recipes;
-      if (!_tags.contains(_selectedTag)) {
-        _selectedTag = _allTags;
-      }
     });
   }
 
@@ -76,6 +110,9 @@ class _RecipesPageState extends State<RecipesPage> {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
     final recipes = _visibleRecipes(context);
+    final categories = CategoryCatalog.withRecipeCounts(
+      _recipes ?? RecipeCatalog.items,
+    );
     final isLoading = _recipes == null;
 
     return Scaffold(
@@ -109,11 +146,11 @@ class _RecipesPageState extends State<RecipesPage> {
                         const SizedBox(height: AppSpacing.lg),
                         _RecipeControls(
                           searchController: _searchController,
-                          selectedTag: _selectedTag,
+                          selectedCategoryIds: _selectedCategoryIds,
                           timeFilter: _timeFilter,
                           sort: _sort,
                           savedOnly: _savedOnly,
-                          tags: _tags,
+                          categories: categories,
                           onSearchChanged: (value) {
                             setState(() {
                               _query = value;
@@ -125,9 +162,10 @@ class _RecipesPageState extends State<RecipesPage> {
                               _query = '';
                             });
                           },
-                          onTagChanged: (tag) {
+                          onCategoryToggled: _toggleCategory,
+                          onClearCategories: () {
                             setState(() {
-                              _selectedTag = tag;
+                              _selectedCategoryIds = const {};
                             });
                           },
                           onTimeFilterChanged: (filter) {
@@ -166,27 +204,24 @@ class _RecipesPageState extends State<RecipesPage> {
     );
   }
 
-  List<String> get _tags {
-    final tags =
-        (_recipes ?? const <RecipeModel>[])
-            .map((recipe) => recipe.tag)
-            .toSet()
-            .toList()
-          ..sort();
-    return [_allTags, ...tags];
-  }
-
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
     final sourceRecipes = _recipes ?? const <RecipeModel>[];
     final recipes = sourceRecipes.where((recipe) {
+      final categoryText = _recipeCategoryText(recipe);
       final matchesSearch =
           normalizedQuery.isEmpty ||
           recipe.title.toLowerCase().contains(normalizedQuery) ||
           recipe.tag.toLowerCase().contains(normalizedQuery) ||
-          recipe.author.toLowerCase().contains(normalizedQuery);
-      final matchesTag = _selectedTag == _allTags || recipe.tag == _selectedTag;
+          recipe.author.toLowerCase().contains(normalizedQuery) ||
+          categoryText.contains(normalizedQuery);
+      final matchesCategory =
+          _selectedCategoryIds.isEmpty ||
+          _selectedCategoryIds.any(
+            (categoryId) =>
+                CategoryCatalog.recipeMatchesCategoryId(recipe, categoryId),
+          );
       final matchesTime = switch (_timeFilter) {
         _TimeFilter.any => true,
         _TimeFilter.under20 => recipe.minutes <= 20,
@@ -195,7 +230,7 @@ class _RecipesPageState extends State<RecipesPage> {
       };
       final matchesSaved = !_savedOnly || bookmarkStore.isRecipeSaved(recipe);
 
-      return matchesSearch && matchesTag && matchesTime && matchesSaved;
+      return matchesSearch && matchesCategory && matchesTime && matchesSaved;
     }).toList();
 
     recipes.sort((left, right) {
@@ -209,6 +244,43 @@ class _RecipesPageState extends State<RecipesPage> {
     });
 
     return recipes;
+  }
+
+  void _toggleCategory(String categoryId) {
+    final normalizedCategoryId = CategoryCatalog.slug(categoryId);
+    setState(() {
+      final selectedCategoryIds = {..._selectedCategoryIds};
+      if (selectedCategoryIds.contains(normalizedCategoryId)) {
+        selectedCategoryIds.remove(normalizedCategoryId);
+      } else if (selectedCategoryIds.length < _maxSelectedCategories) {
+        selectedCategoryIds.add(normalizedCategoryId);
+      }
+      _selectedCategoryIds = selectedCategoryIds;
+    });
+  }
+
+  Set<String> _normalizedInitialCategoryIds(Iterable<String> categoryIds) {
+    return categoryIds
+        .map(CategoryCatalog.slug)
+        .where((categoryId) => CategoryCatalog.findById(categoryId) != null)
+        .take(_maxSelectedCategories)
+        .toSet();
+  }
+
+  bool _sameCategoryIds(List<String> left, List<String> right) {
+    final normalizedLeft = _normalizedInitialCategoryIds(left);
+    final normalizedRight = _normalizedInitialCategoryIds(right);
+    return normalizedLeft.length == normalizedRight.length &&
+        normalizedLeft.containsAll(normalizedRight);
+  }
+
+  String _recipeCategoryText(RecipeModel recipe) {
+    final categoryTitles = recipe.categoryIds
+        .map(CategoryCatalog.findById)
+        .whereType<CategoryModel>()
+        .map((category) => category.title.toLowerCase());
+
+    return [recipe.tag.toLowerCase(), ...categoryTitles].join(' ');
   }
 }
 
@@ -306,28 +378,30 @@ class _RecipeCountBadge extends StatelessWidget {
 class _RecipeControls extends StatelessWidget {
   const _RecipeControls({
     required this.searchController,
-    required this.selectedTag,
+    required this.selectedCategoryIds,
     required this.timeFilter,
     required this.sort,
     required this.savedOnly,
-    required this.tags,
+    required this.categories,
     required this.onSearchChanged,
     required this.onClearSearch,
-    required this.onTagChanged,
+    required this.onCategoryToggled,
+    required this.onClearCategories,
     required this.onTimeFilterChanged,
     required this.onSortChanged,
     required this.onSavedOnlyChanged,
   });
 
   final TextEditingController searchController;
-  final String selectedTag;
+  final Set<String> selectedCategoryIds;
   final _TimeFilter timeFilter;
   final _RecipeSort sort;
   final bool savedOnly;
-  final List<String> tags;
+  final List<CategoryModel> categories;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
-  final ValueChanged<String> onTagChanged;
+  final ValueChanged<String> onCategoryToggled;
+  final VoidCallback onClearCategories;
   final ValueChanged<_TimeFilter> onTimeFilterChanged;
   final ValueChanged<_RecipeSort> onSortChanged;
   final ValueChanged<bool> onSavedOnlyChanged;
@@ -407,19 +481,26 @@ class _RecipeControls extends StatelessWidget {
                   ],
                 ),
               const SizedBox(height: AppSpacing.md),
-              Text('Category', style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
+              Row(
                 children: [
-                  for (final tag in tags)
-                    ChoiceChip(
-                      label: Text(tag),
-                      selected: selectedTag == tag,
-                      onSelected: (_) => onTagChanged(tag),
+                  Expanded(
+                    child: Text(
+                      'Categories',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  if (selectedCategoryIds.isNotEmpty)
+                    TextButton(
+                      onPressed: onClearCategories,
+                      child: const Text('Clear'),
                     ),
                 ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _CategoryFilterCloud(
+                categories: categories,
+                selectedCategoryIds: selectedCategoryIds,
+                onCategoryToggled: onCategoryToggled,
               ),
               const SizedBox(height: AppSpacing.md),
               Text('Cook time', style: Theme.of(context).textTheme.labelLarge),
@@ -469,6 +550,51 @@ class _RecipeControls extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _CategoryFilterCloud extends StatelessWidget {
+  const _CategoryFilterCloud({
+    required this.categories,
+    required this.selectedCategoryIds,
+    required this.onCategoryToggled,
+  });
+
+  final List<CategoryModel> categories;
+  final Set<String> selectedCategoryIds;
+  final ValueChanged<String> onCategoryToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedCategories = [...categories]
+      ..sort((left, right) {
+        final count = right.recipesCount.compareTo(left.recipesCount);
+        if (count != 0) {
+          return count;
+        }
+
+        return left.title.compareTo(right.title);
+      });
+    final atLimit =
+        selectedCategoryIds.length >= _RecipesPageState._maxSelectedCategories;
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        for (final category in sortedCategories)
+          FilterChip(
+            label: Text('${category.title} ${category.recipesCount}'),
+            selected: selectedCategoryIds.contains(category.id),
+            avatar: selectedCategoryIds.contains(category.id)
+                ? const Icon(Icons.check_rounded, size: 17)
+                : Icon(category.icon, size: 17),
+            onSelected: selectedCategoryIds.contains(category.id) || !atLimit
+                ? (_) => onCategoryToggled(category.id)
+                : null,
+          ),
+      ],
     );
   }
 }
