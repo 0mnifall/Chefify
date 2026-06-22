@@ -58,7 +58,7 @@ class HomeMockData {
         rating: 4.8,
         accentColor: Color(0xFFED7A3A),
         imageUrl:
-            'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=80',
       ),
       RecipeModel(
         id: 'miso-glazed-salmon',
