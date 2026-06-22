@@ -1,10 +1,8 @@
-using backend.Models;
-using static System.Net.Mime.MediaTypeNames;
-
 namespace backend.Dto;
 
-public class UserDto
+public class UserPreviewDto
 {
+    public int Id { get; set; }
     public required string Username { get; set; }
     //public string ProfilePictureRef { get; set; }
 }

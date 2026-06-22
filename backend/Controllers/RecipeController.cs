@@ -1,95 +1,86 @@
-using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using backend.Data;
 using backend.Dto;
-using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]s")]
-public class RecipeController(AppDbContext context) : ControllerBase
+public class RecipeController(RecipeService service) : ControllerBase
 {
-    [Authorize]
+    [Authorize(Roles = "User,Admin")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateRecipeDto dto)
     {
         var creatorId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var id = await service.AddRecipe(dto, creatorId);
         
-        var recipe = new Recipe
-        {
-            Title = dto.Title,
-            Description = dto.Description,
-            CookingTime = dto.CookingTime,
-            Difficulty = dto.Difficulty,
-            CreatorId = creatorId
-        };
-        
-        context.Recipes.Add(recipe);
-        await context.SaveChangesAsync();
-        
-        return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
+        return CreatedAtAction(nameof(GetRecipe), new { id });
     }
-    
-    
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Recipe>>> GetRecipes()
+
+    [Authorize(Roles = "User,Admin")]
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> Patch(int id, PatchRecipeDto dto)
     {
-        var recipes = await context.Recipes
-            .Include(r => r.Creator)
-            .Select(r => new RecipeDto
-            {
-                Title = r.Title,
-                Description = r.Description,
-                CookingTime = r.CookingTime,
-                Difficulty = r.Difficulty,
-                Creator = r.Creator.Username
-            })
-            .ToListAsync();
-        if (recipes == null)
+        var recipe = await service.GetRecipeForPatch(id);
+
+        if (recipe == null)
         {
             return NotFound();
         }
-        return Ok(recipes);
+        
+        if (recipe.CreatorId != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value))
+        {
+            return Forbid();
+        }
+
+        await service.PatchRecipe(id, dto, recipe);
+        
+        return NoContent();
+    }
+    
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetRecipes()
+    {
+        return Ok(await service.GetAllRecipes());
     }
 
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Recipe>> GetRecipe(int id)
+    public async Task<ActionResult<RecipeDto>> GetRecipe(int id)
     {
-        var recipe = await context.Recipes
-            .Include(r => r.Creator)
-            .FirstOrDefaultAsync(r => r.Id == id);
-        if (recipe == null)
-        {
-            return NotFound();
-        }
-
-        var recipeDto = new RecipeDto
-        {
-            Title = recipe.Title,
-            Description = recipe.Description,
-            CookingTime = recipe.CookingTime,
-            Difficulty = recipe.Difficulty,
-            Creator = recipe.Creator.Username
-        };
-        return Ok(recipeDto);
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteRecipe(int id)
-    {
-        var recipe = await context.Recipes.FindAsync(id);
+        var recipe = await service.GetRecipeForReview(id);
+        
         if (recipe == null)
         {
             return NotFound();
         }
         
-        context.Recipes.Remove(recipe);
-        await context.SaveChangesAsync();
+        var recipeDto = service.GetRecipeDto(id,  recipe);
+        
+        return Ok(recipeDto);
+    }
+
+    [Authorize(Roles = "User,Admin")]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteRecipe(int id)
+    {
+        var recipe = await service.GetRecipeForDeleting(id);
+        
+        if (recipe == null)
+        {
+            return NotFound();
+        }
+
+        if (recipe.CreatorId != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value))
+        {
+            return Forbid();
+        }
+
+        await service.DeleteRecipe(recipe);
         
         return NoContent();
     }

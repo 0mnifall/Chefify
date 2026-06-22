@@ -14,12 +14,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
   
-  ef:
-    image: mcr.microsoft.com/dotnet/sdk:9.0
-    working_dir: /src/backend
-    volumes:
-      - .:/src
-    entrypoint: [ "dotnet", "ef" ]
 
   api:
     build:
@@ -34,6 +28,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: "http://+:8080"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=chefify_db;Username=postgres;Password=postgres"
+      ADMIN_EMAIL: admin@chefify.com
+      ADMIN_PASSWORD: Admin_12131416
       
   frontend-web:
     build:

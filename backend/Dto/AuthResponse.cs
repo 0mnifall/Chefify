@@ -4,7 +4,8 @@ namespace backend.Dto;
 
 public class AuthResponse
 {
-    public string AccessToken { get; set; }
     [Required]
-    public string RefreshToken { get; set; } 
+    public required string AccessToken { get; set; }
+    [Required]
+    public required string RefreshToken { get; set; } 
 }

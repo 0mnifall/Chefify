@@ -1,31 +1,17 @@
-using backend.Data;
 using backend.Dto;
+using backend.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController(AppDbContext context) : ControllerBase
+public class UsersController(UserService service) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAllUsers()
     {
-        var users = await context.Users
-            .Select(u => new UserDto
-            {
-                Username = u.Username,
-                Recipes = u.Recipes.Select(r => new RecipeDto
-                {
-                    Title = r.Title,
-                    Description = r.Description,
-                    CookingTime = r.CookingTime,
-                    Difficulty = r.Difficulty,
-                    Creator = u.Username
-                }).ToList()
-            })
-            .ToListAsync();
+        var users = await service.GetAllUsers();
         
         return Ok(users);
     }
@@ -33,29 +19,30 @@ public class UsersController(AppDbContext context) : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetUser(int id)
     {
-        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == id);
+        var user = await service.GetUser(id);
+        
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        var userDto = service.ToDto(user);
+        
+        return Ok(userDto);
+    }
+
+    [HttpGet("{id}/recipes")]
+    public async Task<ActionResult<IEnumerable<RecipePreviewDto>>> GetUserRecipes(int id)
+    {
+        var user = await service.GetUserEntity(id);
 
         if (user == null)
         {
             return NotFound();
         }
 
-        var recipes = await context.Recipes
-            .Where(r => r.CreatorId == id)
-            .Select(r => new RecipeDto
-            {
-                Title = r.Title,
-                Description = r.Description,
-                CookingTime = r.CookingTime,
-                Difficulty = r.Difficulty,
-                Creator = user.Username
-            }).ToListAsync();
-
-        var userDto = new UserDto
-        {
-            Username = user.Username,
-            Recipes = recipes
-        };
-        return Ok(userDto);
+        var recipes = service.GetUserRecipes(user);
+        
+        return Ok(recipes);
     }
 }
