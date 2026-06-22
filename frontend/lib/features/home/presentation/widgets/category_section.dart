@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/widgets/app_button.dart';
 import 'package:frontend/core/widgets/section_header.dart';
 import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
@@ -22,11 +24,18 @@ class CategorySection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionHeader(
+              SectionHeader(
                 eyebrow: 'DISCOVER',
                 title: 'Browse by category',
                 subtitle:
                     'Pick a mood and we will find recipes that fit your day.',
+                action: AppButton(
+                  label: 'See all',
+                  variant: AppButtonVariant.ghost,
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(AppRouter.categories);
+                  },
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
               ResponsiveWrapGrid<CategoryModel>(
@@ -43,7 +52,14 @@ class CategorySection extends StatelessWidget {
                   return width < 360 ? 224 : 218;
                 },
                 itemBuilder: (context, category) {
-                  return CategoryCard(category: category);
+                  return CategoryCard(
+                    category: category,
+                    onTap: () {
+                      Navigator.of(
+                        context,
+                      ).pushNamed(AppRouter.recipes, arguments: category.id);
+                    },
+                  );
                 },
               ),
             ],

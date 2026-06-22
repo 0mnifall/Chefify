@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/localization/app_strings.dart';
+import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/data/home_mock_data.dart';
 import 'package:frontend/features/home/presentation/widgets/app_footer.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
@@ -16,6 +17,7 @@ import 'package:frontend/features/home/presentation/widgets/newsletter_section.d
 import 'package:frontend/features/home/presentation/widgets/stats_banner.dart';
 import 'package:frontend/features/home/presentation/widgets/testimonials_section.dart';
 import 'package:frontend/features/home/presentation/widgets/trending_recipes_section.dart';
+import 'package:frontend/features/recipes/data/recipe_catalog.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -32,30 +34,35 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<RecipeModel>? _trendingRecipes;
+  List<RecipeModel> _trendingRecipes = RecipeCatalog.popular(take: 4);
+  List<CategoryModel> _popularCategories = CategoryCatalog.popularForRecipes(
+    RecipeCatalog.items,
+    take: 4,
+  );
 
   @override
   void initState() {
     super.initState();
-    _loadPopularRecipes();
+    _loadHomeRecipeData();
   }
 
   @override
   void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.recipeRepository != widget.recipeRepository) {
-      _loadPopularRecipes();
+      _loadHomeRecipeData();
     }
   }
 
-  Future<void> _loadPopularRecipes() async {
-    final recipes = await widget.recipeRepository.fetchPopularRecipes(take: 4);
+  Future<void> _loadHomeRecipeData() async {
+    final recipes = await widget.recipeRepository.fetchRecipes();
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _trendingRecipes = recipes;
+      _trendingRecipes = _popularRecipesFor(recipes, take: 4);
+      _popularCategories = CategoryCatalog.popularForRecipes(recipes, take: 4);
     });
   }
 
@@ -64,9 +71,9 @@ class _HomePageState extends State<HomePage> {
     final content = HomeMockData.content;
     final palette = context.palette;
     final strings = AppStrings.of(context);
-    final heroRecipe = _trendingRecipes == null || _trendingRecipes!.isEmpty
+    final heroRecipe = _trendingRecipes.isEmpty
         ? content.featuredRecipe
-        : _trendingRecipes!.first;
+        : _trendingRecipes.first;
 
     return Scaffold(
       body: DecoratedBox(
@@ -94,11 +101,8 @@ class _HomePageState extends State<HomePage> {
                         subtitle: strings.heroSubtitle,
                         featuredRecipe: heroRecipe,
                       ),
-                      CategorySection(categories: content.categories),
-                      TrendingRecipesSection(
-                        recipes: _trendingRecipes ?? const [],
-                        isLoading: _trendingRecipes == null,
-                      ),
+                      CategorySection(categories: _popularCategories),
+                      TrendingRecipesSection(recipes: _trendingRecipes),
                       BenefitsSection(benefits: content.benefits),
                       FeaturedRecipeSection(recipe: content.featuredRecipe),
                       StatsBanner(stats: content.stats),
@@ -119,6 +123,26 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  List<RecipeModel> _popularRecipesFor(
+    List<RecipeModel> recipes, {
+    required int take,
+  }) {
+    final sortedRecipes = [...recipes];
+    sortedRecipes.sort((left, right) {
+      final rating = right.rating.compareTo(left.rating);
+      if (rating != 0) {
+        return rating;
+      }
+
+      return left.title.compareTo(right.title);
+    });
+
+    final safeTake = sortedRecipes.isEmpty
+        ? 0
+        : take.clamp(1, sortedRecipes.length).toInt();
+    return sortedRecipes.take(safeTake).toList(growable: false);
   }
 }
 
