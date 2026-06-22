@@ -9,13 +9,18 @@ class MobileAppPromoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, AppSpacing.sectionGap),
+      padding: AppSpacing.sectionInsets(context),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSpacing.contentMaxWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.contentMaxWidth,
+          ),
           child: Container(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: EdgeInsets.all(
+              AppSpacing.panelPaddingForWidth(viewportWidth),
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               gradient: LinearGradient(
@@ -27,23 +32,30 @@ class MobileAppPromoSection extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final stacked = constraints.maxWidth < 900;
+                final phoneWidth = constraints.maxWidth < 360
+                    ? constraints.maxWidth
+                    : 360.0;
+
                 if (stacked) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _PromoContent(),
+                      const _PromoContent(),
                       const SizedBox(height: AppSpacing.lg),
-                      _PromoPhoneMock(width: constraints.maxWidth),
+                      Align(
+                        alignment: Alignment.center,
+                        child: _PromoPhoneMock(width: phoneWidth),
+                      ),
                     ],
                   );
                 }
 
-                return Row(
+                return const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Expanded(child: _PromoContent()),
+                    Expanded(child: _PromoContent()),
                     SizedBox(width: AppSpacing.xl),
-                    const _PromoPhoneMock(width: 250),
+                    _PromoPhoneMock(width: 250),
                   ],
                 );
               },
@@ -61,40 +73,65 @@ class _PromoContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final appStoreButton = AppButton(
+      label: 'Download on App Store',
+      icon: Icons.apple,
+      onPressed: () {},
+    );
+    final googlePlayButton = AppButton(
+      label: 'Get it on Google Play',
+      icon: Icons.play_arrow_rounded,
+      variant: AppButtonVariant.outlined,
+      onPressed: () {},
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Take Chefify wherever you cook',
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-            color: palette.mainText,
-            fontSize: 34,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(color: palette.mainText),
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
           'Sync shopping lists, watch guided steps, and track your progress from phone to desktop.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: palette.secondaryText,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: palette.secondaryText),
         ),
         const SizedBox(height: AppSpacing.xl),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: [
-            AppButton(
-              label: 'Download on App Store',
-              icon: Icons.apple,
-              onPressed: () {},
-            ),
-            AppButton(
-              label: 'Get it on Google Play',
-              icon: Icons.play_arrow_rounded,
-              variant: AppButtonVariant.outlined,
-              onPressed: () {},
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 520) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppButton(
+                    label: 'Download on App Store',
+                    icon: Icons.apple,
+                    isExpanded: true,
+                    onPressed: () {},
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Get it on Google Play',
+                    icon: Icons.play_arrow_rounded,
+                    variant: AppButtonVariant.outlined,
+                    isExpanded: true,
+                    onPressed: () {},
+                  ),
+                ],
+              );
+            }
+
+            return Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [appStoreButton, googlePlayButton],
+            );
+          },
         ),
       ],
     );
@@ -117,11 +154,7 @@ class _PromoPhoneMock extends StatelessWidget {
         color: palette.searchBarBackground,
         border: Border.all(color: palette.borders),
       ),
-      child: Icon(
-        Icons.phone_android_rounded,
-        size: 86,
-        color: palette.icons,
-      ),
+      child: Icon(Icons.phone_android_rounded, size: 86, color: palette.icons),
     );
   }
 }

@@ -22,8 +22,8 @@ class AppFooter extends StatelessWidget {
           top: BorderSide(color: palette.borders.withValues(alpha: 0.46)),
         ),
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.horizontalPadding(context),
         vertical: AppSpacing.xxl,
       ),
       child: Center(
@@ -33,7 +33,9 @@ class AppFooter extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 920;
+              final compact = !AppSpacing.useDesktopNavigationForContent(
+                constraints.maxWidth,
+              );
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,10 +59,13 @@ class AppFooter extends StatelessWidget {
                   else ...[
                     _FooterBrandAndLinks(strings: strings),
                     const SizedBox(height: AppSpacing.xl),
-                    _FooterControls(
-                      strings: strings,
-                      settings: settings,
-                      currentThemeMode: currentThemeMode,
+                    SizedBox(
+                      width: double.infinity,
+                      child: _FooterControls(
+                        strings: strings,
+                        settings: settings,
+                        currentThemeMode: currentThemeMode,
+                      ),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.xl),
@@ -220,12 +225,12 @@ class _FooterControls extends StatelessWidget {
           segments: [
             ButtonSegment<ThemeMode>(
               value: ThemeMode.light,
-              label: Text(strings.lightTheme),
+              label: Text(strings.lightTheme, overflow: TextOverflow.ellipsis),
               icon: const Icon(Icons.light_mode_rounded, size: 18),
             ),
             ButtonSegment<ThemeMode>(
               value: ThemeMode.dark,
-              label: Text(strings.darkTheme),
+              label: Text(strings.darkTheme, overflow: TextOverflow.ellipsis),
               icon: const Icon(Icons.dark_mode_rounded, size: 18),
             ),
           ],

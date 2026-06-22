@@ -13,7 +13,12 @@ class AppHeader extends StatelessWidget {
     final palette = context.palette;
     final strings = AppStrings.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.horizontalPadding(context),
+        24,
+        AppSpacing.horizontalPadding(context),
+        10,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
@@ -21,30 +26,31 @@ class AppHeader extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 920;
+              final compact = !AppSpacing.useDesktopNavigationForContent(
+                constraints.maxWidth,
+              );
+              final actionGap = compact ? AppSpacing.xs : AppSpacing.md;
+              final showSearchAction = constraints.maxWidth >= 360;
 
               return Row(
                 children: [
                   const _Logo(),
-                  const SizedBox(width: AppSpacing.lg),
+                  SizedBox(width: actionGap),
                   if (!compact)
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerRight,
-                          child: _DesktopHeaderActions(strings: strings),
-                        ),
+                        child: _DesktopHeaderActions(strings: strings),
                       ),
                     )
                   else ...[
                     const Spacer(),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.search_rounded),
-                      color: palette.icons,
-                    ),
+                    if (showSearchAction)
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.search_rounded),
+                        color: palette.icons,
+                      ),
                     IconButton(
                       onPressed: () {},
                       icon: const Icon(Icons.menu_rounded),
@@ -94,35 +100,42 @@ class _Logo extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => _openRoute(context, AppRouter.home),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxs),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [palette.primaryButtons, palette.activeElements],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 148),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxs),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [palette.primaryButtons, palette.activeElements],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                borderRadius: BorderRadius.circular(14),
+                child: const Icon(
+                  Icons.soup_kitchen_rounded,
+                  color: Colors.white,
+                ),
               ),
-              child: const Icon(
-                Icons.soup_kitchen_rounded,
-                color: Colors.white,
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  'Chefify',
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              'Chefify',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -146,7 +159,7 @@ class _MainNavigation extends StatelessWidget {
       children: [
         for (final item in items)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
             child: TextButton(
               onPressed: item.route == null
                   ? () {}
@@ -156,6 +169,9 @@ class _MainNavigation extends StatelessWidget {
                     item.route != null && _isCurrentRoute(context, item.route!)
                     ? palette.primaryButtons
                     : palette.mainText,
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(item.label),
             ),

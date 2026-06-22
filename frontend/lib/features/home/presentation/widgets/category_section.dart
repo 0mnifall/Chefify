@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/section_header.dart';
+import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
@@ -12,7 +13,7 @@ class CategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, AppSpacing.sectionGap),
+      padding: AppSpacing.sectionInsets(context),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
@@ -28,31 +29,21 @@ class CategorySection extends StatelessWidget {
                     'Pick a mood and we will find recipes that fit your day.',
               ),
               const SizedBox(height: AppSpacing.lg),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final cardWidth = constraints.maxWidth >= 960
-                      ? (constraints.maxWidth - (AppSpacing.md * 3)) / 4
-                      : constraints.maxWidth >= 640
-                      ? (constraints.maxWidth - AppSpacing.md) / 2
-                      : constraints.maxWidth;
-                  final cardHeight = constraints.maxWidth >= 960
-                      ? 248.0
-                      : constraints.maxWidth >= 640
-                      ? 232.0
-                      : 218.0;
-
-                  return Wrap(
-                    spacing: AppSpacing.md,
-                    runSpacing: AppSpacing.md,
-                    children: [
-                      for (final category in categories)
-                        SizedBox(
-                          width: cardWidth,
-                          height: cardHeight,
-                          child: CategoryCard(category: category),
-                        ),
-                    ],
-                  );
+              ResponsiveWrapGrid<CategoryModel>(
+                items: categories,
+                minItemWidth: 250,
+                maxColumns: 4,
+                itemHeightBuilder: (width, columns) {
+                  if (columns >= 4) {
+                    return 248;
+                  }
+                  if (columns == 2) {
+                    return 232;
+                  }
+                  return width < 360 ? 224 : 218;
+                },
+                itemBuilder: (context, category) {
+                  return CategoryCard(category: category);
                 },
               ),
             ],

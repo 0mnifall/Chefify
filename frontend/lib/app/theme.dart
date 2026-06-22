@@ -37,6 +37,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       extensions: [palette],
+      splashFactory: InkRipple.splashFactory,
     );
 
     return base.copyWith(
@@ -79,21 +80,21 @@ class AppTheme {
       displayLarge: TextStyle(
         fontSize: 56,
         height: 1.08,
-        letterSpacing: -1.3,
+        letterSpacing: 0,
         fontWeight: FontWeight.w700,
         color: palette.mainText,
       ),
       displayMedium: TextStyle(
         fontSize: 42,
         height: 1.14,
-        letterSpacing: -0.6,
+        letterSpacing: 0,
         fontWeight: FontWeight.w700,
         color: palette.mainText,
       ),
       headlineMedium: TextStyle(
         fontSize: 30,
         height: 1.2,
-        letterSpacing: -0.4,
+        letterSpacing: 0,
         fontWeight: FontWeight.w700,
         color: palette.mainText,
       ),
