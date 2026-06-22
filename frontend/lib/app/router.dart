@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/categories/presentation/pages/categories_page.dart';
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
@@ -6,6 +7,7 @@ import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 class AppRouter {
   static const String home = '/';
   static const String recipes = '/recipes';
+  static const String categories = '/categories';
 
   static Route<dynamic> onGenerateRoute(
     RouteSettings settings, {
@@ -20,6 +22,11 @@ class AppRouter {
       case recipes:
         return MaterialPageRoute<void>(
           builder: (_) => RecipesPage(recipeRepository: recipeRepository),
+          settings: settings,
+        );
+      case categories:
+        return MaterialPageRoute<void>(
+          builder: (_) => CategoriesPage(recipeRepository: recipeRepository),
           settings: settings,
         );
       default:

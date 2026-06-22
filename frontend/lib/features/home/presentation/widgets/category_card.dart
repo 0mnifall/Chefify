@@ -6,9 +6,10 @@ import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class CategoryCard extends StatelessWidget {
-  const CategoryCard({super.key, required this.category});
+  const CategoryCard({super.key, required this.category, this.onTap});
 
   final CategoryModel category;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +18,7 @@ class CategoryCard extends StatelessWidget {
 
     return AppCard(
       padding: EdgeInsets.zero,
+      onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
         child: Stack(
