@@ -507,11 +507,20 @@ class _RecipesGrid extends StatelessWidget {
       items: recipes,
       minItemWidth: 240,
       maxColumns: 4,
+      itemHeightBuilder: _recipeCardHeight,
       itemBuilder: (context, recipe) {
         return RecipeCard(recipe: recipe);
       },
     );
   }
+}
+
+double _recipeCardHeight(double width, int columns) {
+  if (columns == 1 || width < 280) {
+    return 334;
+  }
+
+  return 348;
 }
 
 class _EmptyRecipesState extends StatelessWidget {
