@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/authors/presentation/pages/author_profile_page.dart';
 import 'package:frontend/features/categories/presentation/pages/categories_page.dart';
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
@@ -9,9 +10,14 @@ class AppRouter {
   static const String home = '/';
   static const String recipes = '/recipes';
   static const String categories = '/categories';
+  static const String authors = '/authors';
 
   static String recipeDetailsPath(String recipeId) {
     return '$recipes/${Uri.encodeComponent(recipeId)}';
+  }
+
+  static String authorProfilePath(String authorName) {
+    return '$authors/${Uri.encodeComponent(_slug(authorName))}';
   }
 
   static Route<dynamic> onGenerateRoute(
@@ -20,6 +26,7 @@ class AppRouter {
   }) {
     final routeName = settings.name ?? home;
     final recipeId = _recipeIdFromRoute(routeName);
+    final authorSlug = _authorSlugFromRoute(routeName);
 
     if (recipeId != null) {
       final arguments = RecipeDetailsPageArguments.from(
@@ -31,6 +38,21 @@ class AppRouter {
           recipeRepository: recipeRepository,
           recipeId: arguments.recipeId,
           initialRecipe: arguments.initialRecipe,
+        ),
+        settings: settings,
+      );
+    }
+
+    if (authorSlug != null) {
+      final arguments = AuthorProfilePageArguments.from(
+        settings.arguments,
+        fallbackAuthorSlug: authorSlug,
+      );
+      return MaterialPageRoute<void>(
+        builder: (_) => AuthorProfilePage(
+          recipeRepository: recipeRepository,
+          authorSlug: arguments.authorSlug,
+          authorName: arguments.authorName,
         ),
         settings: settings,
       );
@@ -76,5 +98,26 @@ class AppRouter {
     }
 
     return Uri.decodeComponent(recipeId);
+  }
+
+  static String? _authorSlugFromRoute(String routeName) {
+    const prefix = '$authors/';
+    if (!routeName.startsWith(prefix)) {
+      return null;
+    }
+
+    final authorSlug = routeName.substring(prefix.length).trim();
+    if (authorSlug.isEmpty) {
+      return null;
+    }
+
+    return Uri.decodeComponent(authorSlug);
+  }
+
+  static String _slug(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
   }
 }
