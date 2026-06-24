@@ -99,6 +99,10 @@ class _RecipeCardBody extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
+          if (recipe.tags.isNotEmpty) ...[
+            _RecipeTagRow(tags: recipe.tags),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           if (pinFooter) const Spacer(),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,6 +123,130 @@ class _RecipeCardBody extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RecipeTagRow extends StatelessWidget {
+  const _RecipeTagRow({required this.tags});
+
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: palette.mainText,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final visibleTags = _visibleTagsForWidth(
+          context,
+          tags,
+          constraints.maxWidth,
+          textStyle,
+        );
+
+        return SizedBox(
+          height: 24,
+          child: Row(
+            children: [
+              for (var index = 0; index < visibleTags.length; index++) ...[
+                if (index > 0) const SizedBox(width: AppSpacing.xxs),
+                Flexible(
+                  flex: 0,
+                  child: _RecipeTagChip(
+                    label: visibleTags[index],
+                    textStyle: textStyle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<String> _visibleTagsForWidth(
+    BuildContext context,
+    List<String> tags,
+    double maxWidth,
+    TextStyle? textStyle,
+  ) {
+    if (!maxWidth.isFinite || maxWidth <= 0) {
+      return tags.take(2).map(_formatRecipeTag).toList(growable: false);
+    }
+
+    final visibleTags = <String>[];
+    var usedWidth = 0.0;
+
+    for (final tag in tags) {
+      final label = _formatRecipeTag(tag);
+      final chipWidth = _measureTagWidth(context, label, textStyle);
+      final nextWidth =
+          usedWidth + (visibleTags.isEmpty ? 0 : AppSpacing.xxs) + chipWidth;
+
+      if (nextWidth > maxWidth) {
+        if (visibleTags.isEmpty) {
+          visibleTags.add(label);
+        }
+        break;
+      }
+
+      visibleTags.add(label);
+      usedWidth = nextWidth;
+    }
+
+    return visibleTags;
+  }
+
+  double _measureTagWidth(
+    BuildContext context,
+    String label,
+    TextStyle? textStyle,
+  ) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: textStyle ?? DefaultTextStyle.of(context).style,
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return textPainter.width + 20;
+  }
+}
+
+class _RecipeTagChip extends StatelessWidget {
+  const _RecipeTagChip({required this.label, required this.textStyle});
+
+  final String label;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 118),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: textStyle,
       ),
     );
   }
@@ -201,4 +329,22 @@ int _cacheDimension(
   }
 
   return (logicalPixels * devicePixelRatio).round().clamp(1, max).toInt();
+}
+
+String _formatRecipeTag(String tag) {
+  final words = tag
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty);
+
+  return words
+      .map((word) {
+        if (word.length == 1) {
+          return word.toUpperCase();
+        }
+
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }

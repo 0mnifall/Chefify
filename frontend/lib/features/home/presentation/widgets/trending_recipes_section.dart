@@ -78,10 +78,10 @@ class TrendingRecipesSection extends StatelessWidget {
 
 double _recipeCardHeight(double width, int columns) {
   if (columns == 1 || width < 280) {
-    return 334;
+    return 350;
   }
 
-  return 348;
+  return 364;
 }
 
 class _TrendingRecipesLoading extends StatelessWidget {
