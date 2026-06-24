@@ -1168,6 +1168,9 @@ class _RecipeSearchSuggestionTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          key: ValueKey(
+            'recipe-search-suggestion-${suggestion.type.name}-${CategoryCatalog.slug(suggestion.value)}',
+          ),
           onTap: () => onSelected(suggestion),
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -1238,6 +1241,7 @@ class _TagSearchTokenChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SearchTokenShell(
+      key: ValueKey('recipe-search-tag-token-${tag.id}'),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1259,6 +1263,7 @@ class _AuthorSearchTokenChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SearchTokenShell(
+      key: ValueKey('recipe-search-author-token-${author.id}'),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1274,7 +1279,7 @@ class _AuthorSearchTokenChip extends StatelessWidget {
 }
 
 class _SearchTokenShell extends StatelessWidget {
-  const _SearchTokenShell({required this.child});
+  const _SearchTokenShell({super.key, required this.child});
 
   final Widget child;
 

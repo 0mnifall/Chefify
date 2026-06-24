@@ -256,7 +256,7 @@ class _RecipeCardBody extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           if (pinFooter) const Spacer(),
           if (recipe.tags.isNotEmpty) ...[
-            _RecipeTagRow(tags: recipe.tags),
+            _RecipeTagRow(recipeId: recipe.id, tags: recipe.tags),
             const SizedBox(height: AppSpacing.sm),
           ],
           Row(
@@ -284,8 +284,9 @@ class _RecipeCardBody extends StatelessWidget {
 }
 
 class _RecipeTagRow extends StatelessWidget {
-  const _RecipeTagRow({required this.tags});
+  const _RecipeTagRow({required this.recipeId, required this.tags});
 
+  final String recipeId;
   final List<String> tags;
 
   @override
@@ -320,6 +321,9 @@ class _RecipeTagRow extends StatelessWidget {
                 Flexible(
                   flex: 0,
                   child: _RecipeTagChip(
+                    key: ValueKey(
+                      'recipe-card-tag-$recipeId-${_tagKey(tagLayout.visibleTags[index].tag)}',
+                    ),
                     tag: tagLayout.visibleTags[index].tag,
                     label: tagLayout.visibleTags[index].label,
                     textStyle: textStyle,
@@ -603,6 +607,7 @@ class _RecipeTagPopover extends StatelessWidget {
 
 class _RecipeTagChip extends StatelessWidget {
   const _RecipeTagChip({
+    super.key,
     required this.tag,
     required this.label,
     required this.textStyle,
@@ -778,4 +783,11 @@ void _openRecipeTagFilter(BuildContext context, String tag) {
     AppRouter.recipes,
     arguments: RecipesPageArguments(tagIds: [tag]),
   );
+}
+
+String _tagKey(String tag) {
+  return tag
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
 }
