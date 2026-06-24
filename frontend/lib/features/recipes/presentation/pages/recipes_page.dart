@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
@@ -80,11 +83,15 @@ class _RecipesPageState extends State<RecipesPage> {
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
   List<RecipeModel> _recipes = RecipeCatalog.items;
+  late _RecipeQueryIndex _recipeIndex;
+  _RecipeFilterCacheKey? _visibleRecipesCacheKey;
+  List<RecipeModel> _visibleRecipesCache = const [];
   int _currentPage = 1;
 
   @override
   void initState() {
     super.initState();
+    _recipeIndex = _RecipeQueryIndex(_recipes);
     _selectedCategoryIds = _normalizedInitialCategoryIds(
       widget.initialCategoryIds,
     );
@@ -137,14 +144,21 @@ class _RecipesPageState extends State<RecipesPage> {
 
   Future<void> _loadRecipes() async {
     final recipes = await widget.recipeRepository.fetchRecipes();
-    if (!mounted) {
+    if (!mounted || _sameRecipeLists(_recipes, recipes)) {
       return;
     }
 
     setState(() {
-      _recipes = recipes;
-      _currentPage = 1;
+      _replaceRecipes(recipes);
     });
+  }
+
+  void _replaceRecipes(List<RecipeModel> recipes) {
+    _recipes = recipes;
+    _recipeIndex = _RecipeQueryIndex(recipes);
+    _visibleRecipesCacheKey = null;
+    _visibleRecipesCache = const [];
+    _currentPage = 1;
   }
 
   @override
@@ -157,7 +171,7 @@ class _RecipesPageState extends State<RecipesPage> {
     final pageCount = _pageCount(recipes.length);
     final currentPage = _currentPage.clamp(1, pageCount).toInt();
     final pageRecipes = _recipesForPage(recipes, currentPage);
-    final categories = CategoryCatalog.withRecipeCounts(_recipes);
+    final categories = _recipeIndex.categories;
 
     return Scaffold(
       body: DecoratedBox(
@@ -172,6 +186,7 @@ class _RecipesPageState extends State<RecipesPage> {
           children: [
             CustomScrollView(
               controller: _scrollController,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(160),
               slivers: [
                 _RecipesContentSliver(
                   topPadding: headerHeight + AppSpacing.xl,
@@ -183,13 +198,17 @@ class _RecipesPageState extends State<RecipesPage> {
                       _RecipeControls(
                         searchController: _searchController,
                         selectedCategoryIds: _selectedCategoryIds,
-                        selectedTags: _selectedTagTokens(),
-                        selectedAuthors: _selectedAuthorTokens(),
+                        selectedTags: _recipeIndex.selectedTagTokens(
+                          _selectedTagIds,
+                        ),
+                        selectedAuthors: _recipeIndex.selectedAuthorTokens(
+                          _selectedAuthorIds,
+                        ),
                         timeFilter: _timeFilter,
                         sort: _sort,
                         savedOnly: _savedOnly,
                         categories: categories,
-                        recipes: _recipes,
+                        recipeIndex: _recipeIndex,
                         onSearchChanged: (value) {
                           setState(() {
                             _query = value;
@@ -264,53 +283,34 @@ class _RecipesPageState extends State<RecipesPage> {
 
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
-    final normalizedQuery = _query.trim().toLowerCase();
-    final normalizedSlugQuery = CategoryCatalog.slug(normalizedQuery);
-    final sourceRecipes = _recipes;
-    final recipes = sourceRecipes.where((recipe) {
-      final searchText = _recipeSearchText(recipe);
-      final matchesSearch =
-          normalizedQuery.isEmpty ||
-          searchText.contains(normalizedQuery) ||
-          (normalizedSlugQuery.isNotEmpty &&
-              CategoryCatalog.slug(searchText).contains(normalizedSlugQuery));
-      final matchesCategory =
-          _selectedCategoryIds.isEmpty ||
-          _selectedCategoryIds.any(
-            (categoryId) =>
-                CategoryCatalog.recipeMatchesCategoryId(recipe, categoryId),
-          );
-      final matchesTags =
-          _selectedTagIds.isEmpty || _recipeMatchesAllTags(recipe);
-      final matchesAuthor =
-          _selectedAuthorIds.isEmpty ||
-          _selectedAuthorIds.contains(_authorId(recipe.author));
-      final matchesTime = switch (_timeFilter) {
-        _TimeFilter.any => true,
-        _TimeFilter.under20 => recipe.minutes <= 20,
-        _TimeFilter.under30 => recipe.minutes <= 30,
-        _TimeFilter.over30 => recipe.minutes > 30,
-      };
-      final matchesSaved = !_savedOnly || bookmarkStore.isRecipeSaved(recipe);
+    final cacheKey = _RecipeFilterCacheKey(
+      query: _query,
+      selectedCategoryIds: _selectedCategoryIds,
+      selectedTagIds: _selectedTagIds,
+      selectedAuthorIds: _selectedAuthorIds,
+      timeFilter: _timeFilter,
+      sort: _sort,
+      savedOnly: _savedOnly,
+      bookmarkVersion: _savedOnly ? bookmarkStore.version : 0,
+    );
 
-      return matchesSearch &&
-          matchesCategory &&
-          matchesTags &&
-          matchesAuthor &&
-          matchesTime &&
-          matchesSaved;
-    }).toList();
+    if (_visibleRecipesCacheKey == cacheKey) {
+      return _visibleRecipesCache;
+    }
 
-    recipes.sort((left, right) {
-      return switch (_sort) {
-        _RecipeSort.featured =>
-          sourceRecipes.indexOf(left).compareTo(sourceRecipes.indexOf(right)),
-        _RecipeSort.rating => right.rating.compareTo(left.rating),
-        _RecipeSort.quickest => left.minutes.compareTo(right.minutes),
-        _RecipeSort.title => left.title.compareTo(right.title),
-      };
-    });
+    final recipes = _recipeIndex.visibleRecipes(
+      query: _query,
+      selectedCategoryIds: _selectedCategoryIds,
+      selectedTagIds: _selectedTagIds,
+      selectedAuthorIds: _selectedAuthorIds,
+      timeFilter: _timeFilter,
+      sort: _sort,
+      savedOnly: _savedOnly,
+      isRecipeSaved: bookmarkStore.isRecipeSaved,
+    );
 
+    _visibleRecipesCacheKey = cacheKey;
+    _visibleRecipesCache = recipes;
     return recipes;
   }
 
@@ -395,43 +395,6 @@ class _RecipesPageState extends State<RecipesPage> {
         normalizedLeft.containsAll(normalizedRight);
   }
 
-  bool _recipeMatchesAllTags(RecipeModel recipe) {
-    final recipeTagIds = recipe.tags.map(_tagId).toSet();
-    return _selectedTagIds.every(recipeTagIds.contains);
-  }
-
-  List<_SearchTagToken> _selectedTagTokens() {
-    final labelsById = <String, String>{};
-    for (final recipe in _recipes) {
-      for (final tag in recipe.tags) {
-        labelsById.putIfAbsent(_tagId(tag), () => _readableSearchLabel(tag));
-      }
-    }
-
-    return [
-      for (final tagId in _selectedTagIds)
-        _SearchTagToken(
-          id: tagId,
-          label: labelsById[tagId] ?? _readableSearchLabel(tagId),
-        ),
-    ];
-  }
-
-  List<_SearchAuthorToken> _selectedAuthorTokens() {
-    final namesById = <String, String>{};
-    for (final recipe in _recipes) {
-      namesById.putIfAbsent(_authorId(recipe.author), () => recipe.author);
-    }
-
-    return [
-      for (final authorId in _selectedAuthorIds)
-        _SearchAuthorToken(
-          id: authorId,
-          name: namesById[authorId] ?? _readableTagLabel(authorId),
-        ),
-    ];
-  }
-
   void _removeSelectedTag(String tagId) {
     setState(() {
       _selectedTagIds = {..._selectedTagIds}..remove(tagId);
@@ -484,10 +447,453 @@ class _RecipesPageState extends State<RecipesPage> {
     });
   }
 
-  String _recipeSearchText(RecipeModel recipe) {
+  String _tagId(String tag) {
+    return CategoryCatalog.slug(tag);
+  }
+
+  String _authorId(String author) {
+    return CategoryCatalog.slug(author);
+  }
+}
+
+class _RecipeFilterCacheKey {
+  _RecipeFilterCacheKey({
+    required String query,
+    required Set<String> selectedCategoryIds,
+    required Set<String> selectedTagIds,
+    required Set<String> selectedAuthorIds,
+    required this.timeFilter,
+    required this.sort,
+    required this.savedOnly,
+    required this.bookmarkVersion,
+  }) : query = query.trim().toLowerCase(),
+       categoryKey = _setKey(selectedCategoryIds),
+       tagKey = _setKey(selectedTagIds),
+       authorKey = _setKey(selectedAuthorIds);
+
+  final String query;
+  final String categoryKey;
+  final String tagKey;
+  final String authorKey;
+  final _TimeFilter timeFilter;
+  final _RecipeSort sort;
+  final bool savedOnly;
+  final int bookmarkVersion;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _RecipeFilterCacheKey &&
+        query == other.query &&
+        categoryKey == other.categoryKey &&
+        tagKey == other.tagKey &&
+        authorKey == other.authorKey &&
+        timeFilter == other.timeFilter &&
+        sort == other.sort &&
+        savedOnly == other.savedOnly &&
+        bookmarkVersion == other.bookmarkVersion;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      query,
+      categoryKey,
+      tagKey,
+      authorKey,
+      timeFilter,
+      sort,
+      savedOnly,
+      bookmarkVersion,
+    );
+  }
+
+  static String _setKey(Set<String> values) {
+    if (values.isEmpty) {
+      return '';
+    }
+
+    return (values.toList()..sort()).join('|');
+  }
+}
+
+class _RecipeQueryIndex {
+  _RecipeQueryIndex(List<RecipeModel> recipes)
+    : entries = _buildEntries(recipes),
+      categories = _buildCategories(recipes),
+      _tagSuggestions = _buildTagSuggestions(recipes),
+      _authorSuggestions = _buildAuthorSuggestions(recipes),
+      _tagLabelsById = _buildTagLabels(recipes),
+      _authorNamesById = _buildAuthorNames(recipes);
+
+  final List<_RecipeIndexEntry> entries;
+  final List<CategoryModel> categories;
+  final List<_TagSuggestionEntry> _tagSuggestions;
+  final List<_AuthorSuggestionEntry> _authorSuggestions;
+  final Map<String, String> _tagLabelsById;
+  final Map<String, String> _authorNamesById;
+
+  List<RecipeModel> visibleRecipes({
+    required String query,
+    required Set<String> selectedCategoryIds,
+    required Set<String> selectedTagIds,
+    required Set<String> selectedAuthorIds,
+    required _TimeFilter timeFilter,
+    required _RecipeSort sort,
+    required bool savedOnly,
+    required bool Function(RecipeModel recipe) isRecipeSaved,
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final normalizedSlugQuery = CategoryCatalog.slug(normalizedQuery);
+    final matches = <_RecipeIndexEntry>[];
+
+    for (final entry in entries) {
+      if (!_matchesSearch(entry, normalizedQuery, normalizedSlugQuery)) {
+        continue;
+      }
+      if (selectedCategoryIds.isNotEmpty &&
+          !selectedCategoryIds.any(entry.categoryIds.contains)) {
+        continue;
+      }
+      if (selectedTagIds.isNotEmpty &&
+          !selectedTagIds.every(entry.tagIds.contains)) {
+        continue;
+      }
+      if (selectedAuthorIds.isNotEmpty &&
+          !selectedAuthorIds.contains(entry.authorId)) {
+        continue;
+      }
+      if (!_matchesTime(entry.recipe, timeFilter)) {
+        continue;
+      }
+      if (savedOnly && !isRecipeSaved(entry.recipe)) {
+        continue;
+      }
+
+      matches.add(entry);
+    }
+
+    matches.sort((left, right) {
+      return switch (sort) {
+        _RecipeSort.featured => left.sourceIndex.compareTo(right.sourceIndex),
+        _RecipeSort.rating => right.recipe.rating.compareTo(left.recipe.rating),
+        _RecipeSort.quickest => left.recipe.minutes.compareTo(
+          right.recipe.minutes,
+        ),
+        _RecipeSort.title => left.recipe.title.compareTo(right.recipe.title),
+      };
+    });
+
+    return [for (final entry in matches) entry.recipe];
+  }
+
+  List<_SearchTagToken> selectedTagTokens(Set<String> selectedTagIds) {
+    return [
+      for (final tagId in selectedTagIds)
+        _SearchTagToken(
+          id: tagId,
+          label: _tagLabelsById[tagId] ?? _readableSearchLabel(tagId),
+        ),
+    ];
+  }
+
+  List<_SearchAuthorToken> selectedAuthorTokens(Set<String> selectedAuthorIds) {
+    return [
+      for (final authorId in selectedAuthorIds)
+        _SearchAuthorToken(
+          id: authorId,
+          name: _authorNamesById[authorId] ?? _readableSearchLabel(authorId),
+        ),
+    ];
+  }
+
+  List<_RecipeSearchSuggestion> suggestions({
+    required String query,
+    required Set<String> selectedTagIds,
+    required Set<String> selectedAuthorIds,
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final slugQuery = CategoryCatalog.slug(query);
+    if (normalizedQuery.isEmpty) {
+      return const [];
+    }
+
+    return [
+      ..._matchingTagSuggestions(
+        normalizedQuery: normalizedQuery,
+        slugQuery: slugQuery,
+        selectedTagIds: selectedTagIds,
+      ),
+      ..._matchingAuthorSuggestions(
+        normalizedQuery: normalizedQuery,
+        slugQuery: slugQuery,
+        selectedAuthorIds: selectedAuthorIds,
+      ),
+      ..._matchingRecipeSuggestions(
+        normalizedQuery: normalizedQuery,
+        slugQuery: slugQuery,
+      ),
+    ].take(8).toList(growable: false);
+  }
+
+  List<_RecipeSearchSuggestion> _matchingRecipeSuggestions({
+    required String normalizedQuery,
+    required String slugQuery,
+  }) {
+    final matches = <_RecipeIndexEntry>[];
+    final seenRecipeIds = <String>{};
+
+    for (final entry in entries) {
+      final matchesTitle =
+          entry.titleLower.contains(normalizedQuery) ||
+          (slugQuery.isNotEmpty && entry.titleSlug.contains(slugQuery));
+      if (!matchesTitle || !seenRecipeIds.add(entry.recipe.id)) {
+        continue;
+      }
+
+      matches.add(entry);
+    }
+
+    matches.sort((left, right) {
+      final rating = right.recipe.rating.compareTo(left.recipe.rating);
+      if (rating != 0) {
+        return rating;
+      }
+      return left.recipe.title.compareTo(right.recipe.title);
+    });
+
+    return [
+      for (final entry in matches)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.recipe,
+          label: entry.recipe.title,
+          value: entry.recipe.title,
+        ),
+    ];
+  }
+
+  List<_RecipeSearchSuggestion> _matchingTagSuggestions({
+    required String normalizedQuery,
+    required String slugQuery,
+    required Set<String> selectedTagIds,
+  }) {
+    final matches =
+        [
+          for (final tag in _tagSuggestions)
+            if (!selectedTagIds.contains(tag.id) &&
+                (tag.labelLower.contains(normalizedQuery) ||
+                    tag.id.contains(slugQuery)))
+              tag,
+        ]..sort((left, right) {
+          final count = right.count.compareTo(left.count);
+          if (count != 0) {
+            return count;
+          }
+          return left.label.compareTo(right.label);
+        });
+
+    return [
+      for (final tag in matches)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.tag,
+          label: tag.label,
+          value: tag.id,
+          trailingLabel: 'tag',
+        ),
+    ];
+  }
+
+  List<_RecipeSearchSuggestion> _matchingAuthorSuggestions({
+    required String normalizedQuery,
+    required String slugQuery,
+    required Set<String> selectedAuthorIds,
+  }) {
+    final matches =
+        [
+          for (final author in _authorSuggestions)
+            if (!selectedAuthorIds.contains(author.id) &&
+                (author.nameLower.contains(normalizedQuery) ||
+                    author.id.contains(slugQuery)))
+              author,
+        ]..sort((left, right) {
+          final count = right.count.compareTo(left.count);
+          if (count != 0) {
+            return count;
+          }
+          return left.name.compareTo(right.name);
+        });
+
+    return [
+      for (final author in matches)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.author,
+          label: author.name,
+          value: author.id,
+          trailingLabel: 'user',
+        ),
+    ];
+  }
+
+  static bool _matchesSearch(
+    _RecipeIndexEntry entry,
+    String normalizedQuery,
+    String normalizedSlugQuery,
+  ) {
+    return normalizedQuery.isEmpty ||
+        entry.searchText.contains(normalizedQuery) ||
+        (normalizedSlugQuery.isNotEmpty &&
+            entry.searchSlug.contains(normalizedSlugQuery));
+  }
+
+  static bool _matchesTime(RecipeModel recipe, _TimeFilter timeFilter) {
+    return switch (timeFilter) {
+      _TimeFilter.any => true,
+      _TimeFilter.under20 => recipe.minutes <= 20,
+      _TimeFilter.under30 => recipe.minutes <= 30,
+      _TimeFilter.over30 => recipe.minutes > 30,
+    };
+  }
+
+  static List<_RecipeIndexEntry> _buildEntries(List<RecipeModel> recipes) {
+    return [
+      for (var index = 0; index < recipes.length; index++)
+        _RecipeIndexEntry(recipe: recipes[index], sourceIndex: index),
+    ];
+  }
+
+  static List<CategoryModel> _buildCategories(List<RecipeModel> recipes) {
+    final countsByCategoryId = <String, int>{
+      for (final category in CategoryCatalog.items) category.id: 0,
+    };
+
+    for (final recipe in recipes) {
+      for (final categoryId in _categoryIdsForRecipe(recipe)) {
+        countsByCategoryId[categoryId] =
+            (countsByCategoryId[categoryId] ?? 0) + 1;
+      }
+    }
+
+    return [
+      for (final category in CategoryCatalog.items)
+        category.copyWith(recipesCount: countsByCategoryId[category.id] ?? 0),
+    ];
+  }
+
+  static Map<String, String> _buildTagLabels(List<RecipeModel> recipes) {
+    final labelsById = <String, String>{};
+    for (final recipe in recipes) {
+      for (final tag in recipe.tags) {
+        final tagId = CategoryCatalog.slug(tag);
+        if (tagId.isEmpty) {
+          continue;
+        }
+        labelsById.putIfAbsent(tagId, () => _readableSearchLabel(tag));
+      }
+    }
+    return labelsById;
+  }
+
+  static Map<String, String> _buildAuthorNames(List<RecipeModel> recipes) {
+    final namesById = <String, String>{};
+    for (final recipe in recipes) {
+      final authorId = CategoryCatalog.slug(recipe.author);
+      if (authorId.isEmpty) {
+        continue;
+      }
+      namesById.putIfAbsent(authorId, () => recipe.author);
+    }
+    return namesById;
+  }
+
+  static List<_TagSuggestionEntry> _buildTagSuggestions(
+    List<RecipeModel> recipes,
+  ) {
+    final countsById = <String, int>{};
+    final labelsById = <String, String>{};
+
+    for (final recipe in recipes) {
+      for (final tag in recipe.tags) {
+        final tagId = CategoryCatalog.slug(tag);
+        if (tagId.isEmpty) {
+          continue;
+        }
+        labelsById.putIfAbsent(tagId, () => _readableSearchLabel(tag));
+        countsById[tagId] = (countsById[tagId] ?? 0) + 1;
+      }
+    }
+
+    return [
+      for (final tagId in countsById.keys)
+        _TagSuggestionEntry(
+          id: tagId,
+          label: labelsById[tagId]!,
+          count: countsById[tagId]!,
+        ),
+    ];
+  }
+
+  static List<_AuthorSuggestionEntry> _buildAuthorSuggestions(
+    List<RecipeModel> recipes,
+  ) {
+    final countsById = <String, int>{};
+    final namesById = <String, String>{};
+
+    for (final recipe in recipes) {
+      final authorId = CategoryCatalog.slug(recipe.author);
+      if (authorId.isEmpty) {
+        continue;
+      }
+      namesById.putIfAbsent(authorId, () => recipe.author);
+      countsById[authorId] = (countsById[authorId] ?? 0) + 1;
+    }
+
+    return [
+      for (final authorId in countsById.keys)
+        _AuthorSuggestionEntry(
+          id: authorId,
+          name: namesById[authorId]!,
+          count: countsById[authorId]!,
+        ),
+    ];
+  }
+
+  static Set<String> _categoryIdsForRecipe(RecipeModel recipe) {
+    final categoryIds = <String>{};
+    for (final category in CategoryCatalog.items) {
+      if (CategoryCatalog.recipeMatchesCategory(recipe, category)) {
+        categoryIds.add(category.id);
+      }
+    }
+    return categoryIds;
+  }
+}
+
+class _RecipeIndexEntry {
+  _RecipeIndexEntry({required this.recipe, required this.sourceIndex})
+    : titleLower = recipe.title.toLowerCase(),
+      titleSlug = CategoryCatalog.slug(recipe.title),
+      authorId = CategoryCatalog.slug(recipe.author),
+      categoryIds = _RecipeQueryIndex._categoryIdsForRecipe(recipe),
+      tagIds = {
+        for (final tag in recipe.tags)
+          if (CategoryCatalog.slug(tag).isNotEmpty) CategoryCatalog.slug(tag),
+      },
+      searchText = _searchTextFor(recipe),
+      searchSlug = CategoryCatalog.slug(_searchTextFor(recipe));
+
+  final RecipeModel recipe;
+  final int sourceIndex;
+  final String titleLower;
+  final String titleSlug;
+  final String authorId;
+  final Set<String> categoryIds;
+  final Set<String> tagIds;
+  final String searchText;
+  final String searchSlug;
+
+  static String _searchTextFor(RecipeModel recipe) {
     final category = CategoryCatalog.findById(recipe.categoryId);
     final tagText = recipe.tags.expand(
-      (tag) => [tag.toLowerCase(), _readableTagLabel(tag).toLowerCase()],
+      (tag) => [tag.toLowerCase(), _readableSearchLabel(tag).toLowerCase()],
     );
 
     return [
@@ -498,18 +904,77 @@ class _RecipesPageState extends State<RecipesPage> {
       ...tagText,
     ].join(' ');
   }
+}
 
-  String _readableTagLabel(String tag) {
-    return tag.trim().replaceAll(RegExp(r'[_-]+'), ' ');
+class _TagSuggestionEntry {
+  _TagSuggestionEntry({
+    required this.id,
+    required this.label,
+    required this.count,
+  }) : labelLower = label.toLowerCase();
+
+  final String id;
+  final String label;
+  final String labelLower;
+  final int count;
+}
+
+class _AuthorSuggestionEntry {
+  _AuthorSuggestionEntry({
+    required this.id,
+    required this.name,
+    required this.count,
+  }) : nameLower = name.toLowerCase();
+
+  final String id;
+  final String name;
+  final String nameLower;
+  final int count;
+}
+
+bool _sameRecipeLists(List<RecipeModel> left, List<RecipeModel> right) {
+  if (identical(left, right)) {
+    return true;
+  }
+  if (left.length != right.length) {
+    return false;
   }
 
-  String _tagId(String tag) {
-    return CategoryCatalog.slug(tag);
+  for (var index = 0; index < left.length; index++) {
+    if (!_sameRecipe(left[index], right[index])) {
+      return false;
+    }
   }
+  return true;
+}
 
-  String _authorId(String author) {
-    return CategoryCatalog.slug(author);
+bool _sameRecipe(RecipeModel left, RecipeModel right) {
+  return left.id == right.id &&
+      left.title == right.title &&
+      left.categoryId == right.categoryId &&
+      left.categoryName == right.categoryName &&
+      left.author == right.author &&
+      left.minutes == right.minutes &&
+      left.rating == right.rating &&
+      left.accentColor == right.accentColor &&
+      left.description == right.description &&
+      left.imageUrl == right.imageUrl &&
+      left.thumbnailUrl == right.thumbnailUrl &&
+      left.popularityScore == right.popularityScore &&
+      left.isSaved == right.isSaved &&
+      _sameStringLists(left.tags, right.tags);
+}
+
+bool _sameStringLists(List<String> left, List<String> right) {
+  if (left.length != right.length) {
+    return false;
   }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 class _RecipesHeader extends StatelessWidget {
@@ -613,7 +1078,7 @@ class _RecipeControls extends StatelessWidget {
     required this.sort,
     required this.savedOnly,
     required this.categories,
-    required this.recipes,
+    required this.recipeIndex,
     required this.onSearchChanged,
     required this.onClearSearch,
     required this.onTagSelected,
@@ -635,7 +1100,7 @@ class _RecipeControls extends StatelessWidget {
   final _RecipeSort sort;
   final bool savedOnly;
   final List<CategoryModel> categories;
-  final List<RecipeModel> recipes;
+  final _RecipeQueryIndex recipeIndex;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<String> onTagSelected;
@@ -659,7 +1124,7 @@ class _RecipeControls extends StatelessWidget {
             controller: searchController,
             selectedTags: selectedTags,
             selectedAuthors: selectedAuthors,
-            recipes: recipes,
+            recipeIndex: recipeIndex,
             onChanged: onSearchChanged,
             onClearSearch: onClearSearch,
             onTagSelected: onTagSelected,
@@ -783,7 +1248,7 @@ class _RecipeSearchBox extends StatefulWidget {
     required this.controller,
     required this.selectedTags,
     required this.selectedAuthors,
-    required this.recipes,
+    required this.recipeIndex,
     required this.onChanged,
     required this.onClearSearch,
     required this.onTagSelected,
@@ -795,7 +1260,7 @@ class _RecipeSearchBox extends StatefulWidget {
   final TextEditingController controller;
   final List<_SearchTagToken> selectedTags;
   final List<_SearchAuthorToken> selectedAuthors;
-  final List<RecipeModel> recipes;
+  final _RecipeQueryIndex recipeIndex;
   final ValueChanged<String> onChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<String> onTagSelected;
@@ -813,6 +1278,7 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
   final LayerLink _suggestionsLayerLink = LayerLink();
   final GlobalKey _searchBoxKey = GlobalKey();
   OverlayEntry? _suggestionsOverlay;
+  Timer? _changeDebounce;
 
   @override
   void initState() {
@@ -838,6 +1304,7 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
 
   @override
   void dispose() {
+    _changeDebounce?.cancel();
     _removeSuggestionsOverlay();
     widget.controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
@@ -913,7 +1380,7 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
                                 key: const ValueKey('recipes-search-field'),
                                 focusNode: _focusNode,
                                 controller: widget.controller,
-                                onChanged: widget.onChanged,
+                                onChanged: _handleSearchChanged,
                                 textInputAction: TextInputAction.search,
                                 style: Theme.of(context).textTheme.bodyMedium,
                                 decoration: InputDecoration(
@@ -946,7 +1413,7 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
                   if (hasActiveSearch)
                     IconButton(
                       tooltip: 'Clear search',
-                      onPressed: widget.onClearSearch,
+                      onPressed: _clearSearch,
                       icon: const Icon(Icons.close_rounded),
                     ),
                 ],
@@ -970,6 +1437,20 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
 
     setState(() {});
     _syncSuggestionsOverlay();
+  }
+
+  void _handleSearchChanged(String value) {
+    _changeDebounce?.cancel();
+    _changeDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        widget.onChanged(value);
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _changeDebounce?.cancel();
+    widget.onClearSearch();
   }
 
   void _syncSuggestionsOverlay() {
@@ -1039,149 +1520,17 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
   }
 
   List<_RecipeSearchSuggestion> _suggestions() {
-    final query = widget.controller.text.trim();
-    if (query.isEmpty) {
-      return const [];
-    }
-
-    return [
-      ..._tagSuggestions(query),
-      ..._authorSuggestions(query),
-      ..._recipeSuggestions(query),
-    ].take(8).toList(growable: false);
-  }
-
-  List<_RecipeSearchSuggestion> _recipeSuggestions(String query) {
-    final normalizedQuery = query.toLowerCase();
-    final slugQuery = CategoryCatalog.slug(query);
-    final matches = <RecipeModel>[];
-    final seenRecipeIds = <String>{};
-
-    for (final recipe in widget.recipes) {
-      final recipeSlug = CategoryCatalog.slug(recipe.title);
-      final matchesTitle =
-          recipe.title.toLowerCase().contains(normalizedQuery) ||
-          (slugQuery.isNotEmpty && recipeSlug.contains(slugQuery));
-      if (!matchesTitle || !seenRecipeIds.add(recipe.id)) {
-        continue;
-      }
-
-      matches.add(recipe);
-    }
-
-    matches.sort((left, right) {
-      final rating = right.rating.compareTo(left.rating);
-      if (rating != 0) {
-        return rating;
-      }
-      return left.title.compareTo(right.title);
-    });
-
-    return [
-      for (final recipe in matches)
-        _RecipeSearchSuggestion(
-          type: _RecipeSearchSuggestionType.recipe,
-          label: recipe.title,
-          value: recipe.title,
-        ),
-    ];
-  }
-
-  List<_RecipeSearchSuggestion> _tagSuggestions(String query) {
-    final normalizedQuery = query.toLowerCase();
-    final slugQuery = CategoryCatalog.slug(query);
-    final selectedTagIds = widget.selectedTags.map((tag) => tag.id).toSet();
-    final tagCounts = <String, int>{};
-    final tagLabels = <String, String>{};
-
-    for (final recipe in widget.recipes) {
-      for (final tag in recipe.tags) {
-        final tagId = CategoryCatalog.slug(tag);
-        if (tagId.isEmpty || selectedTagIds.contains(tagId)) {
-          continue;
-        }
-
-        final label = _readableSearchLabel(tag);
-        final matches =
-            label.toLowerCase().contains(normalizedQuery) ||
-            tag.toLowerCase().contains(normalizedQuery) ||
-            (slugQuery.isNotEmpty && tagId.contains(slugQuery));
-        if (!matches) {
-          continue;
-        }
-
-        tagLabels.putIfAbsent(tagId, () => label);
-        tagCounts[tagId] = (tagCounts[tagId] ?? 0) + 1;
-      }
-    }
-
-    final tagIds = tagCounts.keys.toList()
-      ..sort((left, right) {
-        final count = tagCounts[right]!.compareTo(tagCounts[left]!);
-        if (count != 0) {
-          return count;
-        }
-        return tagLabels[left]!.compareTo(tagLabels[right]!);
-      });
-
-    return [
-      for (final tagId in tagIds)
-        _RecipeSearchSuggestion(
-          type: _RecipeSearchSuggestionType.tag,
-          label: tagLabels[tagId]!,
-          value: tagId,
-          trailingLabel: 'tag',
-        ),
-    ];
-  }
-
-  List<_RecipeSearchSuggestion> _authorSuggestions(String query) {
-    final normalizedQuery = query.toLowerCase();
-    final slugQuery = CategoryCatalog.slug(query);
-    final selectedAuthorIds = widget.selectedAuthors
-        .map((author) => author.id)
-        .toSet();
-    final recipeCounts = <String, int>{};
-    final authorNames = <String, String>{};
-
-    for (final recipe in widget.recipes) {
-      final authorId = CategoryCatalog.slug(recipe.author);
-      if (authorId.isEmpty || selectedAuthorIds.contains(authorId)) {
-        continue;
-      }
-
-      final matches =
-          recipe.author.toLowerCase().contains(normalizedQuery) ||
-          (slugQuery.isNotEmpty && authorId.contains(slugQuery));
-      if (!matches) {
-        continue;
-      }
-
-      authorNames.putIfAbsent(authorId, () => recipe.author);
-      recipeCounts[authorId] = (recipeCounts[authorId] ?? 0) + 1;
-    }
-
-    final authorIds = recipeCounts.keys.toList()
-      ..sort((left, right) {
-        final count = recipeCounts[right]!.compareTo(recipeCounts[left]!);
-        if (count != 0) {
-          return count;
-        }
-        return authorNames[left]!.compareTo(authorNames[right]!);
-      });
-
-    return [
-      for (final authorId in authorIds)
-        _RecipeSearchSuggestion(
-          type: _RecipeSearchSuggestionType.author,
-          label: authorNames[authorId]!,
-          value: authorId,
-          trailingLabel: 'user',
-        ),
-    ];
+    return widget.recipeIndex.suggestions(
+      query: widget.controller.text,
+      selectedTagIds: {for (final tag in widget.selectedTags) tag.id},
+      selectedAuthorIds: {
+        for (final author in widget.selectedAuthors) author.id,
+      },
+    );
   }
 
   void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
+    _changeDebounce?.cancel();
     _removeSuggestionsOverlay();
 
     switch (suggestion.type) {

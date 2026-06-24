@@ -52,6 +52,7 @@ class RecipeModel {
     required this.accentColor,
     this.description = '',
     this.imageUrl,
+    this.thumbnailUrl,
     this.tags = const [],
     this.popularityScore = 0,
     this.isSaved = false,
@@ -90,6 +91,11 @@ class RecipeModel {
             _jsonValue(json, 'photoUrl') ??
             _jsonValue(json, 'pictureUrl'),
       ),
+      thumbnailUrl: _stringValue(
+        _jsonValue(json, 'thumbnailUrl') ??
+            _jsonValue(json, 'thumbUrl') ??
+            _jsonValue(json, 'previewImageUrl'),
+      ),
       tags: _tagsValue(json, categoryName: categoryName),
       popularityScore: _intValue(_jsonValue(json, 'popularityScore')),
       accentColor: _colorValue(
@@ -109,6 +115,7 @@ class RecipeModel {
   final Color accentColor;
   final String description;
   final String? imageUrl;
+  final String? thumbnailUrl;
   final List<String> tags;
   final int popularityScore;
   final bool isSaved;

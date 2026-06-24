@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
@@ -244,20 +245,22 @@ class _RecipeDetailImage extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-                return Image.network(
-                  imageUrl,
+                final cacheWidth = _cacheDimension(
+                  constraints.maxWidth,
+                  devicePixelRatio,
+                  max: 1200,
+                );
+                final cacheHeight = _cacheDimension(
+                  constraints.maxHeight,
+                  devicePixelRatio,
+                  max: 900,
+                );
+                return OptimizedNetworkImage(
+                  imageUrl: imageUrl,
                   fit: BoxFit.cover,
-                  cacheWidth: _cacheDimension(
-                    constraints.maxWidth,
-                    devicePixelRatio,
-                    max: 1200,
-                  ),
-                  cacheHeight: _cacheDimension(
-                    constraints.maxHeight,
-                    devicePixelRatio,
-                    max: 900,
-                  ),
-                  filterQuality: FilterQuality.medium,
+                  cacheWidth: cacheWidth,
+                  cacheHeight: cacheHeight,
+                  quality: 78,
                   errorBuilder: (context, error, stackTrace) {
                     return _RecipeDetailImageFallback(recipe: recipe);
                   },
@@ -320,8 +323,6 @@ class _RecipeHeroDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final bookmarks = BookmarkScope.of(context);
-    final isSaved = bookmarks.isRecipeSaved(recipe);
     final categories = _categoriesFor(recipe);
 
     return Padding(
@@ -341,12 +342,7 @@ class _RecipeHeroDetails extends StatelessWidget {
                   ),
                 ),
               ),
-              BookmarkButton(
-                isSaved: isSaved,
-                onPressed: () {
-                  bookmarks.toggleRecipe(recipe);
-                },
-              ),
+              _RecipeDetailsBookmarkButton(recipe: recipe),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
@@ -385,6 +381,25 @@ class _RecipeHeroDetails extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _RecipeDetailsBookmarkButton extends StatelessWidget {
+  const _RecipeDetailsBookmarkButton({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isRecipeSaved(recipe);
+
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleRecipe(recipe);
+      },
     );
   }
 }

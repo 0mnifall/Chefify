@@ -92,9 +92,11 @@ class BookmarkStore extends ChangeNotifier {
 
   bool _isLoaded = false;
   bool _isDirty = false;
+  int _version = 0;
   Future<void>? _loadFuture;
 
   bool get isLoaded => _isLoaded;
+  int get version => _version;
 
   Future<void> load() {
     if (_isLoaded) {
@@ -145,6 +147,7 @@ class BookmarkStore extends ChangeNotifier {
       _applySnapshot(snapshot);
     }
     _isLoaded = true;
+    _version++;
     notifyListeners();
   }
 
@@ -166,6 +169,7 @@ class BookmarkStore extends ChangeNotifier {
       ids.remove(id);
     }
     _isDirty = true;
+    _version++;
     notifyListeners();
   }
 

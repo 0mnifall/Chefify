@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
@@ -399,14 +400,27 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (hasImage)
-          Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            errorBuilder: (context, error, stackTrace) {
-              return _HeroPhotoFallback(
-                recipe: recipe,
-                isDarkTheme: isDarkTheme,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+              final cacheWidth = _cacheDimension(
+                constraints.maxWidth,
+                devicePixelRatio,
+                max: 1440,
+              );
+
+              return OptimizedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                cacheWidth: cacheWidth ?? 1200,
+                quality: 78,
+                errorBuilder: (context, error, stackTrace) {
+                  return _HeroPhotoFallback(
+                    recipe: recipe,
+                    isDarkTheme: isDarkTheme,
+                  );
+                },
               );
             },
           )
@@ -524,8 +538,6 @@ class _TiltedRecipeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final strings = AppStrings.of(context);
-    final bookmarks = BookmarkScope.of(context);
-    final isSaved = bookmarks.isRecipeSaved(recipe);
     final likes = _formatLikes((recipe.rating * 390).round() + 610);
     final baseWidth = compact ? 268.0 : 292.0;
     final cardWidth = maxWidth == null || maxWidth! > baseWidth
@@ -575,12 +587,7 @@ class _TiltedRecipeCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    BookmarkButton(
-                      isSaved: isSaved,
-                      onPressed: () {
-                        bookmarks.toggleRecipe(recipe);
-                      },
-                    ),
+                    _HeroRecipeBookmarkButton(recipe: recipe),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -624,6 +631,25 @@ class _TiltedRecipeCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroRecipeBookmarkButton extends StatelessWidget {
+  const _HeroRecipeBookmarkButton({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isRecipeSaved(recipe);
+
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleRecipe(recipe);
+      },
     );
   }
 }
@@ -748,4 +774,16 @@ String _formatLikes(int likes) {
     return '${formatted.toStringAsFixed(decimals)}k';
   }
   return likes.toString();
+}
+
+int? _cacheDimension(double logicalSize, double devicePixelRatio, {int? max}) {
+  if (!logicalSize.isFinite || logicalSize <= 0) {
+    return null;
+  }
+
+  final dimension = (logicalSize * devicePixelRatio).round();
+  if (max == null) {
+    return dimension;
+  }
+  return dimension.clamp(1, max);
 }
