@@ -3,6 +3,7 @@ import 'package:frontend/features/authors/presentation/pages/author_profile_page
 import 'package:frontend/features/categories/presentation/pages/categories_page.dart';
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/features/recipes/domain/recipes_page_arguments.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipe_details_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 
@@ -70,6 +71,9 @@ class AppRouter {
           builder: (_) => RecipesPage(
             recipeRepository: recipeRepository,
             initialCategoryIds: arguments.categoryIds,
+            initialTagIds: arguments.tagIds,
+            initialAuthorIds: arguments.authorIds,
+            initialQuery: arguments.query,
           ),
           settings: settings,
         );

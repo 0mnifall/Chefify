@@ -130,7 +130,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Find your next cook'), findsOneWidget);
-    expect(find.text('Roasted Tomato Pasta'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
 
     await tester.enterText(
       find.byKey(const ValueKey('recipes-search-field')),
@@ -138,8 +141,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Miso Glazed Salmon'), findsOneWidget);
-    expect(find.text('Roasted Tomato Pasta'), findsNothing);
+    expect(find.text('Miso Glazed Salmon'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsNothing,
+    );
 
     await tester.tap(find.byTooltip('Clear search'));
     await tester.pumpAndSettle();
@@ -150,8 +156,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Miso Glazed Salmon'), findsOneWidget);
-    expect(find.text('Roasted Tomato Pasta'), findsNothing);
+    expect(find.text('Miso Glazed Salmon'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsNothing,
+    );
 
     await tester.tap(find.byTooltip('Clear search'));
     await tester.pumpAndSettle();
@@ -161,8 +170,265 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Lemon Ricotta Pancakes'), findsOneWidget);
-    expect(find.text('Miso Glazed Salmon'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('recipes-card-lemon-ricotta-pancakes')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-miso-glazed-salmon')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('opens recipe tag filters from recipe cards', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    final pastaTag = find.byKey(
+      const ValueKey('recipe-card-tag-roasted-tomato-pasta-pasta'),
+    );
+    await tester.scrollUntilVisible(
+      pastaTag,
+      360,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 220));
+    await tester.pumpAndSettle();
+
+    await tester.tap(pastaTag);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Find your next cook'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-pasta')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-miso-glazed-salmon')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('selects tag suggestions as search tokens', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'high',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-tag-high-protein')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-high-protein')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-miso-glazed-salmon')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('selects author suggestions as search tokens', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'aria',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-author-chef-aria')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-author-token-chef-aria')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-miso-glazed-salmon')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('clear search removes text tag and author tokens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'high',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-tag-high-protein')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'aria',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-author-chef-aria')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-high-protein')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-search-author-token-chef-aria')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-high-protein')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-search-author-token-chef-aria')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('autocompletes recipe title suggestions', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'miso',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey('recipe-search-suggestion-recipe-miso-glazed-salmon'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipes-card-miso-glazed-salmon')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsNothing,
+    );
   });
 
   testWidgets('opens recipe details from recipe card', (tester) async {

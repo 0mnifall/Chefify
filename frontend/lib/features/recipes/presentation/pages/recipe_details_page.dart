@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
@@ -120,7 +119,6 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
         child: Stack(
           children: [
             CustomScrollView(
-              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
               slivers: [
                 _RecipeDetailsContentSliver(
                   topPadding: headerHeight + AppSpacing.xl,
