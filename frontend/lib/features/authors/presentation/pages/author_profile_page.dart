@@ -175,6 +175,7 @@ class _AuthorHeader extends StatelessWidget {
     final palette = context.palette;
 
     return AppCard(
+      key: ValueKey('author-profile-page-${_slug(authorName)}'),
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Row(
         children: [

@@ -206,6 +206,52 @@ void main() {
     expect(find.text('Cook profile'), findsOneWidget);
   });
 
+  testWidgets('opens author profile from recipe card author chip', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    final recipeCard = find.byKey(
+      const ValueKey('recipes-card-roasted-tomato-pasta'),
+    );
+    await tester.scrollUntilVisible(
+      recipeCard,
+      360,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 180));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-author-chip-roasted-tomato-pasta')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('author-profile-page-chef-aria')),
+      findsOneWidget,
+    );
+    expect(find.text('Chef Aria'), findsWidgets);
+  });
+
   testWidgets('opens categories page from category see all action', (
     tester,
   ) async {
