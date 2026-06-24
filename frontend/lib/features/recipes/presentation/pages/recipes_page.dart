@@ -229,15 +229,15 @@ class _RecipesPageState extends State<RecipesPage> {
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
+    final normalizedSlugQuery = CategoryCatalog.slug(normalizedQuery);
     final sourceRecipes = _recipes;
     final recipes = sourceRecipes.where((recipe) {
-      final categoryText = _recipeCategoryText(recipe);
+      final searchText = _recipeSearchText(recipe);
       final matchesSearch =
           normalizedQuery.isEmpty ||
-          recipe.title.toLowerCase().contains(normalizedQuery) ||
-          recipe.categoryName.toLowerCase().contains(normalizedQuery) ||
-          recipe.author.toLowerCase().contains(normalizedQuery) ||
-          categoryText.contains(normalizedQuery);
+          searchText.contains(normalizedQuery) ||
+          (normalizedSlugQuery.isNotEmpty &&
+              CategoryCatalog.slug(searchText).contains(normalizedSlugQuery));
       final matchesCategory =
           _selectedCategoryIds.isEmpty ||
           _selectedCategoryIds.any(
@@ -331,12 +331,23 @@ class _RecipesPageState extends State<RecipesPage> {
         normalizedLeft.containsAll(normalizedRight);
   }
 
-  String _recipeCategoryText(RecipeModel recipe) {
+  String _recipeSearchText(RecipeModel recipe) {
     final category = CategoryCatalog.findById(recipe.categoryId);
+    final tagText = recipe.tags.expand(
+      (tag) => [tag.toLowerCase(), _readableTagLabel(tag).toLowerCase()],
+    );
+
     return [
+      recipe.title.toLowerCase(),
       recipe.categoryName.toLowerCase(),
+      recipe.author.toLowerCase(),
       if (category != null) category.title.toLowerCase(),
+      ...tagText,
     ].join(' ');
+  }
+
+  String _readableTagLabel(String tag) {
+    return tag.trim().replaceAll(RegExp(r'[_-]+'), ' ');
   }
 }
 

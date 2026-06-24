@@ -143,6 +143,19 @@ void main() {
 
     await tester.tap(find.byTooltip('Clear search'));
     await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'high protein',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Miso Glazed Salmon'), findsOneWidget);
+    expect(find.text('Roasted Tomato Pasta'), findsNothing);
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
     await tester.tap(
       find.byKey(const ValueKey('recipes-category-chip-breakfast')),
     );
