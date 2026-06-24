@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/features/recipes/domain/recipes_page_arguments.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
@@ -16,67 +17,80 @@ class RecipeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final hasFixedHeight =
+                  constraints.hasBoundedHeight &&
+                  constraints.minHeight == constraints.maxHeight;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 162,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (_recipePreviewImageUrl(recipe) == null)
+                          _RecipeImageFallback(recipe: recipe)
+                        else
+                          _RecipeNetworkImage(recipe: recipe),
+                        Positioned(
+                          top: AppSpacing.sm,
+                          left: AppSpacing.sm,
+                          child: _RecipeAuthorChip(
+                            recipe: recipe,
+                            maxExpandedWidth: _authorChipMaxWidth(
+                              constraints.maxWidth,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: AppSpacing.sm,
+                          right: AppSpacing.sm,
+                          child: _RecipeBookmarkButton(recipe: recipe),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hasFixedHeight)
+                    Expanded(
+                      child: _RecipeCardBody(recipe: recipe, pinFooter: true),
+                    )
+                  else
+                    _RecipeCardBody(recipe: recipe, pinFooter: false),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeBookmarkButton extends StatelessWidget {
+  const _RecipeBookmarkButton({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
     final bookmarks = BookmarkScope.of(context);
     final isSaved = bookmarks.isRecipeSaved(recipe);
 
-    return AppCard(
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final hasFixedHeight =
-                constraints.hasBoundedHeight &&
-                constraints.minHeight == constraints.maxHeight;
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 162,
-                  width: double.infinity,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (recipe.imageUrl == null || recipe.imageUrl!.isEmpty)
-                        _RecipeImageFallback(recipe: recipe)
-                      else
-                        _RecipeNetworkImage(recipe: recipe),
-                      Positioned(
-                        top: AppSpacing.sm,
-                        left: AppSpacing.sm,
-                        child: _RecipeAuthorChip(
-                          recipe: recipe,
-                          maxExpandedWidth: _authorChipMaxWidth(
-                            constraints.maxWidth,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: AppSpacing.sm,
-                        right: AppSpacing.sm,
-                        child: BookmarkButton(
-                          isSaved: isSaved,
-                          onPressed: () {
-                            bookmarks.toggleRecipe(recipe);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (hasFixedHeight)
-                  Expanded(
-                    child: _RecipeCardBody(recipe: recipe, pinFooter: true),
-                  )
-                else
-                  _RecipeCardBody(recipe: recipe, pinFooter: false),
-              ],
-            );
-          },
-        ),
-      ),
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleRecipe(recipe);
+      },
     );
   }
 }
@@ -785,13 +799,11 @@ class _RecipeNetworkImage extends StatelessWidget {
           max: 520,
         );
 
-        return Image.network(
-          recipe.imageUrl!,
+        return OptimizedNetworkImage(
+          imageUrl: _recipePreviewImageUrl(recipe)!,
           fit: BoxFit.cover,
           cacheWidth: cacheWidth,
           cacheHeight: cacheHeight,
-          excludeFromSemantics: true,
-          filterQuality: FilterQuality.medium,
           gaplessPlayback: true,
           errorBuilder: (context, error, stackTrace) {
             return _RecipeImageFallback(recipe: recipe);
@@ -800,6 +812,20 @@ class _RecipeNetworkImage extends StatelessWidget {
       },
     );
   }
+}
+
+String? _recipePreviewImageUrl(RecipeModel recipe) {
+  final thumbnailUrl = recipe.thumbnailUrl?.trim();
+  if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+    return thumbnailUrl;
+  }
+
+  final imageUrl = recipe.imageUrl?.trim();
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    return imageUrl;
+  }
+
+  return null;
 }
 
 class _RecipeImageFallback extends StatelessWidget {

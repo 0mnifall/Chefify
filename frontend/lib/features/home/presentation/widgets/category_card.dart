@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
@@ -13,93 +14,106 @@ class CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bookmarks = BookmarkScope.of(context);
-    final isSaved = bookmarks.isCategorySaved(category);
-
-    return AppCard(
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _CategoryBackground(imageUrl: category.imageUrl),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x521A1714),
-                    Color(0x7F1A1714),
-                    Color(0xB21A1714),
-                    Color(0xD91A1714),
+    return RepaintBoundary(
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _CategoryBackground(imageUrl: category.imageUrl),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x521A1714),
+                      Color(0x7F1A1714),
+                      Color(0xB21A1714),
+                      Color(0xD91A1714),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(13),
+                            color: Colors.white.withValues(alpha: 0.75),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.66),
+                            ),
+                          ),
+                          child: Icon(
+                            category.icon,
+                            color: const Color(0xFF7B4D32),
+                          ),
+                        ),
+                        const Spacer(),
+                        _CategoryBookmarkButton(category: category),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      category.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      category.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      '${category.recipesCount} recipes',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.92),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(13),
-                          color: Colors.white.withValues(alpha: 0.75),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.66),
-                          ),
-                        ),
-                        child: Icon(
-                          category.icon,
-                          color: const Color(0xFF7B4D32),
-                        ),
-                      ),
-                      const Spacer(),
-                      BookmarkButton(
-                        isSaved: isSaved,
-                        onPressed: () {
-                          bookmarks.toggleCategory(category);
-                        },
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    category.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    category.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.88),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    '${category.recipesCount} recipes',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.92),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _CategoryBookmarkButton extends StatelessWidget {
+  const _CategoryBookmarkButton({required this.category});
+
+  final CategoryModel category;
+
+  @override
+  Widget build(BuildContext context) {
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isCategorySaved(category);
+
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleCategory(category);
+      },
     );
   }
 }
@@ -129,14 +143,11 @@ class _CategoryBackground extends StatelessWidget {
           max: 640,
         );
 
-        return Image.network(
-          imageUrl!,
+        return OptimizedNetworkImage(
+          imageUrl: imageUrl!,
           fit: BoxFit.cover,
           cacheWidth: cacheWidth,
           cacheHeight: cacheHeight,
-          excludeFromSemantics: true,
-          filterQuality: FilterQuality.medium,
-          gaplessPlayback: true,
           errorBuilder: (context, error, stackTrace) {
             return const _CategoryFallbackBackground();
           },

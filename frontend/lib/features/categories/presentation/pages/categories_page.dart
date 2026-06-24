@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
@@ -29,6 +30,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
   String _query = '';
   bool _savedOnly = false;
   List<RecipeModel> _recipes = RecipeCatalog.items;
+  List<CategoryModel> _categories = CategoryCatalog.withRecipeCounts(
+    RecipeCatalog.items,
+  );
 
   @override
   void initState() {
@@ -52,12 +56,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   Future<void> _loadRecipes() async {
     final recipes = await widget.recipeRepository.fetchRecipes();
-    if (!mounted) {
+    if (!mounted || _sameRecipeLists(_recipes, recipes)) {
       return;
     }
 
     setState(() {
       _recipes = recipes;
+      _categories = CategoryCatalog.withRecipeCounts(recipes);
     });
   }
 
@@ -81,6 +86,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
         child: Stack(
           children: [
             CustomScrollView(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(160),
               slivers: [
                 _CategoriesContentSliver(
                   topPadding: headerHeight + AppSpacing.xl,
@@ -139,9 +145,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
   List<CategoryModel> get _visibleCategories {
     final bookmarks = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
-    final categories = CategoryCatalog.withRecipeCounts(_recipes);
 
-    return categories
+    return _categories
         .where(
           (category) =>
               (normalizedQuery.isEmpty ||
@@ -504,4 +509,49 @@ class _CategoriesHeaderShell extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _sameRecipeLists(List<RecipeModel> left, List<RecipeModel> right) {
+  if (identical(left, right)) {
+    return true;
+  }
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var index = 0; index < left.length; index++) {
+    if (!_sameRecipe(left[index], right[index])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _sameRecipe(RecipeModel left, RecipeModel right) {
+  return left.id == right.id &&
+      left.title == right.title &&
+      left.categoryId == right.categoryId &&
+      left.categoryName == right.categoryName &&
+      left.author == right.author &&
+      left.minutes == right.minutes &&
+      left.rating == right.rating &&
+      left.accentColor == right.accentColor &&
+      left.description == right.description &&
+      left.imageUrl == right.imageUrl &&
+      left.thumbnailUrl == right.thumbnailUrl &&
+      left.popularityScore == right.popularityScore &&
+      left.isSaved == right.isSaved &&
+      _sameStringLists(left.tags, right.tags);
+}
+
+bool _sameStringLists(List<String> left, List<String> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
