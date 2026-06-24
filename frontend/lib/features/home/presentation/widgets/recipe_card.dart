@@ -582,7 +582,6 @@ class _RecipeTagPopover extends StatelessWidget {
   });
 
   static const double _width = 228;
-  static const double _contentWidth = _width - (AppSpacing.sm * 2);
 
   final List<String> tags;
   final TextStyle? textStyle;
@@ -591,7 +590,6 @@ class _RecipeTagPopover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final rows = _buildRows(context);
 
     return Container(
       width: _width,
@@ -608,34 +606,51 @@ class _RecipeTagPopover extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
-            Row(
-              children: [
-                for (var index = 0; index < rows[rowIndex].length; index++) ...[
-                  if (index > 0) const SizedBox(width: AppSpacing.xxs),
-                  _RecipeTagChip(
-                    width: rows[rowIndex][index].width,
-                    tag: rows[rowIndex][index].tag,
-                    label: rows[rowIndex][index].label,
-                    textStyle: textStyle,
-                    textAlign: TextAlign.center,
-                    onSelected: onTagSelected,
-                  ),
-                ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final rows = _buildRows(context, constraints.maxWidth);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+                Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < rows[rowIndex].length;
+                      index++
+                    ) ...[
+                      if (index > 0) const SizedBox(width: AppSpacing.xxs),
+                      Expanded(
+                        flex: rows[rowIndex][index].flex,
+                        child: _RecipeTagChip(
+                          fillWidth: true,
+                          tag: rows[rowIndex][index].tag,
+                          label: rows[rowIndex][index].label,
+                          textStyle: textStyle,
+                          textAlign: TextAlign.center,
+                          onSelected: onTagSelected,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (rowIndex < rows.length - 1)
+                  const SizedBox(height: AppSpacing.xxs),
               ],
-            ),
-            if (rowIndex < rows.length - 1)
-              const SizedBox(height: AppSpacing.xxs),
-          ],
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  List<List<_RecipePopoverTagItem>> _buildRows(BuildContext context) {
+  List<List<_RecipePopoverTagItem>> _buildRows(
+    BuildContext context,
+    double maxWidth,
+  ) {
+    final safeWidth = maxWidth.isFinite && maxWidth > 0 ? maxWidth : 202.0;
     final rows = <List<_RecipePopoverTagItem>>[];
     var currentRow = <_RecipePopoverTagItem>[];
     var currentWidth = 0.0;
@@ -647,8 +662,8 @@ class _RecipeTagPopover extends StatelessWidget {
           currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xxs) + baseWidth;
 
       if (currentRow.isNotEmpty &&
-          (currentRow.length >= 3 || nextWidth > _contentWidth)) {
-        rows.add(_justifyRow(currentRow));
+          (currentRow.length >= 3 || nextWidth > safeWidth)) {
+        rows.add(currentRow);
         currentRow = [_RecipePopoverTagItem(tag, label, baseWidth)];
         currentWidth = baseWidth;
       } else {
@@ -658,25 +673,10 @@ class _RecipeTagPopover extends StatelessWidget {
     }
 
     if (currentRow.isNotEmpty) {
-      rows.add(_justifyRow(currentRow));
+      rows.add(currentRow);
     }
 
     return rows;
-  }
-
-  List<_RecipePopoverTagItem> _justifyRow(List<_RecipePopoverTagItem> row) {
-    final spacing = AppSpacing.xxs * (row.length - 1);
-    final baseWidth = row.fold<double>(0, (sum, item) => sum + item.width);
-    final extra = (_contentWidth - spacing - baseWidth).clamp(
-      0,
-      double.infinity,
-    );
-    final extraPerChip = row.isEmpty ? 0.0 : extra / row.length;
-
-    return [
-      for (final item in row)
-        _RecipePopoverTagItem(item.tag, item.label, item.width + extraPerChip),
-    ];
   }
 
   double _measurePopoverTagWidth(BuildContext context, String label) {
@@ -697,6 +697,7 @@ class _RecipeTagChip extends StatelessWidget {
   const _RecipeTagChip({
     super.key,
     this.width,
+    this.fillWidth = false,
     required this.tag,
     required this.label,
     required this.textStyle,
@@ -705,6 +706,7 @@ class _RecipeTagChip extends StatelessWidget {
   });
 
   final double? width;
+  final bool fillWidth;
   final String tag;
   final String label;
   final TextStyle? textStyle;
@@ -733,7 +735,7 @@ class _RecipeTagChip extends StatelessWidget {
         },
         mouseCursor: SystemMouseCursors.click,
         child: Container(
-          width: width,
+          width: fillWidth ? double.infinity : width,
           constraints: width == null
               ? const BoxConstraints(maxWidth: 118)
               : const BoxConstraints(),
@@ -758,6 +760,8 @@ class _RecipePopoverTagItem {
   final String tag;
   final String label;
   final double width;
+
+  int get flex => (width * 100).round().clamp(1, 100000);
 }
 
 class _RecipeNetworkImage extends StatelessWidget {
