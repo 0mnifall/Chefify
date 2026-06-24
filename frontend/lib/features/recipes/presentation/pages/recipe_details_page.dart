@@ -336,7 +336,7 @@ class _RecipeHeroDetails extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  recipe.tag.toUpperCase(),
+                  recipe.categoryName.toUpperCase(),
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: palette.categoryTags,
                     letterSpacing: 0.9,
@@ -475,7 +475,7 @@ class _RecipeNotesColumn extends StatelessWidget {
       children: [
         _RecipeDetailRow(
           icon: Icons.restaurant_menu_rounded,
-          title: recipe.tag,
+          title: recipe.categoryName,
           text: _descriptionFor(recipe),
         ),
         _RecipeDetailRow(
@@ -780,24 +780,14 @@ class _RecipeDetailsHeaderShell extends StatelessWidget {
 }
 
 List<CategoryModel> _categoriesFor(RecipeModel recipe) {
-  final categories = <CategoryModel>[];
-  final seenIds = <String>{};
-
-  for (final categoryId in recipe.categoryIds) {
-    final category = CategoryCatalog.findById(categoryId);
-    if (category != null && seenIds.add(category.id)) {
-      categories.add(category);
-    }
+  final category =
+      CategoryCatalog.findById(recipe.categoryId) ??
+      CategoryCatalog.findById(recipe.categoryName);
+  if (category == null) {
+    return const [];
   }
 
-  if (categories.isEmpty) {
-    final category = CategoryCatalog.findById(recipe.tag);
-    if (category != null) {
-      categories.add(category);
-    }
-  }
-
-  return categories;
+  return [category];
 }
 
 String _descriptionFor(RecipeModel recipe) {

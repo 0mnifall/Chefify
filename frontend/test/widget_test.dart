@@ -17,11 +17,13 @@ import 'package:frontend/shared/models/home_models.dart';
 const _featuredRecipe = RecipeModel(
   id: 'citrus-herb-chicken-quinoa',
   title: 'Citrus Herb Chicken with Warm Quinoa',
-  tag: 'Chef Pick',
+  categoryId: 'healthy',
+  categoryName: 'Healthy',
   author: 'Chef Luna',
   minutes: 40,
   rating: 4.9,
   accentColor: Color(0xFF5F7C67),
+  tags: ['chef-pick', 'chicken', 'high-protein'],
 );
 
 const _category = CategoryModel(

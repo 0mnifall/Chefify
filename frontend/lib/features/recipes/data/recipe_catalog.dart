@@ -11,177 +11,158 @@ class RecipeCatalog {
     RecipeModel(
       id: 'citrus-herb-chicken-quinoa',
       title: 'Citrus Herb Chicken with Warm Quinoa',
-      tag: 'Healthy',
+      categoryId: 'healthy',
+      categoryName: 'Healthy',
       author: 'Chef Luna',
       minutes: 40,
       rating: 4.9,
       accentColor: Color(0xFF5F7C67),
       imageUrl:
           'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=900&q=80',
-      categoryIds: [
-        'healthy',
-        'chicken',
-        'high-protein',
-        'meal-prep',
-        'weeknight',
-      ],
+      tags: ['chicken', 'high-protein', 'meal-prep', 'weeknight'],
     ),
     RecipeModel(
       id: 'roasted-tomato-pasta',
       title: 'Roasted Tomato Pasta',
-      tag: 'Italian',
+      categoryId: 'italian',
+      categoryName: 'Italian',
       author: 'Chef Aria',
       minutes: 25,
       rating: 4.8,
       accentColor: Color(0xFFED7A3A),
       imageUrl:
           'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=900&q=80',
-      categoryIds: [
-        'italian',
-        'pasta',
-        'vegetarian',
-        'comfort-classics',
-        'weeknight',
-      ],
+      tags: ['pasta', 'vegetarian', 'comfort-classics', 'weeknight'],
     ),
     RecipeModel(
       id: 'miso-glazed-salmon',
       title: 'Miso Glazed Salmon',
-      tag: 'Japanese',
+      categoryId: 'japanese',
+      categoryName: 'Japanese',
       author: 'Chef Kaito',
       minutes: 35,
       rating: 4.9,
       accentColor: Color(0xFF5E8B7E),
       imageUrl:
           'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['japanese', 'seafood', 'high-protein', 'asian-fusion'],
+      tags: ['seafood', 'high-protein', 'asian-fusion'],
     ),
     RecipeModel(
       id: 'spiced-chickpea-bowl',
       title: 'Spiced Chickpea Bowl',
-      tag: 'Healthy',
+      categoryId: 'healthy',
+      categoryName: 'Healthy',
       author: 'Chef Noor',
       minutes: 20,
       rating: 4.7,
       accentColor: Color(0xFFB1784A),
       imageUrl:
           'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
-      categoryIds: [
-        'healthy',
-        'salads',
-        'vegetarian',
-        'plant-based',
-        'vegan',
-        'budget-friendly',
-      ],
+      tags: ['salads', 'vegetarian', 'plant-based', 'vegan', 'budget-friendly'],
     ),
     RecipeModel(
       id: 'lemon-ricotta-pancakes',
       title: 'Lemon Ricotta Pancakes',
-      tag: 'Breakfast',
+      categoryId: 'breakfast',
+      categoryName: 'Breakfast',
       author: 'Chef Mila',
       minutes: 18,
       rating: 4.6,
       accentColor: Color(0xFFC89B3C),
       imageUrl:
           'https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['breakfast', 'brunch', 'desserts', 'baking'],
+      tags: ['brunch', 'desserts', 'baking'],
     ),
     RecipeModel(
       id: 'crispy-tofu-rice-bowl',
       title: 'Crispy Tofu Rice Bowl',
-      tag: 'Plant-Based',
+      categoryId: 'plant-based',
+      categoryName: 'Plant-Based',
       author: 'Chef Emi',
       minutes: 28,
       rating: 4.8,
       accentColor: Color(0xFF4F8E6B),
       imageUrl:
           'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
-      categoryIds: [
-        'plant-based',
-        'vegan',
-        'asian-fusion',
-        'quick-meals',
-        'meal-prep',
-      ],
+      tags: ['vegan', 'asian-fusion', 'quick-meals', 'meal-prep'],
     ),
     RecipeModel(
       id: 'garlic-butter-steak-bites',
       title: 'Garlic Butter Steak Bites',
-      tag: 'Comfort',
+      categoryId: 'comfort-classics',
+      categoryName: 'Comfort Classics',
       author: 'Chef Mateo',
       minutes: 22,
       rating: 4.7,
       accentColor: Color(0xFF9B5D45),
       imageUrl:
           'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['comfort-classics', 'grill', 'high-protein', 'quick-meals'],
+      tags: ['grill', 'high-protein', 'quick-meals'],
     ),
     RecipeModel(
       id: 'green-shakshuka-skillet',
       title: 'Green Shakshuka Skillet',
-      tag: 'Breakfast',
+      categoryId: 'breakfast',
+      categoryName: 'Breakfast',
       author: 'Chef Sara',
       minutes: 32,
       rating: 4.5,
       accentColor: Color(0xFF6F8F4E),
       imageUrl:
           'https://images.unsplash.com/photo-1605478371310-a9f1e96b4ff4?auto=format&fit=crop&w=900&q=80',
-      categoryIds: [
-        'breakfast',
-        'brunch',
-        'vegetarian',
-        'mediterranean',
-        'low-carb',
-      ],
+      tags: ['brunch', 'vegetarian', 'mediterranean', 'low-carb'],
     ),
     RecipeModel(
       id: 'coconut-lentil-curry',
       title: 'Coconut Lentil Curry',
-      tag: 'Plant-Based',
+      categoryId: 'plant-based',
+      categoryName: 'Plant-Based',
       author: 'Chef Anika',
       minutes: 38,
       rating: 4.8,
       accentColor: Color(0xFFD28245),
       imageUrl:
           'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['plant-based', 'vegan', 'indian', 'soups', 'spicy'],
+      tags: ['vegan', 'indian', 'soups', 'spicy'],
     ),
     RecipeModel(
       id: 'sesame-ginger-noodles',
       title: 'Sesame Ginger Noodles',
-      tag: 'Quick Meals',
+      categoryId: 'quick-meals',
+      categoryName: 'Quick Meals',
       author: 'Chef Jin',
       minutes: 16,
       rating: 4.6,
       accentColor: Color(0xFFB36B59),
       imageUrl:
           'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['quick-meals', 'asian-fusion', 'pasta', 'budget-friendly'],
+      tags: ['asian-fusion', 'pasta', 'budget-friendly'],
     ),
     RecipeModel(
       id: 'herbed-turkey-meatballs',
       title: 'Herbed Turkey Meatballs',
-      tag: 'Healthy',
+      categoryId: 'healthy',
+      categoryName: 'Healthy',
       author: 'Chef Sofia',
       minutes: 30,
       rating: 4.7,
       accentColor: Color(0xFF86734E),
       imageUrl:
           'https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['healthy', 'high-protein', 'comfort-classics', 'meal-prep'],
+      tags: ['high-protein', 'comfort-classics', 'meal-prep'],
     ),
     RecipeModel(
       id: 'dark-chocolate-berry-tart',
       title: 'Dark Chocolate Berry Tart',
-      tag: 'Dessert',
+      categoryId: 'desserts',
+      categoryName: 'Desserts',
       author: 'Chef Elise',
       minutes: 55,
       rating: 4.9,
       accentColor: Color(0xFF7A4E68),
       imageUrl:
           'https://images.unsplash.com/photo-1488477304112-4944851de03d?auto=format&fit=crop&w=900&q=80',
-      categoryIds: ['desserts', 'baking', 'brunch', 'snacks'],
+      tags: ['baking', 'brunch', 'snacks'],
     ),
   ];
 
@@ -340,7 +321,7 @@ class RecipeCatalog {
     ],
   };
 
-  static const Map<String, List<String>> _secondaryCategoryIds = {
+  static const Map<String, List<String>> _tagIdsByCategory = {
     'quick-meals': ['weeknight', 'budget-friendly'],
     'plant-based': ['vegan', 'healthy'],
     'comfort-classics': ['family-style', 'weeknight'],
@@ -412,7 +393,8 @@ class RecipeCatalog {
             title: titles.length > variantIndex
                 ? titles[variantIndex]
                 : '${category.title} Recipe ${variantIndex + 1}',
-            tag: category.title,
+            categoryId: category.id,
+            categoryName: category.title,
             author: _authors[(categoryIndex + variantIndex) % _authors.length],
             minutes: _minutesFor(category.id, categoryIndex, variantIndex),
             rating: _ratingFor(categoryIndex, variantIndex),
@@ -421,7 +403,7 @@ class RecipeCatalog {
                     _accentColors.length],
             description: category.description,
             imageUrl: category.imageUrl,
-            categoryIds: _categoryIdsFor(category.id),
+            tags: _tagIdsFor(category.id),
             popularityScore: 1600 - (categoryIndex * 14) - (variantIndex * 3),
           ),
         );
@@ -431,10 +413,8 @@ class RecipeCatalog {
     return List.unmodifiable(recipes);
   }
 
-  static List<String> _categoryIdsFor(String categoryId) {
-    final categoryIds = <String>{categoryId};
-    categoryIds.addAll(_secondaryCategoryIds[categoryId] ?? const []);
-    return categoryIds.toList(growable: false);
+  static List<String> _tagIdsFor(String categoryId) {
+    return [...?_tagIdsByCategory[categoryId]];
   }
 
   static int _minutesFor(

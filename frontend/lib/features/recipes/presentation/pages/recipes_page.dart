@@ -235,7 +235,7 @@ class _RecipesPageState extends State<RecipesPage> {
       final matchesSearch =
           normalizedQuery.isEmpty ||
           recipe.title.toLowerCase().contains(normalizedQuery) ||
-          recipe.tag.toLowerCase().contains(normalizedQuery) ||
+          recipe.categoryName.toLowerCase().contains(normalizedQuery) ||
           recipe.author.toLowerCase().contains(normalizedQuery) ||
           categoryText.contains(normalizedQuery);
       final matchesCategory =
@@ -332,12 +332,11 @@ class _RecipesPageState extends State<RecipesPage> {
   }
 
   String _recipeCategoryText(RecipeModel recipe) {
-    final categoryTitles = recipe.categoryIds
-        .map(CategoryCatalog.findById)
-        .whereType<CategoryModel>()
-        .map((category) => category.title.toLowerCase());
-
-    return [recipe.tag.toLowerCase(), ...categoryTitles].join(' ');
+    final category = CategoryCatalog.findById(recipe.categoryId);
+    return [
+      recipe.categoryName.toLowerCase(),
+      if (category != null) category.title.toLowerCase(),
+    ].join(' ');
   }
 }
 

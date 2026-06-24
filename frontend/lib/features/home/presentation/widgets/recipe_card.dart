@@ -86,7 +86,7 @@ class _RecipeCardBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            recipe.tag,
+            recipe.categoryName,
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(color: palette.categoryTags),
