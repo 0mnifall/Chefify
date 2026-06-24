@@ -30,7 +30,7 @@ class _SearchAuthorToken {
   final String name;
 }
 
-enum _RecipeSearchSuggestionType { tag }
+enum _RecipeSearchSuggestionType { tag, author }
 
 class _RecipeSearchSuggestion {
   const _RecipeSearchSuggestion({
@@ -205,6 +205,7 @@ class _RecipesPageState extends State<RecipesPage> {
                         },
                         onTagSelected: _selectTag,
                         onTagRemoved: _removeSelectedTag,
+                        onAuthorSelected: _selectAuthor,
                         onAuthorRemoved: _removeSelectedAuthor,
                         onCategoryToggled: _toggleCategory,
                         onClearCategories: () {
@@ -458,6 +459,20 @@ class _RecipesPageState extends State<RecipesPage> {
     });
   }
 
+  void _selectAuthor(String author) {
+    final authorId = _authorId(author);
+    if (authorId.isEmpty || _selectedAuthorIds.contains(authorId)) {
+      return;
+    }
+
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _selectedAuthorIds = {..._selectedAuthorIds, authorId};
+      _currentPage = 1;
+    });
+  }
+
   void _removeSelectedAuthor(String authorId) {
     setState(() {
       _selectedAuthorIds = {..._selectedAuthorIds}..remove(authorId);
@@ -599,6 +614,7 @@ class _RecipeControls extends StatelessWidget {
     required this.onClearSearch,
     required this.onTagSelected,
     required this.onTagRemoved,
+    required this.onAuthorSelected,
     required this.onAuthorRemoved,
     required this.onCategoryToggled,
     required this.onClearCategories,
@@ -620,6 +636,7 @@ class _RecipeControls extends StatelessWidget {
   final VoidCallback onClearSearch;
   final ValueChanged<String> onTagSelected;
   final ValueChanged<String> onTagRemoved;
+  final ValueChanged<String> onAuthorSelected;
   final ValueChanged<String> onAuthorRemoved;
   final ValueChanged<String> onCategoryToggled;
   final VoidCallback onClearCategories;
@@ -643,6 +660,7 @@ class _RecipeControls extends StatelessWidget {
             onClearSearch: onClearSearch,
             onTagSelected: onTagSelected,
             onTagRemoved: onTagRemoved,
+            onAuthorSelected: onAuthorSelected,
             onAuthorRemoved: onAuthorRemoved,
           );
           final sortPicker = _SortDropdown(
@@ -766,6 +784,7 @@ class _RecipeSearchBox extends StatefulWidget {
     required this.onClearSearch,
     required this.onTagSelected,
     required this.onTagRemoved,
+    required this.onAuthorSelected,
     required this.onAuthorRemoved,
   });
 
@@ -777,6 +796,7 @@ class _RecipeSearchBox extends StatefulWidget {
   final VoidCallback onClearSearch;
   final ValueChanged<String> onTagSelected;
   final ValueChanged<String> onTagRemoved;
+  final ValueChanged<String> onAuthorSelected;
   final ValueChanged<String> onAuthorRemoved;
 
   @override
@@ -924,7 +944,10 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
       return const [];
     }
 
-    return _tagSuggestions(query).take(6).toList(growable: false);
+    return [
+      ..._tagSuggestions(query),
+      ..._authorSuggestions(query),
+    ].take(8).toList(growable: false);
   }
 
   List<_RecipeSearchSuggestion> _tagSuggestions(String query) {
@@ -975,12 +998,60 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
     ];
   }
 
-  void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
-    if (suggestion.type != _RecipeSearchSuggestionType.tag) {
-      return;
+  List<_RecipeSearchSuggestion> _authorSuggestions(String query) {
+    final normalizedQuery = query.toLowerCase();
+    final slugQuery = CategoryCatalog.slug(query);
+    final selectedAuthorIds = widget.selectedAuthors
+        .map((author) => author.id)
+        .toSet();
+    final recipeCounts = <String, int>{};
+    final authorNames = <String, String>{};
+
+    for (final recipe in widget.recipes) {
+      final authorId = CategoryCatalog.slug(recipe.author);
+      if (authorId.isEmpty || selectedAuthorIds.contains(authorId)) {
+        continue;
+      }
+
+      final matches =
+          recipe.author.toLowerCase().contains(normalizedQuery) ||
+          (slugQuery.isNotEmpty && authorId.contains(slugQuery));
+      if (!matches) {
+        continue;
+      }
+
+      authorNames.putIfAbsent(authorId, () => recipe.author);
+      recipeCounts[authorId] = (recipeCounts[authorId] ?? 0) + 1;
     }
 
-    widget.onTagSelected(suggestion.value);
+    final authorIds = recipeCounts.keys.toList()
+      ..sort((left, right) {
+        final count = recipeCounts[right]!.compareTo(recipeCounts[left]!);
+        if (count != 0) {
+          return count;
+        }
+        return authorNames[left]!.compareTo(authorNames[right]!);
+      });
+
+    return [
+      for (final authorId in authorIds)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.author,
+          label: authorNames[authorId]!,
+          value: authorId,
+          trailingLabel: 'user',
+        ),
+    ];
+  }
+
+  void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
+    switch (suggestion.type) {
+      case _RecipeSearchSuggestionType.tag:
+        widget.onTagSelected(suggestion.value);
+      case _RecipeSearchSuggestionType.author:
+        widget.onAuthorSelected(suggestion.value);
+    }
+
     _focusNode.requestFocus();
   }
 }
