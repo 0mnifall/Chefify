@@ -3,6 +3,7 @@ import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/features/recipes/domain/recipes_page_arguments.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
@@ -315,6 +316,7 @@ class _RecipeTagRow extends StatelessWidget {
                 Flexible(
                   flex: 0,
                   child: _RecipeTagChip(
+                    tag: tags[index],
                     label: visibleTags[index],
                     textStyle: textStyle,
                   ),
@@ -379,8 +381,13 @@ class _RecipeTagRow extends StatelessWidget {
 }
 
 class _RecipeTagChip extends StatelessWidget {
-  const _RecipeTagChip({required this.label, required this.textStyle});
+  const _RecipeTagChip({
+    required this.tag,
+    required this.label,
+    required this.textStyle,
+  });
 
+  final String tag;
   final String label;
   final TextStyle? textStyle;
 
@@ -388,19 +395,30 @@ class _RecipeTagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 118),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: palette.searchBarBackground.withValues(alpha: 0.76),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+    return Material(
+      color: palette.searchBarBackground.withValues(alpha: 0.76),
+      shape: StadiumBorder(
+        side: BorderSide(color: palette.borders.withValues(alpha: 0.72)),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: textStyle,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).pushNamed(
+            AppRouter.recipes,
+            arguments: RecipesPageArguments(tagIds: [tag]),
+          );
+        },
+        mouseCursor: SystemMouseCursors.click,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 118),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textStyle,
+          ),
+        ),
       ),
     );
   }
