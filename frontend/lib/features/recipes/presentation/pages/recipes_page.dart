@@ -196,13 +196,7 @@ class _RecipesPageState extends State<RecipesPage> {
                             _currentPage = 1;
                           });
                         },
-                        onClearSearch: () {
-                          _searchController.clear();
-                          setState(() {
-                            _query = '';
-                            _currentPage = 1;
-                          });
-                        },
+                        onClearSearch: _clearSearchFilters,
                         onTagSelected: _selectTag,
                         onTagRemoved: _removeSelectedTag,
                         onAuthorSelected: _selectAuthor,
@@ -476,6 +470,16 @@ class _RecipesPageState extends State<RecipesPage> {
   void _removeSelectedAuthor(String authorId) {
     setState(() {
       _selectedAuthorIds = {..._selectedAuthorIds}..remove(authorId);
+      _currentPage = 1;
+    });
+  }
+
+  void _clearSearchFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _selectedTagIds = const {};
+      _selectedAuthorIds = const {};
       _currentPage = 1;
     });
   }
@@ -806,15 +810,36 @@ class _RecipeSearchBox extends StatefulWidget {
 class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
   final FocusNode _focusNode = FocusNode();
   final ScrollController _chipsScrollController = ScrollController();
+  final LayerLink _suggestionsLayerLink = LayerLink();
+  final GlobalKey _searchBoxKey = GlobalKey();
+  OverlayEntry? _suggestionsOverlay;
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(_handleFocusChanged);
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipeSearchBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleControllerChanged);
+      widget.controller.addListener(_handleControllerChanged);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncSuggestionsOverlay();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _removeSuggestionsOverlay();
+    widget.controller.removeListener(_handleControllerChanged);
     _focusNode.removeListener(_handleFocusChanged);
     _focusNode.dispose();
     _chipsScrollController.dispose();
@@ -826,10 +851,11 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
     final palette = context.palette;
     final focused = _focusNode.hasFocus;
     final hasQuery = widget.controller.text.trim().isNotEmpty;
+    final hasActiveSearch =
+        hasQuery ||
+        widget.selectedTags.isNotEmpty ||
+        widget.selectedAuthors.isNotEmpty;
     final borderColor = focused ? palette.activeElements : palette.borders;
-    final suggestions = focused
-        ? _suggestions()
-        : const <_RecipeSearchSuggestion>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -837,98 +863,96 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
             .clamp(160.0, 360.0)
             .toDouble();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => _focusNode.requestFocus(),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                curve: Curves.easeOut,
-                height: 56,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: palette.searchBarBackground,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded, size: 21, color: palette.icons),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(
-                          context,
-                        ).copyWith(scrollbars: false),
-                        child: SingleChildScrollView(
-                          controller: _chipsScrollController,
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (final author in widget.selectedAuthors) ...[
-                                _AuthorSearchTokenChip(
-                                  author: author,
-                                  onRemoved: widget.onAuthorRemoved,
-                                ),
-                                const SizedBox(width: AppSpacing.xs),
-                              ],
-                              for (final tag in widget.selectedTags) ...[
-                                _TagSearchTokenChip(
-                                  tag: tag,
-                                  onRemoved: widget.onTagRemoved,
-                                ),
-                                const SizedBox(width: AppSpacing.xs),
-                              ],
-                              SizedBox(
-                                width: inputWidth,
-                                child: TextField(
-                                  key: const ValueKey('recipes-search-field'),
-                                  focusNode: _focusNode,
-                                  controller: widget.controller,
-                                  onChanged: widget.onChanged,
-                                  textInputAction: TextInputAction.search,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        widget.selectedAuthors.isEmpty &&
-                                            widget.selectedTags.isEmpty
-                                        ? 'Search recipes'
-                                        : '',
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.sm,
-                                    ),
+        return CompositedTransformTarget(
+          link: _suggestionsLayerLink,
+          child: GestureDetector(
+            key: _searchBoxKey,
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _focusNode.requestFocus(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOut,
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: palette.searchBarBackground,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, size: 21, color: palette.icons),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        controller: _chipsScrollController,
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final author in widget.selectedAuthors) ...[
+                              _AuthorSearchTokenChip(
+                                author: author,
+                                onRemoved: widget.onAuthorRemoved,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                            ],
+                            for (final tag in widget.selectedTags) ...[
+                              _TagSearchTokenChip(
+                                tag: tag,
+                                onRemoved: widget.onTagRemoved,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                            ],
+                            SizedBox(
+                              width: inputWidth,
+                              child: TextField(
+                                key: const ValueKey('recipes-search-field'),
+                                focusNode: _focusNode,
+                                controller: widget.controller,
+                                onChanged: widget.onChanged,
+                                textInputAction: TextInputAction.search,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      widget.selectedAuthors.isEmpty &&
+                                          widget.selectedTags.isEmpty
+                                      ? 'Search recipes'
+                                      : '',
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  focusedErrorBorder: InputBorder.none,
+                                  filled: true,
+                                  fillColor: Colors.transparent,
+                                  hoverColor: Colors.transparent,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: AppSpacing.sm,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    if (hasQuery)
-                      IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: widget.onClearSearch,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                  ],
-                ),
+                  ),
+                  if (hasActiveSearch)
+                    IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: widget.onClearSearch,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                ],
               ),
             ),
-            if (suggestions.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              _RecipeSearchSuggestionsPanel(
-                suggestions: suggestions,
-                onSelected: _selectSuggestion,
-              ),
-            ],
-          ],
+          ),
         );
       },
     );
@@ -936,6 +960,82 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
 
   void _handleFocusChanged() {
     setState(() {});
+    _syncSuggestionsOverlay();
+  }
+
+  void _handleControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+    _syncSuggestionsOverlay();
+  }
+
+  void _syncSuggestionsOverlay() {
+    if (!_focusNode.hasFocus || _suggestions().isEmpty) {
+      _removeSuggestionsOverlay();
+      return;
+    }
+
+    _showSuggestionsOverlay();
+  }
+
+  void _showSuggestionsOverlay() {
+    if (_suggestionsOverlay != null) {
+      _suggestionsOverlay!.markNeedsBuild();
+      return;
+    }
+
+    _suggestionsOverlay = OverlayEntry(
+      builder: (overlayContext) {
+        final suggestions = _focusNode.hasFocus
+            ? _suggestions()
+            : const <_RecipeSearchSuggestion>[];
+        if (suggestions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return CompositedTransformFollower(
+          link: _suggestionsLayerLink,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, AppSpacing.xs),
+          showWhenUnlinked: false,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Align(
+              alignment: Alignment.topLeft,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: SizedBox(
+                width: _searchBoxWidth(),
+                child: _RecipeSearchSuggestionsPanel(
+                  suggestions: suggestions,
+                  onSelected: _selectSuggestion,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_suggestionsOverlay!);
+  }
+
+  void _removeSuggestionsOverlay() {
+    _suggestionsOverlay?.remove();
+    _suggestionsOverlay = null;
+  }
+
+  double _searchBoxWidth() {
+    final renderObject = _searchBoxKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      return renderObject.size.width;
+    }
+
+    return 320;
   }
 
   List<_RecipeSearchSuggestion> _suggestions() {
@@ -1082,6 +1182,8 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
   }
 
   void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
+    _removeSuggestionsOverlay();
+
     switch (suggestion.type) {
       case _RecipeSearchSuggestionType.recipe:
         widget.controller.value = TextEditingValue(
@@ -1112,30 +1214,35 @@ class _RecipeSearchSuggestionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: palette.cardsSurface.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        border: Border.all(color: palette.borders.withValues(alpha: 0.76)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var index = 0; index < suggestions.length; index++)
-            _RecipeSearchSuggestionTile(
-              suggestion: suggestions[index],
-              showDivider: index < suggestions.length - 1,
-              onSelected: onSelected,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 292),
+      child: Container(
+        decoration: BoxDecoration(
+          color: palette.cardsSurface.withValues(alpha: 0.98),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(color: palette.borders.withValues(alpha: 0.76)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-        ],
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < suggestions.length; index++)
+                _RecipeSearchSuggestionTile(
+                  suggestion: suggestions[index],
+                  showDivider: index < suggestions.length - 1,
+                  onSelected: onSelected,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1171,7 +1278,8 @@ class _RecipeSearchSuggestionTile extends StatelessWidget {
           key: ValueKey(
             'recipe-search-suggestion-${suggestion.type.name}-${CategoryCatalog.slug(suggestion.value)}',
           ),
-          onTap: () => onSelected(suggestion),
+          onTapDown: (_) => onSelected(suggestion),
+          onTap: () {},
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,

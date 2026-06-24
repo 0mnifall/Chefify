@@ -320,6 +320,74 @@ void main() {
     );
   });
 
+  testWidgets('clear search removes text tag and author tokens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'high',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-tag-high-protein')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipes-search-field')),
+      'aria',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-search-suggestion-author-chef-aria')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-high-protein')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-search-author-token-chef-aria')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-search-tag-token-high-protein')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-search-author-token-chef-aria')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('recipes-card-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('autocompletes recipe title suggestions', (tester) async {
     tester.view.physicalSize = const Size(1440, 1000);
     tester.view.devicePixelRatio = 1;
