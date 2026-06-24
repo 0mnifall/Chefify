@@ -124,67 +124,64 @@ class _RecipeAuthorChipState extends State<_RecipeAuthorChip> {
             _focused = focused;
           });
         },
-        child: Tooltip(
-          message: widget.recipe.author,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: ValueKey('recipe-author-chip-${widget.recipe.id}'),
-              onTap: () {
-                Navigator.of(context).pushNamed(
-                  AppRouter.authorProfilePath(widget.recipe.author),
-                  arguments: widget.recipe.author,
-                );
-              },
-              borderRadius: BorderRadius.circular(999),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                width: width,
-                height: 44,
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: palette.cardsSurface.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: palette.borders.withValues(alpha: 0.84),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey('recipe-author-chip-${widget.recipe.id}'),
+            onTap: () {
+              Navigator.of(context).pushNamed(
+                AppRouter.authorProfilePath(widget.recipe.author),
+                arguments: widget.recipe.author,
+              );
+            },
+            borderRadius: BorderRadius.circular(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: width,
+              height: 44,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: palette.cardsSurface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: palette.borders.withValues(alpha: 0.84),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _RecipeAuthorAvatar(author: widget.recipe.author),
-                      Flexible(
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 130),
-                          curve: Curves.easeOut,
-                          opacity: _expanded ? 1 : 0,
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              left: AppSpacing.xs,
-                              right: AppSpacing.xs,
-                            ),
-                            child: Text(
-                              widget.recipe.author,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(color: foregroundColor),
-                            ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecipeAuthorAvatar(author: widget.recipe.author),
+                    Flexible(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 130),
+                        curve: Curves.easeOut,
+                        opacity: _expanded ? 1 : 0,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: AppSpacing.xs,
+                            right: AppSpacing.xs,
+                          ),
+                          child: Text(
+                            widget.recipe.author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: foregroundColor),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
