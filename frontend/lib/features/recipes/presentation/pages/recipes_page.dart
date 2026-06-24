@@ -30,7 +30,7 @@ class _SearchAuthorToken {
   final String name;
 }
 
-enum _RecipeSearchSuggestionType { tag, author }
+enum _RecipeSearchSuggestionType { recipe, tag, author }
 
 class _RecipeSearchSuggestion {
   const _RecipeSearchSuggestion({
@@ -947,7 +947,44 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
     return [
       ..._tagSuggestions(query),
       ..._authorSuggestions(query),
+      ..._recipeSuggestions(query),
     ].take(8).toList(growable: false);
+  }
+
+  List<_RecipeSearchSuggestion> _recipeSuggestions(String query) {
+    final normalizedQuery = query.toLowerCase();
+    final slugQuery = CategoryCatalog.slug(query);
+    final matches = <RecipeModel>[];
+    final seenRecipeIds = <String>{};
+
+    for (final recipe in widget.recipes) {
+      final recipeSlug = CategoryCatalog.slug(recipe.title);
+      final matchesTitle =
+          recipe.title.toLowerCase().contains(normalizedQuery) ||
+          (slugQuery.isNotEmpty && recipeSlug.contains(slugQuery));
+      if (!matchesTitle || !seenRecipeIds.add(recipe.id)) {
+        continue;
+      }
+
+      matches.add(recipe);
+    }
+
+    matches.sort((left, right) {
+      final rating = right.rating.compareTo(left.rating);
+      if (rating != 0) {
+        return rating;
+      }
+      return left.title.compareTo(right.title);
+    });
+
+    return [
+      for (final recipe in matches)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.recipe,
+          label: recipe.title,
+          value: recipe.title,
+        ),
+    ];
   }
 
   List<_RecipeSearchSuggestion> _tagSuggestions(String query) {
@@ -1046,6 +1083,12 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
 
   void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
     switch (suggestion.type) {
+      case _RecipeSearchSuggestionType.recipe:
+        widget.controller.value = TextEditingValue(
+          text: suggestion.value,
+          selection: TextSelection.collapsed(offset: suggestion.value.length),
+        );
+        widget.onChanged(suggestion.value);
       case _RecipeSearchSuggestionType.tag:
         widget.onTagSelected(suggestion.value);
       case _RecipeSearchSuggestionType.author:
