@@ -256,11 +256,11 @@ class _RecipeCardBody extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
+          if (pinFooter) const Spacer(),
           if (recipe.tags.isNotEmpty) ...[
             _RecipeTagRow(tags: recipe.tags),
             const SizedBox(height: AppSpacing.sm),
           ],
-          if (pinFooter) const Spacer(),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
