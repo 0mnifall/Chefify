@@ -16,37 +16,21 @@ enum _RecipeSort { featured, rating, quickest, title }
 
 enum _TimeFilter { any, under20, under30, over30 }
 
-class RecipesPageArguments {
-  const RecipesPageArguments({this.categoryIds = const []});
-
-  factory RecipesPageArguments.from(Object? arguments) {
-    if (arguments is RecipesPageArguments) {
-      return arguments;
-    }
-
-    if (arguments is String) {
-      return RecipesPageArguments(categoryIds: [arguments]);
-    }
-
-    if (arguments is Iterable<String>) {
-      return RecipesPageArguments(categoryIds: arguments.toList());
-    }
-
-    return const RecipesPageArguments();
-  }
-
-  final List<String> categoryIds;
-}
-
 class RecipesPage extends StatefulWidget {
   const RecipesPage({
     super.key,
     this.recipeRepository = const ApiRecipeRepository(),
     this.initialCategoryIds = const [],
+    this.initialTagIds = const [],
+    this.initialAuthorIds = const [],
+    this.initialQuery,
   });
 
   final RecipeRepository recipeRepository;
   final List<String> initialCategoryIds;
+  final List<String> initialTagIds;
+  final List<String> initialAuthorIds;
+  final String? initialQuery;
 
   @override
   State<RecipesPage> createState() => _RecipesPageState();
@@ -60,6 +44,8 @@ class _RecipesPageState extends State<RecipesPage> {
   final ScrollController _scrollController = ScrollController();
   String _query = '';
   Set<String> _selectedCategoryIds = const {};
+  Set<String> _selectedTagIds = const {};
+  Set<String> _selectedAuthorIds = const {};
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
@@ -72,6 +58,10 @@ class _RecipesPageState extends State<RecipesPage> {
     _selectedCategoryIds = _normalizedInitialCategoryIds(
       widget.initialCategoryIds,
     );
+    _selectedTagIds = _normalizedTagIds(widget.initialTagIds);
+    _selectedAuthorIds = _normalizedAuthorIds(widget.initialAuthorIds);
+    _query = widget.initialQuery?.trim() ?? '';
+    _searchController.text = _query;
     _loadRecipes();
   }
 
@@ -88,6 +78,23 @@ class _RecipesPageState extends State<RecipesPage> {
       _selectedCategoryIds = _normalizedInitialCategoryIds(
         widget.initialCategoryIds,
       );
+      _currentPage = 1;
+    }
+    if (!_sameNormalizedIds(oldWidget.initialTagIds, widget.initialTagIds)) {
+      _selectedTagIds = _normalizedTagIds(widget.initialTagIds);
+      _currentPage = 1;
+    }
+    if (!_sameNormalizedIds(
+      oldWidget.initialAuthorIds,
+      widget.initialAuthorIds,
+    )) {
+      _selectedAuthorIds = _normalizedAuthorIds(widget.initialAuthorIds);
+      _currentPage = 1;
+    }
+    if (oldWidget.initialQuery != widget.initialQuery) {
+      _query = widget.initialQuery?.trim() ?? '';
+      _searchController.text = _query;
+      _currentPage = 1;
     }
   }
 
@@ -242,6 +249,11 @@ class _RecipesPageState extends State<RecipesPage> {
             (categoryId) =>
                 CategoryCatalog.recipeMatchesCategoryId(recipe, categoryId),
           );
+      final matchesTags =
+          _selectedTagIds.isEmpty || _recipeMatchesAllTags(recipe);
+      final matchesAuthor =
+          _selectedAuthorIds.isEmpty ||
+          _selectedAuthorIds.contains(_authorId(recipe.author));
       final matchesTime = switch (_timeFilter) {
         _TimeFilter.any => true,
         _TimeFilter.under20 => recipe.minutes <= 20,
@@ -250,7 +262,12 @@ class _RecipesPageState extends State<RecipesPage> {
       };
       final matchesSaved = !_savedOnly || bookmarkStore.isRecipeSaved(recipe);
 
-      return matchesSearch && matchesCategory && matchesTime && matchesSaved;
+      return matchesSearch &&
+          matchesCategory &&
+          matchesTags &&
+          matchesAuthor &&
+          matchesTime &&
+          matchesSaved;
     }).toList();
 
     recipes.sort((left, right) {
@@ -329,6 +346,29 @@ class _RecipesPageState extends State<RecipesPage> {
         normalizedLeft.containsAll(normalizedRight);
   }
 
+  Set<String> _normalizedTagIds(Iterable<String> tagIds) {
+    return tagIds.map(_tagId).where((tagId) => tagId.isNotEmpty).toSet();
+  }
+
+  Set<String> _normalizedAuthorIds(Iterable<String> authorIds) {
+    return authorIds
+        .map(_authorId)
+        .where((authorId) => authorId.isNotEmpty)
+        .toSet();
+  }
+
+  bool _sameNormalizedIds(Iterable<String> left, Iterable<String> right) {
+    final normalizedLeft = left.map(_tagId).toSet();
+    final normalizedRight = right.map(_tagId).toSet();
+    return normalizedLeft.length == normalizedRight.length &&
+        normalizedLeft.containsAll(normalizedRight);
+  }
+
+  bool _recipeMatchesAllTags(RecipeModel recipe) {
+    final recipeTagIds = recipe.tags.map(_tagId).toSet();
+    return _selectedTagIds.every(recipeTagIds.contains);
+  }
+
   String _recipeSearchText(RecipeModel recipe) {
     final category = CategoryCatalog.findById(recipe.categoryId);
     final tagText = recipe.tags.expand(
@@ -346,6 +386,14 @@ class _RecipesPageState extends State<RecipesPage> {
 
   String _readableTagLabel(String tag) {
     return tag.trim().replaceAll(RegExp(r'[_-]+'), ' ');
+  }
+
+  String _tagId(String tag) {
+    return CategoryCatalog.slug(tag);
+  }
+
+  String _authorId(String author) {
+    return CategoryCatalog.slug(author);
   }
 }
 
