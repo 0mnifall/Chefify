@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
-import 'package:frontend/core/widgets/responsive_wrap_grid.dart';
+import 'package:frontend/core/widgets/responsive_sliver_grid.dart';
 import 'package:frontend/features/categories/data/category_catalog.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
@@ -53,14 +55,17 @@ class RecipesPage extends StatefulWidget {
 
 class _RecipesPageState extends State<RecipesPage> {
   static const _maxSelectedCategories = 3;
+  static const _recipesPerPage = 20;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _query = '';
   Set<String> _selectedCategoryIds = const {};
   _TimeFilter _timeFilter = _TimeFilter.any;
   _RecipeSort _sort = _RecipeSort.featured;
   bool _savedOnly = false;
-  List<RecipeModel>? _recipes;
+  List<RecipeModel> _recipes = RecipeCatalog.items;
+  int _currentPage = 1;
 
   @override
   void initState() {
@@ -90,6 +95,7 @@ class _RecipesPageState extends State<RecipesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -101,6 +107,7 @@ class _RecipesPageState extends State<RecipesPage> {
 
     setState(() {
       _recipes = recipes;
+      _currentPage = 1;
     });
   }
 
@@ -109,11 +116,12 @@ class _RecipesPageState extends State<RecipesPage> {
     final palette = context.palette;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
+    final bottomPadding = AppSpacing.sectionGapForWidth(viewportWidth);
     final recipes = _visibleRecipes(context);
-    final categories = CategoryCatalog.withRecipeCounts(
-      _recipes ?? RecipeCatalog.items,
-    );
-    final isLoading = _recipes == null;
+    final pageCount = _pageCount(recipes.length);
+    final currentPage = _currentPage.clamp(1, pageCount).toInt();
+    final pageRecipes = _recipesForPage(recipes, currentPage);
+    final categories = CategoryCatalog.withRecipeCounts(_recipes);
 
     return Scaffold(
       body: DecoratedBox(
@@ -126,76 +134,90 @@ class _RecipesPageState extends State<RecipesPage> {
         ),
         child: Stack(
           children: [
-            SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  headerHeight + AppSpacing.xl,
-                  AppSpacing.horizontalPaddingForWidth(viewportWidth),
-                  AppSpacing.sectionGapForWidth(viewportWidth),
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppSpacing.contentMaxWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _RecipesHeader(totalCount: recipes.length),
-                        const SizedBox(height: AppSpacing.lg),
-                        _RecipeControls(
-                          searchController: _searchController,
-                          selectedCategoryIds: _selectedCategoryIds,
-                          timeFilter: _timeFilter,
-                          sort: _sort,
-                          savedOnly: _savedOnly,
-                          categories: categories,
-                          onSearchChanged: (value) {
-                            setState(() {
-                              _query = value;
-                            });
-                          },
-                          onClearSearch: () {
-                            _searchController.clear();
-                            setState(() {
-                              _query = '';
-                            });
-                          },
-                          onCategoryToggled: _toggleCategory,
-                          onClearCategories: () {
-                            setState(() {
-                              _selectedCategoryIds = const {};
-                            });
-                          },
-                          onTimeFilterChanged: (filter) {
-                            setState(() {
-                              _timeFilter = filter;
-                            });
-                          },
-                          onSortChanged: (sort) {
-                            setState(() {
-                              _sort = sort;
-                            });
-                          },
-                          onSavedOnlyChanged: (value) {
-                            setState(() {
-                              _savedOnly = value;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        if (isLoading)
-                          const _RecipesLoadingState()
-                        else if (recipes.isEmpty)
-                          const _EmptyRecipesState()
-                        else
-                          _RecipesGrid(recipes: recipes),
-                      ],
-                    ),
+            CustomScrollView(
+              controller: _scrollController,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+              slivers: [
+                _RecipesContentSliver(
+                  topPadding: headerHeight + AppSpacing.xl,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RecipesHeader(totalCount: recipes.length),
+                      const SizedBox(height: AppSpacing.lg),
+                      _RecipeControls(
+                        searchController: _searchController,
+                        selectedCategoryIds: _selectedCategoryIds,
+                        timeFilter: _timeFilter,
+                        sort: _sort,
+                        savedOnly: _savedOnly,
+                        categories: categories,
+                        onSearchChanged: (value) {
+                          setState(() {
+                            _query = value;
+                            _currentPage = 1;
+                          });
+                        },
+                        onClearSearch: () {
+                          _searchController.clear();
+                          setState(() {
+                            _query = '';
+                            _currentPage = 1;
+                          });
+                        },
+                        onCategoryToggled: _toggleCategory,
+                        onClearCategories: () {
+                          setState(() {
+                            _selectedCategoryIds = const {};
+                            _currentPage = 1;
+                          });
+                        },
+                        onTimeFilterChanged: (filter) {
+                          setState(() {
+                            _timeFilter = filter;
+                            _currentPage = 1;
+                          });
+                        },
+                        onSortChanged: (sort) {
+                          setState(() {
+                            _sort = sort;
+                            _currentPage = 1;
+                          });
+                        },
+                        onSavedOnlyChanged: (value) {
+                          setState(() {
+                            _savedOnly = value;
+                            _currentPage = 1;
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                if (recipes.isEmpty)
+                  _RecipesContentSliver(
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: bottomPadding,
+                    child: const _EmptyRecipesState(),
+                  )
+                else
+                  _RecipesGrid(
+                    recipes: pageRecipes,
+                    topPadding: AppSpacing.lg,
+                    bottomPadding: pageCount > 1
+                        ? AppSpacing.lg
+                        : bottomPadding,
+                  ),
+                if (pageCount > 1)
+                  _RecipesContentSliver(
+                    bottomPadding: bottomPadding,
+                    child: _RecipePagination(
+                      currentPage: currentPage,
+                      pageCount: pageCount,
+                      onPageChanged: _changePage,
+                    ),
+                  ),
+              ],
             ),
             _RecipesHeaderShell(height: headerHeight, child: const AppHeader()),
           ],
@@ -207,15 +229,15 @@ class _RecipesPageState extends State<RecipesPage> {
   List<RecipeModel> _visibleRecipes(BuildContext context) {
     final bookmarkStore = BookmarkScope.of(context);
     final normalizedQuery = _query.trim().toLowerCase();
-    final sourceRecipes = _recipes ?? const <RecipeModel>[];
+    final normalizedSlugQuery = CategoryCatalog.slug(normalizedQuery);
+    final sourceRecipes = _recipes;
     final recipes = sourceRecipes.where((recipe) {
-      final categoryText = _recipeCategoryText(recipe);
+      final searchText = _recipeSearchText(recipe);
       final matchesSearch =
           normalizedQuery.isEmpty ||
-          recipe.title.toLowerCase().contains(normalizedQuery) ||
-          recipe.tag.toLowerCase().contains(normalizedQuery) ||
-          recipe.author.toLowerCase().contains(normalizedQuery) ||
-          categoryText.contains(normalizedQuery);
+          searchText.contains(normalizedQuery) ||
+          (normalizedSlugQuery.isNotEmpty &&
+              CategoryCatalog.slug(searchText).contains(normalizedSlugQuery));
       final matchesCategory =
           _selectedCategoryIds.isEmpty ||
           _selectedCategoryIds.any(
@@ -256,7 +278,42 @@ class _RecipesPageState extends State<RecipesPage> {
         selectedCategoryIds.add(normalizedCategoryId);
       }
       _selectedCategoryIds = selectedCategoryIds;
+      _currentPage = 1;
     });
+  }
+
+  int _pageCount(int itemCount) {
+    if (itemCount <= 0) {
+      return 1;
+    }
+
+    return ((itemCount - 1) ~/ _recipesPerPage) + 1;
+  }
+
+  List<RecipeModel> _recipesForPage(List<RecipeModel> recipes, int page) {
+    if (recipes.isEmpty) {
+      return const [];
+    }
+
+    final startIndex = (page - 1) * _recipesPerPage;
+    return recipes
+        .skip(startIndex)
+        .take(_recipesPerPage)
+        .toList(growable: false);
+  }
+
+  void _changePage(int page) {
+    setState(() {
+      _currentPage = page;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Set<String> _normalizedInitialCategoryIds(Iterable<String> categoryIds) {
@@ -274,13 +331,23 @@ class _RecipesPageState extends State<RecipesPage> {
         normalizedLeft.containsAll(normalizedRight);
   }
 
-  String _recipeCategoryText(RecipeModel recipe) {
-    final categoryTitles = recipe.categoryIds
-        .map(CategoryCatalog.findById)
-        .whereType<CategoryModel>()
-        .map((category) => category.title.toLowerCase());
+  String _recipeSearchText(RecipeModel recipe) {
+    final category = CategoryCatalog.findById(recipe.categoryId);
+    final tagText = recipe.tags.expand(
+      (tag) => [tag.toLowerCase(), _readableTagLabel(tag).toLowerCase()],
+    );
 
-    return [recipe.tag.toLowerCase(), ...categoryTitles].join(' ');
+    return [
+      recipe.title.toLowerCase(),
+      recipe.categoryName.toLowerCase(),
+      recipe.author.toLowerCase(),
+      if (category != null) category.title.toLowerCase(),
+      ...tagText,
+    ].join(' ');
+  }
+
+  String _readableTagLabel(String tag) {
+    return tag.trim().replaceAll(RegExp(r'[_-]+'), ' ');
   }
 }
 
@@ -412,7 +479,7 @@ class _RecipeControls extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 820;
+          final compact = constraints.maxWidth < 900;
           final search = TextField(
             key: const ValueKey('recipes-search-field'),
             controller: searchController,
@@ -430,43 +497,42 @@ class _RecipeControls extends StatelessWidget {
                     ),
             ),
           );
-          final sortPicker = DropdownButtonFormField<_RecipeSort>(
-            key: const ValueKey('recipes-sort-dropdown'),
-            initialValue: sort,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Sort by'),
-            items: const [
-              DropdownMenuItem(
-                value: _RecipeSort.featured,
-                child: Text('Featured'),
-              ),
-              DropdownMenuItem(
-                value: _RecipeSort.rating,
-                child: Text('Highest rated'),
-              ),
-              DropdownMenuItem(
-                value: _RecipeSort.quickest,
-                child: Text('Quickest'),
-              ),
-              DropdownMenuItem(value: _RecipeSort.title, child: Text('A-Z')),
-            ],
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-              onSortChanged(value);
-            },
+          final sortPicker = _SortDropdown(
+            sort: sort,
+            onChanged: onSortChanged,
           );
+          final savedButton = _SavedOnlyButton(
+            selected: savedOnly,
+            onChanged: onSavedOnlyChanged,
+          );
+          final sideControlWidth = constraints.maxWidth < 1040 ? 184.0 : 204.0;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (compact)
                 Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     search,
                     const SizedBox(height: AppSpacing.sm),
-                    sortPicker,
+                    if (constraints.maxWidth < 520)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          sortPicker,
+                          const SizedBox(height: AppSpacing.sm),
+                          savedButton,
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(child: sortPicker),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(child: savedButton),
+                        ],
+                      ),
                   ],
                 )
               else
@@ -474,10 +540,9 @@ class _RecipeControls extends StatelessWidget {
                   children: [
                     Expanded(flex: 3, child: search),
                     const SizedBox(width: AppSpacing.md),
-                    SizedBox(
-                      width: constraints.maxWidth < 960 ? 200 : 220,
-                      child: sortPicker,
-                    ),
+                    SizedBox(width: sideControlWidth, child: sortPicker),
+                    const SizedBox(width: AppSpacing.md),
+                    SizedBox(width: sideControlWidth, child: savedButton),
                   ],
                 ),
               const SizedBox(height: AppSpacing.md),
@@ -533,22 +598,93 @@ class _RecipeControls extends StatelessWidget {
                     selectedFilter: timeFilter,
                     onSelected: onTimeFilterChanged,
                   ),
-                  FilterChip(
-                    avatar: Icon(
-                      savedOnly
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      size: 18,
-                    ),
-                    label: const Text('Saved'),
-                    selected: savedOnly,
-                    onSelected: onSavedOnlyChanged,
-                  ),
                 ],
               ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _SortDropdown extends StatelessWidget {
+  const _SortDropdown({required this.sort, required this.onChanged});
+
+  final _RecipeSort sort;
+  final ValueChanged<_RecipeSort> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<_RecipeSort>(
+      key: const ValueKey('recipes-sort-dropdown'),
+      initialSelection: sort,
+      expandedInsets: EdgeInsets.zero,
+      requestFocusOnTap: false,
+      label: const Text('Sort by'),
+      menuHeight: 216,
+      dropdownMenuEntries: const [
+        DropdownMenuEntry(value: _RecipeSort.featured, label: 'Featured'),
+        DropdownMenuEntry(value: _RecipeSort.rating, label: 'Highest rated'),
+        DropdownMenuEntry(value: _RecipeSort.quickest, label: 'Quickest'),
+        DropdownMenuEntry(value: _RecipeSort.title, label: 'A-Z'),
+      ],
+      onSelected: (value) {
+        if (value == null) {
+          return;
+        }
+        onChanged(value);
+      },
+    );
+  }
+}
+
+class _SavedOnlyButton extends StatelessWidget {
+  const _SavedOnlyButton({required this.selected, required this.onChanged});
+
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = selected
+        ? Icons.bookmark_rounded
+        : Icons.bookmark_border_rounded;
+    final label = Text(
+      'Saved only',
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+
+    if (selected) {
+      return FilledButton.icon(
+        onPressed: () => onChanged(false),
+        icon: Icon(icon, size: 18),
+        label: label,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: () => onChanged(true),
+      icon: Icon(icon, size: 18),
+      label: label,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        ),
       ),
     );
   }
@@ -579,25 +715,209 @@ class _CategoryFilterCloud extends StatelessWidget {
     final atLimit =
         selectedCategoryIds.length >= _RecipesPageState._maxSelectedCategories;
 
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: [
-        for (final category in sortedCategories)
-          FilterChip(
-            key: ValueKey('recipes-category-chip-${category.id}'),
-            label: Text('${category.title} ${category.recipesCount}'),
-            selected: selectedCategoryIds.contains(category.id),
-            avatar: selectedCategoryIds.contains(category.id)
-                ? const Icon(Icons.check_rounded, size: 17)
-                : Icon(category.icon, size: 17),
-            onSelected: selectedCategoryIds.contains(category.id) || !atLimit
-                ? (_) => onCategoryToggled(category.id)
-                : null,
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = _buildCategoryChipRows(
+          context,
+          sortedCategories,
+          constraints.maxWidth,
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: rowIndex == rows.length - 1 ? 0 : AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    for (
+                      var itemIndex = 0;
+                      itemIndex < rows[rowIndex].length;
+                      itemIndex++
+                    ) ...[
+                      if (itemIndex > 0) const SizedBox(width: AppSpacing.xs),
+                      SizedBox(
+                        width: rows[rowIndex][itemIndex].width,
+                        child: _CategoryFilterChip(
+                          category: rows[rowIndex][itemIndex].category,
+                          selected: selectedCategoryIds.contains(
+                            rows[rowIndex][itemIndex].category.id,
+                          ),
+                          atLimit: atLimit,
+                          onCategoryToggled: onCategoryToggled,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
+
+  List<List<_CategoryChipLayout>> _buildCategoryChipRows(
+    BuildContext context,
+    List<CategoryModel> categories,
+    double maxWidth,
+  ) {
+    final safeWidth = maxWidth.isFinite ? maxWidth : AppSpacing.contentMaxWidth;
+    final rows = <List<_CategoryChipSeed>>[];
+    var currentRow = <_CategoryChipSeed>[];
+    var currentWidth = 0.0;
+
+    for (final category in categories) {
+      final baseWidth = _categoryChipBaseWidth(context, category, safeWidth);
+      final nextWidth =
+          currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xs) + baseWidth;
+
+      if (currentRow.isNotEmpty && nextWidth > safeWidth) {
+        rows.add(currentRow);
+        currentRow = [_CategoryChipSeed(category, baseWidth)];
+        currentWidth = baseWidth;
+      } else {
+        currentRow.add(_CategoryChipSeed(category, baseWidth));
+        currentWidth = nextWidth;
+      }
+    }
+
+    if (currentRow.isNotEmpty) {
+      rows.add(currentRow);
+    }
+
+    return [for (final row in rows) _justifyCategoryChipRow(row, safeWidth)];
+  }
+
+  List<_CategoryChipLayout> _justifyCategoryChipRow(
+    List<_CategoryChipSeed> row,
+    double maxWidth,
+  ) {
+    final spacing = AppSpacing.xs * (row.length - 1);
+    final baseWidth = row.fold<double>(0, (sum, item) => sum + item.baseWidth);
+    final extra = (maxWidth - spacing - baseWidth).clamp(0, double.infinity);
+    final extraPerChip = row.length <= 1 ? 0.0 : extra / row.length;
+
+    return [
+      for (final item in row)
+        _CategoryChipLayout(
+          category: item.category,
+          width: item.baseWidth + extraPerChip,
+        ),
+    ];
+  }
+
+  double _categoryChipBaseWidth(
+    BuildContext context,
+    CategoryModel category,
+    double maxWidth,
+  ) {
+    final label = '${category.title} ${category.recipesCount}';
+    final textStyle =
+        Theme.of(context).textTheme.labelLarge ??
+        DefaultTextStyle.of(context).style;
+    final textPainter = TextPainter(
+      text: TextSpan(text: label, style: textStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 72).clamp(118, maxWidth).toDouble();
+  }
+}
+
+class _CategoryFilterChip extends StatelessWidget {
+  const _CategoryFilterChip({
+    required this.category,
+    required this.selected,
+    required this.atLimit,
+    required this.onCategoryToggled,
+  });
+
+  final CategoryModel category;
+  final bool selected;
+  final bool atLimit;
+  final ValueChanged<String> onCategoryToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final enabled = selected || !atLimit;
+    final borderRadius = BorderRadius.circular(AppSpacing.radiusSm);
+    final textStyle = Theme.of(context).textTheme.labelLarge;
+    final foregroundColor = enabled
+        ? palette.mainText
+        : palette.secondaryText.withValues(alpha: 0.58);
+    final accentColor = enabled
+        ? palette.primaryButtons
+        : palette.primaryButtons.withValues(alpha: 0.45);
+    final borderColor = selected
+        ? palette.primaryButtons
+        : palette.mainText.withValues(alpha: enabled ? 0.86 : 0.35);
+    final backgroundColor = selected
+        ? palette.primaryButtons.withValues(alpha: 0.18)
+        : Colors.transparent;
+
+    return Material(
+      key: ValueKey('recipes-category-chip-${category.id}'),
+      color: backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: borderColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? () => onCategoryToggled(category.id) : null,
+        borderRadius: borderRadius,
+        mouseCursor: enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Icon(
+                selected ? Icons.check_rounded : category.icon,
+                size: 17,
+                color: accentColor,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  '${category.title} ${category.recipesCount}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle?.copyWith(color: foregroundColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChipSeed {
+  const _CategoryChipSeed(this.category, this.baseWidth);
+
+  final CategoryModel category;
+  final double baseWidth;
+}
+
+class _CategoryChipLayout {
+  const _CategoryChipLayout({required this.category, required this.width});
+
+  final CategoryModel category;
+  final double width;
 }
 
 class _TimeFilterChip extends StatelessWidget {
@@ -624,19 +944,35 @@ class _TimeFilterChip extends StatelessWidget {
 }
 
 class _RecipesGrid extends StatelessWidget {
-  const _RecipesGrid({required this.recipes});
+  const _RecipesGrid({
+    required this.recipes,
+    required this.topPadding,
+    required this.bottomPadding,
+  });
 
   final List<RecipeModel> recipes;
+  final double topPadding;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapGrid<RecipeModel>(
+    return ResponsiveSliverGrid<RecipeModel>(
       items: recipes,
       minItemWidth: 240,
       maxColumns: 4,
+      padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       itemHeightBuilder: _recipeCardHeight,
       itemBuilder: (context, recipe) {
-        return RecipeCard(recipe: recipe);
+        return RecipeCard(
+          key: ValueKey('recipes-card-${recipe.id}'),
+          recipe: recipe,
+          onTap: () {
+            Navigator.of(context).pushNamed(
+              AppRouter.recipeDetailsPath(recipe.id),
+              arguments: recipe,
+            );
+          },
+        );
       },
     );
   }
@@ -644,10 +980,199 @@ class _RecipesGrid extends StatelessWidget {
 
 double _recipeCardHeight(double width, int columns) {
   if (columns == 1 || width < 280) {
-    return 334;
+    return 350;
   }
 
-  return 348;
+  return 364;
+}
+
+class _RecipesContentSliver extends StatelessWidget {
+  const _RecipesContentSliver({
+    required this.child,
+    this.topPadding = 0,
+    this.bottomPadding = 0,
+  });
+
+  final Widget child;
+  final double topPadding;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = AppSpacing.horizontalPaddingForWidth(
+      viewportWidth,
+    );
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          bottomPadding,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.contentMaxWidth,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipePagination extends StatelessWidget {
+  const _RecipePagination({
+    required this.currentPage,
+    required this.pageCount,
+    required this.onPageChanged,
+  });
+
+  final int currentPage;
+  final int pageCount;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = _visiblePages;
+
+    return Center(
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _PaginationIconButton(
+            icon: Icons.chevron_left_rounded,
+            enabled: currentPage > 1,
+            onPressed: () => onPageChanged(currentPage - 1),
+          ),
+          for (var index = 0; index < pages.length; index++) ...[
+            if (index > 0 && pages[index] - pages[index - 1] > 1)
+              const _PaginationGap(),
+            _PaginationPageButton(
+              page: pages[index],
+              selected: pages[index] == currentPage,
+              onPressed: () => onPageChanged(pages[index]),
+            ),
+          ],
+          _PaginationIconButton(
+            icon: Icons.chevron_right_rounded,
+            enabled: currentPage < pageCount,
+            onPressed: () => onPageChanged(currentPage + 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<int> get _visiblePages {
+    if (pageCount <= 7) {
+      return [for (var page = 1; page <= pageCount; page++) page];
+    }
+
+    final pages = <int>{1, pageCount};
+    for (var page = currentPage - 1; page <= currentPage + 1; page++) {
+      if (page > 1 && page < pageCount) {
+        pages.add(page);
+      }
+    }
+
+    return pages.toList()..sort();
+  }
+}
+
+class _PaginationPageButton extends StatelessWidget {
+  const _PaginationPageButton({
+    required this.page,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final int page;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text('$page', overflow: TextOverflow.ellipsis);
+
+    if (selected) {
+      return SizedBox.square(
+        dimension: 42,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    }
+
+    return SizedBox.square(
+      dimension: 42,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _PaginationIconButton extends StatelessWidget {
+  const _PaginationIconButton({
+    required this.icon,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 42,
+      child: IconButton(
+        onPressed: enabled ? onPressed : null,
+        icon: Icon(icon),
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaginationGap extends StatelessWidget {
+  const _PaginationGap();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 42,
+      child: Center(
+        child: Text('...', style: Theme.of(context).textTheme.labelLarge),
+      ),
+    );
+  }
 }
 
 class _EmptyRecipesState extends StatelessWidget {
@@ -677,32 +1202,6 @@ class _EmptyRecipesState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecipesLoadingState extends StatelessWidget {
-  const _RecipesLoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: SizedBox(
-        height: 220,
-        child: Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.4,
-              color: palette.activeElements,
-            ),
-          ),
         ),
       ),
     );

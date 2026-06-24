@@ -44,14 +44,15 @@ class RecipeModel {
   const RecipeModel({
     required this.id,
     required this.title,
-    required this.tag,
+    required this.categoryId,
+    required this.categoryName,
     required this.author,
     required this.minutes,
     required this.rating,
     required this.accentColor,
     this.description = '',
     this.imageUrl,
-    this.categoryIds = const [],
+    this.tags = const [],
     this.popularityScore = 0,
     this.isSaved = false,
   });
@@ -63,19 +64,18 @@ class RecipeModel {
     );
     final difficulty = _intValue(_jsonValue(json, 'difficulty'), fallback: 2);
     final normalizedDifficulty = difficulty.clamp(1, 5).toDouble();
-    final categoryName = _stringValue(_jsonValue(json, 'categoryName'));
-    final tag = _stringValue(
-      _jsonValue(json, 'tag') ??
-          (categoryName.isEmpty ? null : categoryName) ??
-          _firstTag(json),
-      fallback: 'Community',
+    final categoryName = _categoryNameValue(json);
+    final categoryId = _categoryIdValue(
+      json,
+      fallbackCategoryName: categoryName,
     );
 
     return RecipeModel(
       id: _stringValue(_jsonValue(json, 'id'), fallback: _slugFromTitle(title)),
       title: title,
       description: _stringValue(_jsonValue(json, 'description')),
-      tag: tag,
+      categoryId: categoryId,
+      categoryName: categoryName,
       author: _authorValue(json),
       minutes: _intValue(
         _jsonValue(json, 'cookingTime') ?? _jsonValue(json, 'minutes'),
@@ -90,28 +90,100 @@ class RecipeModel {
             _jsonValue(json, 'photoUrl') ??
             _jsonValue(json, 'pictureUrl'),
       ),
-      categoryIds: _categoryIdsValue(json, fallbackTag: tag),
+      tags: _tagsValue(json, categoryName: categoryName),
       popularityScore: _intValue(_jsonValue(json, 'popularityScore')),
-      accentColor: _colorValue(_jsonValue(json, 'accentColor'), fallback: tag),
+      accentColor: _colorValue(
+        _jsonValue(json, 'accentColor'),
+        fallback: categoryName,
+      ),
     );
   }
 
   final String id;
   final String title;
-  final String tag;
+  final String categoryId;
+  final String categoryName;
   final String author;
   final int minutes;
   final double rating;
   final Color accentColor;
   final String description;
   final String? imageUrl;
-  final List<String> categoryIds;
+  final List<String> tags;
   final int popularityScore;
   final bool isSaved;
+
+  String get tag => categoryName;
 
   static Object? _jsonValue(Map<String, dynamic> json, String key) {
     final pascalKey = key[0].toUpperCase() + key.substring(1);
     return json[key] ?? json[pascalKey];
+  }
+
+  static String _categoryNameValue(Map<String, dynamic> json) {
+    final category = _jsonValue(json, 'category');
+    if (category is Map) {
+      final name = _stringValue(category['name'] ?? category['Name']);
+      if (name.isNotEmpty) {
+        return name;
+      }
+    }
+
+    return _stringValue(
+      _jsonValue(json, 'categoryName') ?? _jsonValue(json, 'tag'),
+      fallback: 'Community',
+    );
+  }
+
+  static String _categoryIdValue(
+    Map<String, dynamic> json, {
+    required String fallbackCategoryName,
+  }) {
+    final category = _jsonValue(json, 'category');
+    if (category is Map) {
+      final name = _stringValue(category['name'] ?? category['Name']);
+      if (name.isNotEmpty) {
+        return _slugFromTitle(name);
+      }
+
+      final id = _stringValue(category['id'] ?? category['Id']);
+      if (id.isNotEmpty) {
+        return id;
+      }
+    }
+
+    final categoryName = _stringValue(_jsonValue(json, 'categoryName'));
+    if (categoryName.isNotEmpty) {
+      return _slugFromTitle(categoryName);
+    }
+
+    final categoryId = _stringValue(_jsonValue(json, 'categoryId'));
+    if (categoryId.isNotEmpty) {
+      return _slugFromTitle(categoryId);
+    }
+
+    return _slugFromTitle(fallbackCategoryName);
+  }
+
+  static List<String> _tagsValue(
+    Map<String, dynamic> json, {
+    required String categoryName,
+  }) {
+    final values = <String>[];
+    final categorySlug = _slugFromTitle(categoryName);
+    final tags = _jsonValue(json, 'tags');
+
+    if (tags is String) {
+      for (final tag in tags.split(',')) {
+        _addTag(values, tag, categorySlug: categorySlug);
+      }
+    } else if (tags is Iterable) {
+      for (final tag in tags) {
+        _addTag(values, tag, categorySlug: categorySlug);
+      }
+    }
+
+    return values.toList(growable: false);
   }
 
   static String _stringValue(Object? value, {String fallback = ''}) {
@@ -143,48 +215,23 @@ class RecipeModel {
     return double.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
-  static String? _firstTag(Map<String, dynamic> json) {
-    final tags = _jsonValue(json, 'tags');
-    if (tags is Iterable) {
-      for (final tag in tags) {
-        final value = _stringValue(tag);
-        if (value.isNotEmpty) {
-          return value;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  static List<String> _categoryIdsValue(
-    Map<String, dynamic> json, {
-    required String fallbackTag,
+  static void _addTag(
+    List<String> values,
+    Object? tag, {
+    required String categorySlug,
   }) {
-    final values = <String>{};
-    final categoryIds = _jsonValue(json, 'categoryIds');
-
-    if (categoryIds is Iterable) {
-      for (final categoryId in categoryIds) {
-        final value = _stringValue(categoryId);
-        if (value.isNotEmpty) {
-          values.add(_slugFromTitle(value));
-        }
-      }
+    final value = _stringValue(tag);
+    if (value.isEmpty) {
+      return;
     }
 
-    for (final key in ['categoryId', 'categoryName', 'category']) {
-      final value = _stringValue(_jsonValue(json, key));
-      if (value.isNotEmpty) {
-        values.add(_slugFromTitle(value));
-      }
+    if (_slugFromTitle(value) == categorySlug) {
+      return;
     }
 
-    if (values.isEmpty && fallbackTag.isNotEmpty) {
-      values.add(_slugFromTitle(fallbackTag));
+    if (!values.contains(value)) {
+      values.add(value);
     }
-
-    return values.toList(growable: false);
   }
 
   static String _authorValue(Map<String, dynamic> json) {

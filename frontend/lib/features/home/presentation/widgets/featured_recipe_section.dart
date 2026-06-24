@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_button.dart';
@@ -169,7 +170,12 @@ class FeaturedRecipeInfo extends StatelessWidget {
         AppButton(
           label: 'Open full recipe',
           icon: Icons.arrow_forward_rounded,
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(context).pushNamed(
+              AppRouter.recipeDetailsPath(recipe.id),
+              arguments: recipe,
+            );
+          },
         ),
       ],
     );
