@@ -318,16 +318,14 @@ class _RecipeTagRow extends StatelessWidget {
                 index++
               ) ...[
                 if (index > 0) const SizedBox(width: AppSpacing.xxs),
-                Flexible(
-                  flex: 0,
-                  child: _RecipeTagChip(
-                    key: ValueKey(
-                      'recipe-card-tag-$recipeId-${_tagKey(tagLayout.visibleTags[index].tag)}',
-                    ),
-                    tag: tagLayout.visibleTags[index].tag,
-                    label: tagLayout.visibleTags[index].label,
-                    textStyle: textStyle,
+                _RecipeTagChip(
+                  key: ValueKey(
+                    'recipe-card-tag-$recipeId-${_tagKey(tagLayout.visibleTags[index].tag)}',
                   ),
+                  width: tagLayout.visibleTags[index].width,
+                  tag: tagLayout.visibleTags[index].tag,
+                  label: tagLayout.visibleTags[index].label,
+                  textStyle: textStyle,
                 ),
               ],
               if (tagLayout.hasOverflow) ...[
@@ -352,7 +350,15 @@ class _RecipeTagRow extends StatelessWidget {
       return _RecipeTagRowLayout(
         visibleTags: [
           for (final tag in tags.take(2))
-            _RecipeTagItem(tag: tag, label: _formatRecipeTag(tag)),
+            _RecipeTagItem(
+              tag: tag,
+              label: _formatRecipeTag(tag),
+              width: _measureTagWidth(
+                context,
+                _formatRecipeTag(tag),
+                textStyle,
+              ),
+            ),
         ],
         hasOverflow: tags.length > 2,
       );
@@ -378,7 +384,7 @@ class _RecipeTagRow extends StatelessWidget {
         return _RecipeTagRowLayout(visibleTags: visibleTags, hasOverflow: true);
       }
 
-      visibleTags.add(_RecipeTagItem(tag: tag, label: label));
+      visibleTags.add(_RecipeTagItem(tag: tag, label: label, width: chipWidth));
       usedWidth += leadingSpacing + chipWidth;
     }
 
@@ -414,10 +420,15 @@ class _RecipeTagRowLayout {
 }
 
 class _RecipeTagItem {
-  const _RecipeTagItem({required this.tag, required this.label});
+  const _RecipeTagItem({
+    required this.tag,
+    required this.label,
+    required this.width,
+  });
 
   final String tag;
   final String label;
+  final double width;
 }
 
 class _RecipeOverflowTagChip extends StatefulWidget {
@@ -565,6 +576,9 @@ class _RecipeTagPopover extends StatelessWidget {
     required this.onTagSelected,
   });
 
+  static const double _width = 228;
+  static const double _contentWidth = _width - (AppSpacing.sm * 2);
+
   final List<String> tags;
   final TextStyle? textStyle;
   final ValueChanged<String> onTagSelected;
@@ -572,9 +586,10 @@ class _RecipeTagPopover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final rows = _buildRows(context);
 
     return Container(
-      width: 248,
+      width: _width,
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: palette.cardsSurface.withValues(alpha: 0.98),
@@ -588,35 +603,107 @@ class _RecipeTagPopover extends StatelessWidget {
           ),
         ],
       ),
-      child: Wrap(
-        spacing: AppSpacing.xxs,
-        runSpacing: AppSpacing.xxs,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (final tag in tags)
-            _RecipeTagChip(
-              tag: tag,
-              label: _formatRecipeTag(tag),
-              textStyle: textStyle,
-              onSelected: onTagSelected,
+          for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+            Row(
+              children: [
+                for (var index = 0; index < rows[rowIndex].length; index++) ...[
+                  if (index > 0) const SizedBox(width: AppSpacing.xxs),
+                  _RecipeTagChip(
+                    width: rows[rowIndex][index].width,
+                    tag: rows[rowIndex][index].tag,
+                    label: rows[rowIndex][index].label,
+                    textStyle: textStyle,
+                    textAlign: TextAlign.center,
+                    onSelected: onTagSelected,
+                  ),
+                ],
+              ],
             ),
+            if (rowIndex < rows.length - 1)
+              const SizedBox(height: AppSpacing.xxs),
+          ],
         ],
       ),
     );
+  }
+
+  List<List<_RecipePopoverTagItem>> _buildRows(BuildContext context) {
+    final rows = <List<_RecipePopoverTagItem>>[];
+    var currentRow = <_RecipePopoverTagItem>[];
+    var currentWidth = 0.0;
+
+    for (final tag in tags) {
+      final label = _formatRecipeTag(tag);
+      final baseWidth = _measurePopoverTagWidth(context, label);
+      final nextWidth =
+          currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xxs) + baseWidth;
+
+      if (currentRow.isNotEmpty &&
+          (currentRow.length >= 3 || nextWidth > _contentWidth)) {
+        rows.add(_justifyRow(currentRow));
+        currentRow = [_RecipePopoverTagItem(tag, label, baseWidth)];
+        currentWidth = baseWidth;
+      } else {
+        currentRow.add(_RecipePopoverTagItem(tag, label, baseWidth));
+        currentWidth = nextWidth;
+      }
+    }
+
+    if (currentRow.isNotEmpty) {
+      rows.add(_justifyRow(currentRow));
+    }
+
+    return rows;
+  }
+
+  List<_RecipePopoverTagItem> _justifyRow(List<_RecipePopoverTagItem> row) {
+    final spacing = AppSpacing.xxs * (row.length - 1);
+    final baseWidth = row.fold<double>(0, (sum, item) => sum + item.width);
+    final extra = (_contentWidth - spacing - baseWidth).clamp(
+      0,
+      double.infinity,
+    );
+    final extraPerChip = row.isEmpty ? 0.0 : extra / row.length;
+
+    return [
+      for (final item in row)
+        _RecipePopoverTagItem(item.tag, item.label, item.width + extraPerChip),
+    ];
+  }
+
+  double _measurePopoverTagWidth(BuildContext context, String label) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: textStyle ?? DefaultTextStyle.of(context).style,
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 22).clamp(58, 118).toDouble();
   }
 }
 
 class _RecipeTagChip extends StatelessWidget {
   const _RecipeTagChip({
     super.key,
+    this.width,
     required this.tag,
     required this.label,
     required this.textStyle,
+    this.textAlign = TextAlign.start,
     this.onSelected,
   });
 
+  final double? width;
   final String tag;
   final String label;
   final TextStyle? textStyle;
+  final TextAlign textAlign;
   final ValueChanged<String>? onSelected;
 
   @override
@@ -641,18 +728,31 @@ class _RecipeTagChip extends StatelessWidget {
         },
         mouseCursor: SystemMouseCursors.click,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 118),
+          width: width,
+          constraints: width == null
+              ? const BoxConstraints(maxWidth: 118)
+              : const BoxConstraints(),
+          alignment: width == null ? Alignment.centerLeft : Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: textAlign,
             style: textStyle,
           ),
         ),
       ),
     );
   }
+}
+
+class _RecipePopoverTagItem {
+  const _RecipePopoverTagItem(this.tag, this.label, this.width);
+
+  final String tag;
+  final String label;
+  final double width;
 }
 
 class _RecipeNetworkImage extends StatelessWidget {
