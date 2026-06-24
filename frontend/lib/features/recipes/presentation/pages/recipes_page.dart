@@ -30,6 +30,22 @@ class _SearchAuthorToken {
   final String name;
 }
 
+enum _RecipeSearchSuggestionType { tag }
+
+class _RecipeSearchSuggestion {
+  const _RecipeSearchSuggestion({
+    required this.type,
+    required this.label,
+    required this.value,
+    this.trailingLabel,
+  });
+
+  final _RecipeSearchSuggestionType type;
+  final String label;
+  final String value;
+  final String? trailingLabel;
+}
+
 class RecipesPage extends StatefulWidget {
   const RecipesPage({
     super.key,
@@ -173,6 +189,7 @@ class _RecipesPageState extends State<RecipesPage> {
                         sort: _sort,
                         savedOnly: _savedOnly,
                         categories: categories,
+                        recipes: _recipes,
                         onSearchChanged: (value) {
                           setState(() {
                             _query = value;
@@ -186,6 +203,7 @@ class _RecipesPageState extends State<RecipesPage> {
                             _currentPage = 1;
                           });
                         },
+                        onTagSelected: _selectTag,
                         onTagRemoved: _removeSelectedTag,
                         onAuthorRemoved: _removeSelectedAuthor,
                         onCategoryToggled: _toggleCategory,
@@ -391,7 +409,7 @@ class _RecipesPageState extends State<RecipesPage> {
     final labelsById = <String, String>{};
     for (final recipe in _recipes) {
       for (final tag in recipe.tags) {
-        labelsById.putIfAbsent(_tagId(tag), () => _readableTagLabel(tag));
+        labelsById.putIfAbsent(_tagId(tag), () => _readableSearchLabel(tag));
       }
     }
 
@@ -399,7 +417,7 @@ class _RecipesPageState extends State<RecipesPage> {
       for (final tagId in _selectedTagIds)
         _SearchTagToken(
           id: tagId,
-          label: labelsById[tagId] ?? _readableTagLabel(tagId),
+          label: labelsById[tagId] ?? _readableSearchLabel(tagId),
         ),
     ];
   }
@@ -422,6 +440,20 @@ class _RecipesPageState extends State<RecipesPage> {
   void _removeSelectedTag(String tagId) {
     setState(() {
       _selectedTagIds = {..._selectedTagIds}..remove(tagId);
+      _currentPage = 1;
+    });
+  }
+
+  void _selectTag(String tag) {
+    final tagId = _tagId(tag);
+    if (tagId.isEmpty || _selectedTagIds.contains(tagId)) {
+      return;
+    }
+
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _selectedTagIds = {..._selectedTagIds, tagId};
       _currentPage = 1;
     });
   }
@@ -562,8 +594,10 @@ class _RecipeControls extends StatelessWidget {
     required this.sort,
     required this.savedOnly,
     required this.categories,
+    required this.recipes,
     required this.onSearchChanged,
     required this.onClearSearch,
+    required this.onTagSelected,
     required this.onTagRemoved,
     required this.onAuthorRemoved,
     required this.onCategoryToggled,
@@ -581,8 +615,10 @@ class _RecipeControls extends StatelessWidget {
   final _RecipeSort sort;
   final bool savedOnly;
   final List<CategoryModel> categories;
+  final List<RecipeModel> recipes;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
+  final ValueChanged<String> onTagSelected;
   final ValueChanged<String> onTagRemoved;
   final ValueChanged<String> onAuthorRemoved;
   final ValueChanged<String> onCategoryToggled;
@@ -602,8 +638,10 @@ class _RecipeControls extends StatelessWidget {
             controller: searchController,
             selectedTags: selectedTags,
             selectedAuthors: selectedAuthors,
+            recipes: recipes,
             onChanged: onSearchChanged,
             onClearSearch: onClearSearch,
+            onTagSelected: onTagSelected,
             onTagRemoved: onTagRemoved,
             onAuthorRemoved: onAuthorRemoved,
           );
@@ -723,8 +761,10 @@ class _RecipeSearchBox extends StatefulWidget {
     required this.controller,
     required this.selectedTags,
     required this.selectedAuthors,
+    required this.recipes,
     required this.onChanged,
     required this.onClearSearch,
+    required this.onTagSelected,
     required this.onTagRemoved,
     required this.onAuthorRemoved,
   });
@@ -732,8 +772,10 @@ class _RecipeSearchBox extends StatefulWidget {
   final TextEditingController controller;
   final List<_SearchTagToken> selectedTags;
   final List<_SearchAuthorToken> selectedAuthors;
+  final List<RecipeModel> recipes;
   final ValueChanged<String> onChanged;
   final VoidCallback onClearSearch;
+  final ValueChanged<String> onTagSelected;
   final ValueChanged<String> onTagRemoved;
   final ValueChanged<String> onAuthorRemoved;
 
@@ -765,6 +807,9 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
     final focused = _focusNode.hasFocus;
     final hasQuery = widget.controller.text.trim().isNotEmpty;
     final borderColor = focused ? palette.activeElements : palette.borders;
+    final suggestions = focused
+        ? _suggestions()
+        : const <_RecipeSearchSuggestion>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -772,86 +817,98 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
             .clamp(160.0, 360.0)
             .toDouble();
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => _focusNode.requestFocus(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOut,
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: palette.searchBarBackground,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, size: 21, color: palette.icons),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(scrollbars: false),
-                    child: SingleChildScrollView(
-                      controller: _chipsScrollController,
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final author in widget.selectedAuthors) ...[
-                            _AuthorSearchTokenChip(
-                              author: author,
-                              onRemoved: widget.onAuthorRemoved,
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                          ],
-                          for (final tag in widget.selectedTags) ...[
-                            _TagSearchTokenChip(
-                              tag: tag,
-                              onRemoved: widget.onTagRemoved,
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                          ],
-                          SizedBox(
-                            width: inputWidth,
-                            child: TextField(
-                              key: const ValueKey('recipes-search-field'),
-                              focusNode: _focusNode,
-                              controller: widget.controller,
-                              onChanged: widget.onChanged,
-                              textInputAction: TextInputAction.search,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              decoration: InputDecoration(
-                                hintText:
-                                    widget.selectedAuthors.isEmpty &&
-                                        widget.selectedTags.isEmpty
-                                    ? 'Search recipes'
-                                    : '',
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: AppSpacing.sm,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _focusNode.requestFocus(),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                curve: Curves.easeOut,
+                height: 56,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: palette.searchBarBackground,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search_rounded, size: 21, color: palette.icons),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
+                          controller: _chipsScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final author in widget.selectedAuthors) ...[
+                                _AuthorSearchTokenChip(
+                                  author: author,
+                                  onRemoved: widget.onAuthorRemoved,
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                              ],
+                              for (final tag in widget.selectedTags) ...[
+                                _TagSearchTokenChip(
+                                  tag: tag,
+                                  onRemoved: widget.onTagRemoved,
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                              ],
+                              SizedBox(
+                                width: inputWidth,
+                                child: TextField(
+                                  key: const ValueKey('recipes-search-field'),
+                                  focusNode: _focusNode,
+                                  controller: widget.controller,
+                                  onChanged: widget.onChanged,
+                                  textInputAction: TextInputAction.search,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  decoration: InputDecoration(
+                                    hintText:
+                                        widget.selectedAuthors.isEmpty &&
+                                            widget.selectedTags.isEmpty
+                                        ? 'Search recipes'
+                                        : '',
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.sm,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    if (hasQuery)
+                      IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: widget.onClearSearch,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                  ],
                 ),
-                if (hasQuery)
-                  IconButton(
-                    tooltip: 'Clear search',
-                    onPressed: widget.onClearSearch,
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-              ],
+              ),
             ),
-          ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _RecipeSearchSuggestionsPanel(
+                suggestions: suggestions,
+                onSelected: _selectSuggestion,
+              ),
+            ],
+          ],
         );
       },
     );
@@ -859,6 +916,202 @@ class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
 
   void _handleFocusChanged() {
     setState(() {});
+  }
+
+  List<_RecipeSearchSuggestion> _suggestions() {
+    final query = widget.controller.text.trim();
+    if (query.isEmpty) {
+      return const [];
+    }
+
+    return _tagSuggestions(query).take(6).toList(growable: false);
+  }
+
+  List<_RecipeSearchSuggestion> _tagSuggestions(String query) {
+    final normalizedQuery = query.toLowerCase();
+    final slugQuery = CategoryCatalog.slug(query);
+    final selectedTagIds = widget.selectedTags.map((tag) => tag.id).toSet();
+    final tagCounts = <String, int>{};
+    final tagLabels = <String, String>{};
+
+    for (final recipe in widget.recipes) {
+      for (final tag in recipe.tags) {
+        final tagId = CategoryCatalog.slug(tag);
+        if (tagId.isEmpty || selectedTagIds.contains(tagId)) {
+          continue;
+        }
+
+        final label = _readableSearchLabel(tag);
+        final matches =
+            label.toLowerCase().contains(normalizedQuery) ||
+            tag.toLowerCase().contains(normalizedQuery) ||
+            (slugQuery.isNotEmpty && tagId.contains(slugQuery));
+        if (!matches) {
+          continue;
+        }
+
+        tagLabels.putIfAbsent(tagId, () => label);
+        tagCounts[tagId] = (tagCounts[tagId] ?? 0) + 1;
+      }
+    }
+
+    final tagIds = tagCounts.keys.toList()
+      ..sort((left, right) {
+        final count = tagCounts[right]!.compareTo(tagCounts[left]!);
+        if (count != 0) {
+          return count;
+        }
+        return tagLabels[left]!.compareTo(tagLabels[right]!);
+      });
+
+    return [
+      for (final tagId in tagIds)
+        _RecipeSearchSuggestion(
+          type: _RecipeSearchSuggestionType.tag,
+          label: tagLabels[tagId]!,
+          value: tagId,
+          trailingLabel: 'tag',
+        ),
+    ];
+  }
+
+  void _selectSuggestion(_RecipeSearchSuggestion suggestion) {
+    if (suggestion.type != _RecipeSearchSuggestionType.tag) {
+      return;
+    }
+
+    widget.onTagSelected(suggestion.value);
+    _focusNode.requestFocus();
+  }
+}
+
+class _RecipeSearchSuggestionsPanel extends StatelessWidget {
+  const _RecipeSearchSuggestionsPanel({
+    required this.suggestions,
+    required this.onSelected,
+  });
+
+  final List<_RecipeSearchSuggestion> suggestions;
+  final ValueChanged<_RecipeSearchSuggestion> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.76)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < suggestions.length; index++)
+            _RecipeSearchSuggestionTile(
+              suggestion: suggestions[index],
+              showDivider: index < suggestions.length - 1,
+              onSelected: onSelected,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeSearchSuggestionTile extends StatelessWidget {
+  const _RecipeSearchSuggestionTile({
+    required this.suggestion,
+    required this.showDivider,
+    required this.onSelected,
+  });
+
+  final _RecipeSearchSuggestion suggestion;
+  final bool showDivider;
+  final ValueChanged<_RecipeSearchSuggestion> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final trailingLabel = suggestion.trailingLabel;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: showDivider
+              ? BorderSide(color: palette.borders.withValues(alpha: 0.42))
+              : BorderSide.none,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onSelected(suggestion),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    suggestion.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                if (trailingLabel != null && trailingLabel.isNotEmpty) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  _SuggestionTypeBadge(label: trailingLabel),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuggestionTypeBadge extends StatelessWidget {
+  const _SuggestionTypeBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: palette.primaryButtons.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.24),
+        ),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: palette.primaryButtons,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 
@@ -1633,4 +1886,22 @@ String _initials(String name) {
   }
 
   return '${words.first[0]}${words.last[0]}'.toUpperCase();
+}
+
+String _readableSearchLabel(String value) {
+  final words = value
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty);
+
+  return words
+      .map((word) {
+        if (word.length == 1) {
+          return word.toUpperCase();
+        }
+
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }
