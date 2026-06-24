@@ -16,6 +16,20 @@ enum _RecipeSort { featured, rating, quickest, title }
 
 enum _TimeFilter { any, under20, under30, over30 }
 
+class _SearchTagToken {
+  const _SearchTagToken({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+class _SearchAuthorToken {
+  const _SearchAuthorToken({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
 class RecipesPage extends StatefulWidget {
   const RecipesPage({
     super.key,
@@ -153,6 +167,8 @@ class _RecipesPageState extends State<RecipesPage> {
                       _RecipeControls(
                         searchController: _searchController,
                         selectedCategoryIds: _selectedCategoryIds,
+                        selectedTags: _selectedTagTokens(),
+                        selectedAuthors: _selectedAuthorTokens(),
                         timeFilter: _timeFilter,
                         sort: _sort,
                         savedOnly: _savedOnly,
@@ -170,6 +186,8 @@ class _RecipesPageState extends State<RecipesPage> {
                             _currentPage = 1;
                           });
                         },
+                        onTagRemoved: _removeSelectedTag,
+                        onAuthorRemoved: _removeSelectedAuthor,
                         onCategoryToggled: _toggleCategory,
                         onClearCategories: () {
                           setState(() {
@@ -369,6 +387,52 @@ class _RecipesPageState extends State<RecipesPage> {
     return _selectedTagIds.every(recipeTagIds.contains);
   }
 
+  List<_SearchTagToken> _selectedTagTokens() {
+    final labelsById = <String, String>{};
+    for (final recipe in _recipes) {
+      for (final tag in recipe.tags) {
+        labelsById.putIfAbsent(_tagId(tag), () => _readableTagLabel(tag));
+      }
+    }
+
+    return [
+      for (final tagId in _selectedTagIds)
+        _SearchTagToken(
+          id: tagId,
+          label: labelsById[tagId] ?? _readableTagLabel(tagId),
+        ),
+    ];
+  }
+
+  List<_SearchAuthorToken> _selectedAuthorTokens() {
+    final namesById = <String, String>{};
+    for (final recipe in _recipes) {
+      namesById.putIfAbsent(_authorId(recipe.author), () => recipe.author);
+    }
+
+    return [
+      for (final authorId in _selectedAuthorIds)
+        _SearchAuthorToken(
+          id: authorId,
+          name: namesById[authorId] ?? _readableTagLabel(authorId),
+        ),
+    ];
+  }
+
+  void _removeSelectedTag(String tagId) {
+    setState(() {
+      _selectedTagIds = {..._selectedTagIds}..remove(tagId);
+      _currentPage = 1;
+    });
+  }
+
+  void _removeSelectedAuthor(String authorId) {
+    setState(() {
+      _selectedAuthorIds = {..._selectedAuthorIds}..remove(authorId);
+      _currentPage = 1;
+    });
+  }
+
   String _recipeSearchText(RecipeModel recipe) {
     final category = CategoryCatalog.findById(recipe.categoryId);
     final tagText = recipe.tags.expand(
@@ -492,12 +556,16 @@ class _RecipeControls extends StatelessWidget {
   const _RecipeControls({
     required this.searchController,
     required this.selectedCategoryIds,
+    required this.selectedTags,
+    required this.selectedAuthors,
     required this.timeFilter,
     required this.sort,
     required this.savedOnly,
     required this.categories,
     required this.onSearchChanged,
     required this.onClearSearch,
+    required this.onTagRemoved,
+    required this.onAuthorRemoved,
     required this.onCategoryToggled,
     required this.onClearCategories,
     required this.onTimeFilterChanged,
@@ -507,12 +575,16 @@ class _RecipeControls extends StatelessWidget {
 
   final TextEditingController searchController;
   final Set<String> selectedCategoryIds;
+  final List<_SearchTagToken> selectedTags;
+  final List<_SearchAuthorToken> selectedAuthors;
   final _TimeFilter timeFilter;
   final _RecipeSort sort;
   final bool savedOnly;
   final List<CategoryModel> categories;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
+  final ValueChanged<String> onTagRemoved;
+  final ValueChanged<String> onAuthorRemoved;
   final ValueChanged<String> onCategoryToggled;
   final VoidCallback onClearCategories;
   final ValueChanged<_TimeFilter> onTimeFilterChanged;
@@ -526,22 +598,14 @@ class _RecipeControls extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 900;
-          final search = TextField(
-            key: const ValueKey('recipes-search-field'),
+          final search = _RecipeSearchBox(
             controller: searchController,
+            selectedTags: selectedTags,
+            selectedAuthors: selectedAuthors,
             onChanged: onSearchChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              labelText: 'Search recipes',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Clear search',
-                      onPressed: onClearSearch,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-            ),
+            onClearSearch: onClearSearch,
+            onTagRemoved: onTagRemoved,
+            onAuthorRemoved: onAuthorRemoved,
           );
           final sortPicker = _SortDropdown(
             sort: sort,
@@ -649,6 +713,270 @@ class _RecipeControls extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _RecipeSearchBox extends StatefulWidget {
+  const _RecipeSearchBox({
+    required this.controller,
+    required this.selectedTags,
+    required this.selectedAuthors,
+    required this.onChanged,
+    required this.onClearSearch,
+    required this.onTagRemoved,
+    required this.onAuthorRemoved,
+  });
+
+  final TextEditingController controller;
+  final List<_SearchTagToken> selectedTags;
+  final List<_SearchAuthorToken> selectedAuthors;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<String> onTagRemoved;
+  final ValueChanged<String> onAuthorRemoved;
+
+  @override
+  State<_RecipeSearchBox> createState() => _RecipeSearchBoxState();
+}
+
+class _RecipeSearchBoxState extends State<_RecipeSearchBox> {
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _chipsScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChanged);
+    _focusNode.dispose();
+    _chipsScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final focused = _focusNode.hasFocus;
+    final hasQuery = widget.controller.text.trim().isNotEmpty;
+    final borderColor = focused ? palette.activeElements : palette.borders;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final inputWidth = (constraints.maxWidth * 0.48)
+            .clamp(160.0, 360.0)
+            .toDouble();
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _focusNode.requestFocus(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: palette.searchBarBackground,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, size: 21, color: palette.icons),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      controller: _chipsScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final author in widget.selectedAuthors) ...[
+                            _AuthorSearchTokenChip(
+                              author: author,
+                              onRemoved: widget.onAuthorRemoved,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                          ],
+                          for (final tag in widget.selectedTags) ...[
+                            _TagSearchTokenChip(
+                              tag: tag,
+                              onRemoved: widget.onTagRemoved,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                          ],
+                          SizedBox(
+                            width: inputWidth,
+                            child: TextField(
+                              key: const ValueKey('recipes-search-field'),
+                              focusNode: _focusNode,
+                              controller: widget.controller,
+                              onChanged: widget.onChanged,
+                              textInputAction: TextInputAction.search,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              decoration: InputDecoration(
+                                hintText:
+                                    widget.selectedAuthors.isEmpty &&
+                                        widget.selectedTags.isEmpty
+                                    ? 'Search recipes'
+                                    : '',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.sm,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (hasQuery)
+                  IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: widget.onClearSearch,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleFocusChanged() {
+    setState(() {});
+  }
+}
+
+class _TagSearchTokenChip extends StatelessWidget {
+  const _TagSearchTokenChip({required this.tag, required this.onRemoved});
+
+  final _SearchTagToken tag;
+  final ValueChanged<String> onRemoved;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SearchTokenShell(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(tag.label, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(width: AppSpacing.xxs),
+          _SearchTokenRemoveButton(onPressed: () => onRemoved(tag.id)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthorSearchTokenChip extends StatelessWidget {
+  const _AuthorSearchTokenChip({required this.author, required this.onRemoved});
+
+  final _SearchAuthorToken author;
+  final ValueChanged<String> onRemoved;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SearchTokenShell(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SearchAuthorAvatar(authorName: author.name),
+          const SizedBox(width: AppSpacing.xs),
+          Text(author.name, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(width: AppSpacing.xxs),
+          _SearchTokenRemoveButton(onPressed: () => onRemoved(author.id)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchTokenShell extends StatelessWidget {
+  const _SearchTokenShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.only(
+        left: AppSpacing.sm,
+        right: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.84)),
+      ),
+      child: Center(child: child),
+    );
+  }
+}
+
+class _SearchTokenRemoveButton extends StatelessWidget {
+  const _SearchTokenRemoveButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 24,
+      child: IconButton(
+        tooltip: 'Remove filter',
+        onPressed: onPressed,
+        icon: const Icon(Icons.close_rounded, size: 15),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+}
+
+class _SearchAuthorAvatar extends StatelessWidget {
+  const _SearchAuthorAvatar({required this.authorName});
+
+  final String authorName;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: palette.primaryButtons.withValues(alpha: 0.18),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.32),
+        ),
+      ),
+      child: Text(
+        _initials(authorName),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: palette.primaryButtons,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -1287,4 +1615,22 @@ class _RecipesHeaderShell extends StatelessWidget {
       ),
     );
   }
+}
+
+String _initials(String name) {
+  final words = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList(growable: false);
+
+  if (words.isEmpty) {
+    return '?';
+  }
+
+  if (words.length == 1) {
+    return words.first[0].toUpperCase();
+  }
+
+  return '${words.first[0]}${words.last[0]}'.toUpperCase();
 }
