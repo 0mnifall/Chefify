@@ -546,13 +546,18 @@ class _RecipeOverflowTagChipState extends State<_RecipeOverflowTagChip> {
             onExit: (_) => _setPopoverHovered(false),
             child: Material(
               color: Colors.transparent,
-              child: _RecipeTagPopover(
-                tags: widget.tags,
-                textStyle: widget.textStyle,
-                onTagSelected: (tag) {
-                  _removeOverlay();
-                  _openRecipeTagFilter(context, tag);
-                },
+              child: Align(
+                alignment: Alignment.topLeft,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: _RecipeTagPopover(
+                  tags: widget.tags,
+                  textStyle: widget.textStyle,
+                  onTagSelected: (tag) {
+                    _removeOverlay();
+                    _openRecipeTagFilter(context, tag);
+                  },
+                ),
               ),
             ),
           ),
