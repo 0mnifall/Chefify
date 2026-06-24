@@ -7,9 +7,10 @@ import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class RecipeCard extends StatelessWidget {
-  const RecipeCard({super.key, required this.recipe});
+  const RecipeCard({super.key, required this.recipe, this.onTap});
 
   final RecipeModel recipe;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +19,7 @@ class RecipeCard extends StatelessWidget {
 
     return AppCard(
       padding: EdgeInsets.zero,
+      onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: LayoutBuilder(

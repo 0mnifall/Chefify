@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
@@ -952,7 +953,16 @@ class _RecipesGrid extends StatelessWidget {
       padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       itemHeightBuilder: _recipeCardHeight,
       itemBuilder: (context, recipe) {
-        return RecipeCard(recipe: recipe);
+        return RecipeCard(
+          key: ValueKey('recipes-card-${recipe.id}'),
+          recipe: recipe,
+          onTap: () {
+            Navigator.of(context).pushNamed(
+              AppRouter.recipeDetailsPath(recipe.id),
+              arguments: recipe,
+            );
+          },
+        );
       },
     );
   }

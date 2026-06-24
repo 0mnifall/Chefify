@@ -150,6 +150,47 @@ void main() {
     expect(find.text('Miso Glazed Salmon'), findsNothing);
   });
 
+  testWidgets('opens recipe details from recipe card', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Recipes').first);
+    await tester.pumpAndSettle();
+
+    final recipeCard = find.byKey(
+      const ValueKey('recipes-card-roasted-tomato-pasta'),
+    );
+
+    await tester.scrollUntilVisible(
+      recipeCard,
+      360,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(recipeCard);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-details-page-roasted-tomato-pasta')),
+      findsOneWidget,
+    );
+    expect(find.text('Cook profile'), findsOneWidget);
+  });
+
   testWidgets('opens categories page from category see all action', (
     tester,
   ) async {

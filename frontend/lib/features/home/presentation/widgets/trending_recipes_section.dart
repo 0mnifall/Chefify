@@ -57,7 +57,15 @@ class TrendingRecipesSection extends StatelessWidget {
                   maxColumns: 4,
                   itemHeightBuilder: _recipeCardHeight,
                   itemBuilder: (context, recipe) {
-                    return RecipeCard(recipe: recipe);
+                    return RecipeCard(
+                      recipe: recipe,
+                      onTap: () {
+                        Navigator.of(context).pushNamed(
+                          AppRouter.recipeDetailsPath(recipe.id),
+                          arguments: recipe,
+                        );
+                      },
+                    );
                   },
                 ),
             ],
