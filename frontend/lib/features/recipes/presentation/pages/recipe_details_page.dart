@@ -106,6 +106,9 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
     final bottomPadding = AppSpacing.sectionGapForWidth(viewportWidth);
+    final horizontalPadding = AppSpacing.horizontalPaddingForWidth(
+      viewportWidth,
+    );
     final recipe = _recipe;
 
     return Scaffold(
@@ -139,6 +142,27 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
               height: headerHeight,
               child: const AppHeader(),
             ),
+            if (recipe != null)
+              Positioned(
+                left: horizontalPadding,
+                top: headerHeight + AppSpacing.md,
+                child: _RecipeStickyActionButton(
+                  icon: Icons.favorite_border_rounded,
+                  tooltip: 'Like recipe',
+                  isActive: false,
+                  onPressed: () {},
+                ),
+              ),
+            if (recipe != null)
+              Positioned(
+                right: horizontalPadding,
+                bottom: AppSpacing.lg,
+                child: _RecipeStickyActionButton(
+                  icon: Icons.edit_rounded,
+                  tooltip: 'Edit recipe',
+                  onPressed: () {},
+                ),
+              ),
           ],
         ),
       ),
@@ -952,6 +976,65 @@ class _RecipeDetailsHeaderShell extends StatelessWidget {
           ],
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+class _RecipeStickyActionButton extends StatelessWidget {
+  const _RecipeStickyActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final activeColor = const Color(0xFFD96D58);
+    final background = isActive
+        ? activeColor
+        : palette.cardsSurface.withValues(alpha: 0.94);
+    final foreground = isActive ? Colors.white : palette.mainText;
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: 58,
+            height: 58,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: background,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive
+                    ? activeColor.withValues(alpha: 0.72)
+                    : palette.borders.withValues(alpha: 0.84),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, size: 28, color: foreground),
+          ),
+        ),
       ),
     );
   }
