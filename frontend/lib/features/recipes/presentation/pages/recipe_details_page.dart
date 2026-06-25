@@ -422,15 +422,15 @@ class _RecipeHeroGradientOverlay extends StatelessWidget {
               begin: compact ? Alignment.topCenter : Alignment.centerLeft,
               end: compact ? Alignment.bottomCenter : Alignment.centerRight,
               colors: [
-                Colors.black.withValues(alpha: compact ? 0.16 : 0.08),
+                Colors.black.withValues(alpha: compact ? 0.36 : 0.3),
                 palette.navbarBackground.withValues(
-                  alpha: compact ? 0.54 : 0.5,
+                  alpha: compact ? 0.72 : 0.78,
                 ),
                 palette.navbarBackground.withValues(
-                  alpha: compact ? 0.94 : 0.98,
+                  alpha: compact ? 0.98 : 0.99,
                 ),
               ],
-              stops: compact ? const [0, 0.48, 1] : const [0, 0.48, 1],
+              stops: compact ? const [0, 0.44, 1] : const [0, 0.52, 1],
             ),
           ),
         ),
@@ -440,7 +440,7 @@ class _RecipeHeroGradientOverlay extends StatelessWidget {
               center: compact ? const Alignment(0.2, -0.74) : Alignment.center,
               radius: compact ? 1.1 : 0.95,
               colors: [
-                Colors.white.withValues(alpha: 0.12),
+                Colors.white.withValues(alpha: 0.06),
                 Colors.transparent,
               ],
             ),
@@ -452,7 +452,7 @@ class _RecipeHeroGradientOverlay extends StatelessWidget {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                palette.pageBackground.withValues(alpha: 0.1),
+                palette.pageBackground.withValues(alpha: 0.26),
                 Colors.transparent,
               ],
             ),
@@ -560,7 +560,7 @@ class _RecipeHeroTagGrid extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
-              if (rowIndex > 0) const SizedBox(height: AppSpacing.xs),
+              if (rowIndex > 0) const SizedBox(height: AppSpacing.xxs),
               Row(
                 children: [
                   for (
@@ -597,8 +597,8 @@ class _RecipeHeroTagChip extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.78),
@@ -609,7 +609,10 @@ class _RecipeHeroTagChip extends StatelessWidget {
         _readableLabel(tag),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelLarge,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: palette.mainText,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -679,17 +682,17 @@ class _RecipeHeroMetrics extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(child: timeChip),
-                        const SizedBox(width: AppSpacing.sm),
+                        const SizedBox(width: AppSpacing.xs),
                         Expanded(child: difficultyChip),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.xs),
                     categoryChip,
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.xs),
                     Row(
                       children: [
                         Expanded(child: likesChip),
-                        const SizedBox(width: AppSpacing.sm),
+                        const SizedBox(width: AppSpacing.xs),
                         Expanded(child: ratingChip),
                       ],
                     ),
@@ -1347,8 +1350,8 @@ class _RecipeMetaChip extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.88),
@@ -1358,14 +1361,17 @@ class _RecipeMetaChip extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 16, color: palette.icons),
+          Icon(icon, size: 14, color: palette.icons),
           const SizedBox(width: AppSpacing.xs),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1386,8 +1392,8 @@ class _RecipeCategoryChip extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         color: palette.primaryButtons.withValues(alpha: 0.14),
@@ -1399,14 +1405,17 @@ class _RecipeCategoryChip extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(category.icon, size: 16, color: palette.primaryButtons),
+          Icon(category.icon, size: 14, color: palette.primaryButtons),
           const SizedBox(width: AppSpacing.xs),
           Flexible(
             child: Text(
               category.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
