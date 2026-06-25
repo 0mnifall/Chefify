@@ -1040,6 +1040,18 @@ class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final canSubmit = _commentController.text.trim().isNotEmpty;
+    final ratingLabel = Text(
+      'Your rating',
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+    final ratingPicker = _RecipeReviewRatingPicker(
+      rating: _rating,
+      onChanged: (rating) {
+        setState(() {
+          _rating = rating;
+        });
+      },
+    );
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1051,22 +1063,21 @@ class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'Your rating',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              _RecipeReviewRatingPicker(
-                rating: _rating,
-                onChanged: (rating) {
-                  setState(() {
-                    _rating = rating;
-                  });
-                },
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 320) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ratingLabel,
+                    const SizedBox(height: AppSpacing.xs),
+                    ratingPicker,
+                  ],
+                );
+              }
+
+              return Row(children: [ratingLabel, const Spacer(), ratingPicker]);
+            },
           ),
           const SizedBox(height: AppSpacing.md),
           TextField(
