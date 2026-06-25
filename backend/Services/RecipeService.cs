@@ -26,6 +26,7 @@ public class RecipeService(AppDbContext context)
             Difficulty = dto.Difficulty,
             Category = await context.Categories.FindAsync(dto.CategoryId),
             Tags = tags,
+            Blocks = dto.Blocks,
             CreatorId = creatorId
         };
         
@@ -39,14 +40,16 @@ public class RecipeService(AppDbContext context)
     {
         return await context.Recipes
             .Include(r => r.Tags)
+            .Include(r => r.Blocks)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
     public async Task PatchRecipe(int id, PatchRecipeDto dto, Recipe recipe)
     {
-        recipe!.Description = dto.Description ?? recipe.Description;
+        recipe.Description = dto.Description ?? recipe.Description;
         recipe.CookingTime = dto.CookingTime ?? recipe.CookingTime;
         recipe.Difficulty = dto.Difficulty ?? recipe.Difficulty;
+        recipe.Blocks = dto.Blocks ?? recipe.Blocks;
         
         if (dto.TagIds != null)
         {
@@ -83,11 +86,12 @@ public class RecipeService(AppDbContext context)
             .Include(r => r.Creator)
             .Include(r => r.Category)
             .Include(r => r.Tags)
+            .Include(r =>  r.Blocks)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
-    public RecipeDto GetRecipeDto(int id, Recipe recipe)
+    public RecipeDto ToDto(Recipe recipe)
     {
-        var recipeDto = new RecipeDto
+        return new RecipeDto
         {
             Title = recipe.Title,
             Description = recipe.Description,
@@ -100,6 +104,7 @@ public class RecipeService(AppDbContext context)
                 Name = recipe.Category.Name
             } : null,
             Tags = recipe.Tags.Select(t => t.Name).ToList(),
+            Blocks = recipe.Blocks,
             CreatorId = recipe.Creator.Id,
             Creator = new UserDto
             {
@@ -107,8 +112,6 @@ public class RecipeService(AppDbContext context)
                 //ProfilePictureRef = recipe.Creator.ProfilePictureRef
             }
         };
-        
-        return recipeDto;
     }
 
     public async Task<Recipe?> GetRecipeForDeleting(int id)
@@ -132,6 +135,7 @@ public class RecipeService(AppDbContext context)
         recipe.Tags = await context.Tags
             .Where(t => dto.TagIds.Contains(t.Id))
             .ToListAsync();
+        recipe.Blocks = dto.Blocks;
         recipe.CreatorId = dto.CreatorId;
         
         context.Recipes.Update(recipe);

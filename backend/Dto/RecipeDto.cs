@@ -11,6 +11,8 @@ public class RecipeDto
     public float Rating { get; set; }
     public CategoryPreviewDto? Category { get; set; }
     public List<string> Tags { get; set; } = [];
+    
+    public required List<BlockTemplate> Blocks { get; set; }
     public int CreatorId { get; set; }
     public required UserDto Creator { get; set; }
 }

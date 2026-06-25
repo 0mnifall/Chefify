@@ -1,3 +1,5 @@
+using backend.Dto;
+
 namespace backend.Models;
 
 public class Recipe
@@ -7,12 +9,13 @@ public class Recipe
     public required string Description { get; set; }
     public int? CookingTime { get; set; }
     public int? Difficulty { get; set; }
-    
+
     public float Rating { get; set; }
     public Category? Category { get; set; }
-    public List<Tag> Tags { get; set; } = [];
+    public required List<Tag> Tags { get; set; } = [];
     
-
+    public required List<BlockTemplate> Blocks { get; set; } = [];
+    
     public int CreatorId { get; set; }
     public User Creator { get; set; }
 

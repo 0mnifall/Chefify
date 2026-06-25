@@ -8,4 +8,5 @@ public class PatchRecipeDto
     public int? CookingTime { get; set; }
     public int? Difficulty { get; set; }
     public List<int>? TagIds { get; set; }
+    public List<BlockTemplate>? Blocks { get; set; }
 }

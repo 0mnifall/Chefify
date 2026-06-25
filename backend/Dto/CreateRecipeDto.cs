@@ -17,4 +17,5 @@ public class CreateRecipeDto
     public int? Difficulty { get; set; }
     public int? CategoryId { get; set; }
     public List<int> TagsId { get; set; } = [];
+    public List<BlockTemplate> Blocks { get; set; } = [];
 }

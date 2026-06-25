@@ -59,7 +59,7 @@ public class RecipeController(RecipeService service) : ControllerBase
             return NotFound();
         }
         
-        var recipeDto = service.GetRecipeDto(id,  recipe);
+        var recipeDto = service.ToDto(recipe);
         
         return Ok(recipeDto);
     }
