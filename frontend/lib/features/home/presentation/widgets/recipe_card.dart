@@ -345,7 +345,11 @@ class _RecipeTagRow extends StatelessWidget {
               if (tagLayout.hasOverflow) ...[
                 if (tagLayout.visibleTags.isNotEmpty)
                   const SizedBox(width: AppSpacing.xxs),
-                _RecipeOverflowTagChip(tags: tags, textStyle: textStyle),
+                _RecipeOverflowTagChip(
+                  recipeId: recipeId,
+                  tags: tags,
+                  textStyle: textStyle,
+                ),
               ],
             ],
           ),
@@ -446,8 +450,13 @@ class _RecipeTagItem {
 }
 
 class _RecipeOverflowTagChip extends StatefulWidget {
-  const _RecipeOverflowTagChip({required this.tags, required this.textStyle});
+  const _RecipeOverflowTagChip({
+    required this.recipeId,
+    required this.tags,
+    required this.textStyle,
+  });
 
+  final String recipeId;
   final List<String> tags;
   final TextStyle? textStyle;
 
@@ -494,6 +503,7 @@ class _RecipeOverflowTagChipState extends State<_RecipeOverflowTagChip> {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
+              key: ValueKey('recipe-card-tag-overflow-${widget.recipeId}'),
               onTap: _syncOverlay,
               child: Container(
                 height: 24,
@@ -549,11 +559,16 @@ class _RecipeOverflowTagChipState extends State<_RecipeOverflowTagChip> {
 
     _overlayEntry = OverlayEntry(
       builder: (overlayContext) {
+        final layout = _popoverOverlayLayout();
+        if (layout == null) {
+          return const SizedBox.shrink();
+        }
+
         return CompositedTransformFollower(
           link: _layerLink,
           targetAnchor: Alignment.bottomLeft,
           followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, AppSpacing.xs),
+          offset: Offset(layout.horizontalOffset, AppSpacing.xs),
           showWhenUnlinked: false,
           child: MouseRegion(
             onEnter: (_) => _setPopoverHovered(true),
@@ -582,10 +597,46 @@ class _RecipeOverflowTagChipState extends State<_RecipeOverflowTagChip> {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
+  _RecipePopoverOverlayLayout? _popoverOverlayLayout() {
+    final overlay = Overlay.maybeOf(context);
+    final overlayRenderObject = overlay?.context.findRenderObject();
+    final anchorRenderObject = context.findRenderObject();
+    if (overlayRenderObject is! RenderBox ||
+        anchorRenderObject is! RenderBox ||
+        !overlayRenderObject.hasSize ||
+        !anchorRenderObject.hasSize) {
+      return null;
+    }
+
+    const margin = AppSpacing.sm;
+    final overlayWidth = overlayRenderObject.size.width;
+    const popoverWidth = _RecipeTagPopover.width;
+
+    final anchorLeft = anchorRenderObject
+        .localToGlobal(Offset.zero, ancestor: overlayRenderObject)
+        .dx;
+    final minLeft = overlayWidth >= popoverWidth + (margin * 2) ? margin : 0.0;
+    final maxLeft = (overlayWidth - popoverWidth - margin)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+    final safeMaxLeft = maxLeft < minLeft ? minLeft : maxLeft;
+    final clampedLeft = anchorLeft.clamp(minLeft, safeMaxLeft).toDouble();
+
+    return _RecipePopoverOverlayLayout(
+      horizontalOffset: clampedLeft - anchorLeft,
+    );
+  }
+
   void _removeOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
+}
+
+class _RecipePopoverOverlayLayout {
+  const _RecipePopoverOverlayLayout({required this.horizontalOffset});
+
+  final double horizontalOffset;
 }
 
 class _RecipeTagPopover extends StatelessWidget {
@@ -595,7 +646,7 @@ class _RecipeTagPopover extends StatelessWidget {
     required this.onTagSelected,
   });
 
-  static const double _width = 228;
+  static const double width = 228;
 
   final List<String> tags;
   final TextStyle? textStyle;
@@ -606,7 +657,8 @@ class _RecipeTagPopover extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      width: _width,
+      key: const ValueKey('recipe-tag-popover'),
+      width: _RecipeTagPopover.width,
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: palette.cardsSurface.withValues(alpha: 0.98),
