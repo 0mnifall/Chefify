@@ -63,6 +63,8 @@ class RecipeDetailsPage extends StatefulWidget {
 class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
   RecipeModel? _recipe;
   final Set<String> _likedRecipeIds = <String>{};
+  final Map<String, List<_RecipeReview>> _reviewsByRecipeId =
+      <String, List<_RecipeReview>>{};
   bool _isLoading = false;
 
   @override
@@ -139,6 +141,7 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
                         : _RecipeDetailsContent(
                             recipe: recipe,
                             likesCount: _displayLikesFor(recipe),
+                            reviews: _reviewsFor(recipe),
                           ),
                   ),
                 ),
@@ -219,13 +222,25 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
       ),
     );
   }
+
+  List<_RecipeReview> _reviewsFor(RecipeModel recipe) {
+    return _reviewsByRecipeId.putIfAbsent(
+      recipe.id,
+      () => _seedReviewsFor(recipe),
+    );
+  }
 }
 
 class _RecipeDetailsContent extends StatelessWidget {
-  const _RecipeDetailsContent({required this.recipe, required this.likesCount});
+  const _RecipeDetailsContent({
+    required this.recipe,
+    required this.likesCount,
+    required this.reviews,
+  });
 
   final RecipeModel recipe;
   final int likesCount;
+  final List<_RecipeReview> reviews;
 
   @override
   Widget build(BuildContext context) {
@@ -236,9 +251,28 @@ class _RecipeDetailsContent extends StatelessWidget {
         _RecipeHeroPanel(recipe: recipe, likesCount: likesCount),
         const SizedBox(height: AppSpacing.lg),
         _RecipeOverviewPanel(recipe: recipe),
+        const SizedBox(height: AppSpacing.lg),
+        _RecipeReviewsSection(recipe: recipe, reviews: reviews),
       ],
     );
   }
+}
+
+@immutable
+class _RecipeReview {
+  const _RecipeReview({
+    required this.id,
+    required this.author,
+    required this.rating,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String author;
+  final int rating;
+  final String comment;
+  final DateTime createdAt;
 }
 
 class _RecipeHeroPanel extends StatelessWidget {
@@ -670,6 +704,45 @@ class _RecipeOverviewPanel extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _RecipeReviewsSection extends StatelessWidget {
+  const _RecipeReviewsSection({required this.recipe, required this.reviews});
+
+  final RecipeModel recipe;
+  final List<_RecipeReview> reviews;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return AppCard(
+      key: ValueKey('recipe-reviews-section-${recipe.id}'),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REVIEWS',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: palette.categoryTags,
+              letterSpacing: 0.9,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Community rating',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '${reviews.length} cooks reviewed this recipe.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }
@@ -1159,6 +1232,38 @@ String _readableLabel(String value) {
   return words
       .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ');
+}
+
+List<_RecipeReview> _seedReviewsFor(RecipeModel recipe) {
+  const comments = [
+    'Clear steps and the flavor landed exactly where I wanted it.',
+    'Cooked this for dinner and it held up well for leftovers.',
+    'The timing felt realistic and the result was easy to repeat.',
+    'Nice balance of texture, seasoning, and prep effort.',
+    'Good weeknight option. I would make it again with a little extra herbs.',
+  ];
+  const authors = [
+    'Marta Cook',
+    'Ivan Plate',
+    'Sofia Green',
+    'Nadia Table',
+    'Oleh Spoon',
+    'Kate Pantry',
+  ];
+  final count = 34 + (recipe.id.hashCode.abs() % 15);
+  final baseDate = DateTime(2026, 6, 24, 18, 30);
+
+  return List<_RecipeReview>.generate(count, (index) {
+    final rating = 5 - ((index + recipe.title.length) % 3);
+
+    return _RecipeReview(
+      id: '${recipe.id}-review-$index',
+      author: authors[index % authors.length],
+      rating: rating,
+      comment: comments[(index + recipe.categoryName.length) % comments.length],
+      createdAt: baseDate.subtract(Duration(hours: index * 7)),
+    );
+  }, growable: false);
 }
 
 int _cacheDimension(
