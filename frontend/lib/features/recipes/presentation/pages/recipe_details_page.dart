@@ -733,7 +733,7 @@ class _RecipeOverviewPanel extends StatelessWidget {
   }
 }
 
-class _RecipeReviewsSection extends StatelessWidget {
+class _RecipeReviewsSection extends StatefulWidget {
   const _RecipeReviewsSection({
     required this.recipe,
     required this.reviews,
@@ -745,11 +745,33 @@ class _RecipeReviewsSection extends StatelessWidget {
   final void Function(int rating, String comment) onReviewSubmitted;
 
   @override
+  State<_RecipeReviewsSection> createState() => _RecipeReviewsSectionState();
+}
+
+class _RecipeReviewsSectionState extends State<_RecipeReviewsSection> {
+  static const int _reviewsPerPage = 20;
+
+  int _pageIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final pageCount = (widget.reviews.length / _reviewsPerPage)
+        .ceil()
+        .clamp(1, 999)
+        .toInt();
+    final currentPageIndex = _pageIndex.clamp(0, pageCount - 1).toInt();
+    final startIndex = currentPageIndex * _reviewsPerPage;
+    final endIndex = (startIndex + _reviewsPerPage)
+        .clamp(0, widget.reviews.length)
+        .toInt();
+    final pageReviews = widget.reviews
+        .skip(startIndex)
+        .take(_reviewsPerPage)
+        .toList(growable: false);
 
     return AppCard(
-      key: ValueKey('recipe-reviews-section-${recipe.id}'),
+      key: ValueKey('recipe-reviews-section-${widget.recipe.id}'),
       padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -768,15 +790,103 @@ class _RecipeReviewsSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '${reviews.length} cooks reviewed this recipe.',
+            '${widget.reviews.length} cooks reviewed this recipe.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.lg),
-          _RecipeReviewComposer(onSubmitted: onReviewSubmitted),
+          _RecipeReviewComposer(onSubmitted: widget.onReviewSubmitted),
           const SizedBox(height: AppSpacing.lg),
-          _RecipeReviewList(reviews: reviews),
+          Text(
+            'Showing ${startIndex + 1}-$endIndex of ${widget.reviews.length}',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _RecipeReviewList(reviews: pageReviews),
+          if (pageCount > 1) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Center(
+              child: _RecipeReviewsPagination(
+                pageCount: pageCount,
+                pageIndex: currentPageIndex,
+                onChanged: (pageIndex) {
+                  setState(() {
+                    _pageIndex = pageIndex;
+                  });
+                },
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _RecipeReviewsPagination extends StatelessWidget {
+  const _RecipeReviewsPagination({
+    required this.pageCount,
+    required this.pageIndex,
+    required this.onChanged,
+  });
+
+  final int pageCount;
+  final int pageIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        IconButton(
+          tooltip: 'Previous review page',
+          onPressed: pageIndex > 0 ? () => onChanged(pageIndex - 1) : null,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        for (var index = 0; index < pageCount; index++)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => onChanged(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: index == pageIndex
+                      ? palette.primaryButtons
+                      : palette.searchBarBackground.withValues(alpha: 0.76),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: index == pageIndex
+                        ? palette.primaryButtons
+                        : palette.borders.withValues(alpha: 0.72),
+                  ),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: index == pageIndex ? Colors.white : palette.mainText,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        IconButton(
+          tooltip: 'Next review page',
+          onPressed: pageIndex < pageCount - 1
+              ? () => onChanged(pageIndex + 1)
+              : null,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ],
     );
   }
 }
