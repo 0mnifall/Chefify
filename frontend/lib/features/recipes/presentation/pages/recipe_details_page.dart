@@ -302,6 +302,9 @@ class _RecipeReview {
 class _RecipeHeroPanel extends StatelessWidget {
   const _RecipeHeroPanel({required this.recipe, required this.likesCount});
 
+  static const double _desktopHeight = 640;
+  static const double _compactHeight = 860;
+
   final RecipeModel recipe;
   final int likesCount;
 
@@ -318,10 +321,10 @@ class _RecipeHeroPanel extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 760;
-            final panelPadding = compact ? AppSpacing.lg : AppSpacing.xxl;
+            final panelPadding = compact ? AppSpacing.lg : AppSpacing.xl;
 
             return SizedBox(
-              height: compact ? 860 : 700,
+              height: compact ? _compactHeight : _desktopHeight,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
