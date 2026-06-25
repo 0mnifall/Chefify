@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
@@ -60,6 +62,7 @@ class RecipeDetailsPage extends StatefulWidget {
 
 class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
   RecipeModel? _recipe;
+  final Set<String> _likedRecipeIds = <String>{};
   bool _isLoading = false;
 
   @override
@@ -133,7 +136,10 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
                         ? const _RecipeDetailsLoading()
                         : recipe == null
                         ? _RecipeNotFound(recipeId: widget.recipeId)
-                        : _RecipeDetailsContent(recipe: recipe),
+                        : _RecipeDetailsContent(
+                            recipe: recipe,
+                            likesCount: _displayLikesFor(recipe),
+                          ),
                   ),
                 ),
               ],
@@ -147,10 +153,14 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
                 left: horizontalPadding,
                 top: headerHeight + AppSpacing.md,
                 child: _RecipeStickyActionButton(
-                  icon: Icons.favorite_border_rounded,
-                  tooltip: 'Like recipe',
-                  isActive: false,
-                  onPressed: () {},
+                  icon: _isRecipeLiked(recipe)
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  tooltip: _isRecipeLiked(recipe)
+                      ? 'Remove recipe like'
+                      : 'Like recipe',
+                  isActive: _isRecipeLiked(recipe),
+                  onPressed: () => _toggleRecipeLike(recipe),
                 ),
               ),
             if (recipe != null)
@@ -182,12 +192,40 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
 
     return null;
   }
+
+  bool _isRecipeLiked(RecipeModel recipe) {
+    return _likedRecipeIds.contains(recipe.id);
+  }
+
+  int _displayLikesFor(RecipeModel recipe) {
+    return _likesCountFor(recipe) + (_isRecipeLiked(recipe) ? 1 : 0);
+  }
+
+  void _toggleRecipeLike(RecipeModel recipe) {
+    final willLike = !_isRecipeLiked(recipe);
+
+    setState(() {
+      if (willLike) {
+        _likedRecipeIds.add(recipe.id);
+      } else {
+        _likedRecipeIds.remove(recipe.id);
+      }
+    });
+
+    unawaited(
+      widget.recipeRepository.updateRecipeLike(
+        recipeId: recipe.id,
+        isLiked: willLike,
+      ),
+    );
+  }
 }
 
 class _RecipeDetailsContent extends StatelessWidget {
-  const _RecipeDetailsContent({required this.recipe});
+  const _RecipeDetailsContent({required this.recipe, required this.likesCount});
 
   final RecipeModel recipe;
+  final int likesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +233,7 @@ class _RecipeDetailsContent extends StatelessWidget {
       key: ValueKey('recipe-details-page-${recipe.id}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _RecipeHeroPanel(recipe: recipe),
+        _RecipeHeroPanel(recipe: recipe, likesCount: likesCount),
         const SizedBox(height: AppSpacing.lg),
         _RecipeOverviewPanel(recipe: recipe),
       ],
@@ -204,9 +242,10 @@ class _RecipeDetailsContent extends StatelessWidget {
 }
 
 class _RecipeHeroPanel extends StatelessWidget {
-  const _RecipeHeroPanel({required this.recipe});
+  const _RecipeHeroPanel({required this.recipe, required this.likesCount});
 
   final RecipeModel recipe;
+  final int likesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +280,10 @@ class _RecipeHeroPanel extends StatelessWidget {
                           constraints: BoxConstraints(
                             maxWidth: compact ? double.infinity : 548,
                           ),
-                          child: _RecipeHeroDetails(recipe: recipe),
+                          child: _RecipeHeroDetails(
+                            recipe: recipe,
+                            likesCount: likesCount,
+                          ),
                         ),
                       ),
                     ),
@@ -390,9 +432,10 @@ class _RecipeDetailImageFallback extends StatelessWidget {
 }
 
 class _RecipeHeroDetails extends StatelessWidget {
-  const _RecipeHeroDetails({required this.recipe});
+  const _RecipeHeroDetails({required this.recipe, required this.likesCount});
 
   final RecipeModel recipe;
+  final int likesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -413,7 +456,7 @@ class _RecipeHeroDetails extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
         Align(
           alignment: Alignment.centerRight,
-          child: _RecipeHeroMetrics(recipe: recipe),
+          child: _RecipeHeroMetrics(recipe: recipe, likesCount: likesCount),
         ),
         if (recipe.tags.isNotEmpty) ...[
           const Spacer(),
@@ -501,9 +544,10 @@ class _RecipeHeroTagChip extends StatelessWidget {
 }
 
 class _RecipeHeroMetrics extends StatelessWidget {
-  const _RecipeHeroMetrics({required this.recipe});
+  const _RecipeHeroMetrics({required this.recipe, required this.likesCount});
 
   final RecipeModel recipe;
+  final int likesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +596,7 @@ class _RecipeHeroMetrics extends StatelessWidget {
                   Expanded(
                     child: _RecipeMetaChip(
                       icon: Icons.favorite_rounded,
-                      label: _formatCount(_likesCountFor(recipe)),
+                      label: _formatCount(likesCount),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
