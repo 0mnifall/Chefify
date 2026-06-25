@@ -773,8 +773,136 @@ class _RecipeReviewsSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _RecipeReviewComposer(onSubmitted: onReviewSubmitted),
+          const SizedBox(height: AppSpacing.lg),
+          _RecipeReviewList(reviews: reviews),
         ],
       ),
+    );
+  }
+}
+
+class _RecipeReviewList extends StatelessWidget {
+  const _RecipeReviewList({required this.reviews});
+
+  final List<_RecipeReview> reviews;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < reviews.length; index++) ...[
+          if (index > 0) const SizedBox(height: AppSpacing.sm),
+          _RecipeReviewCard(review: reviews[index]),
+        ],
+      ],
+    );
+  }
+}
+
+class _RecipeReviewCard extends StatelessWidget {
+  const _RecipeReviewCard({required this.review});
+
+  final _RecipeReview review;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      key: ValueKey('recipe-review-card-${review.id}'),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _RecipeReviewAvatar(author: review.author),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.author,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      _formatReviewDateTime(review.createdAt),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _RecipeReviewStars(rating: review.rating),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(review.comment, style: Theme.of(context).textTheme.bodyLarge),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeReviewAvatar extends StatelessWidget {
+  const _RecipeReviewAvatar({required this.author});
+
+  final String author;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: palette.primaryButtons.withValues(alpha: 0.16),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        _initials(author),
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: palette.primaryButtons),
+      ),
+    );
+  }
+}
+
+class _RecipeReviewStars extends StatelessWidget {
+  const _RecipeReviewStars({required this.rating});
+
+  final int rating;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var value = 1; value <= 5; value++)
+          Icon(
+            value <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+            size: 18,
+            color: value <= rating
+                ? const Color(0xFFE5A03C)
+                : palette.secondaryText,
+          ),
+      ],
     );
   }
 }
@@ -1391,6 +1519,30 @@ String _readableLabel(String value) {
   return words
       .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ');
+}
+
+String _initials(String value) {
+  final words = value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList(growable: false);
+
+  if (words.isEmpty) {
+    return 'CH';
+  }
+
+  return words.take(2).map((word) => word[0].toUpperCase()).join();
+}
+
+String _formatReviewDateTime(DateTime value) {
+  final day = value.day.toString().padLeft(2, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  final year = value.year.toString();
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+
+  return '$day.$month.$year $hour:$minute';
 }
 
 List<_RecipeReview> _seedReviewsFor(RecipeModel recipe) {
