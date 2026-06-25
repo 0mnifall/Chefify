@@ -9,6 +9,7 @@ import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/features/recipes/presentation/pages/recipe_details_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
@@ -53,9 +54,7 @@ void main() {
     expect(find.text('Weekly recipes in your inbox'), findsOneWidget);
   });
 
-  testWidgets('home and recipes pages fit common viewport widths', (
-    tester,
-  ) async {
+  testWidgets('main app pages fit common viewport widths', (tester) async {
     final sizes = [
       const Size(320, 1200),
       const Size(390, 1200),
@@ -105,6 +104,22 @@ void main() {
         tester.takeException(),
         isNull,
         reason: 'Categories overflow at ${size.width}px',
+      );
+
+      await tester.pumpWidget(
+        const _PageTestApp(
+          child: RecipeDetailsPage(
+            recipeId: 'citrus-herb-chicken-quinoa',
+            initialRecipe: _featuredRecipe,
+            recipeRepository: MockRecipeRepository(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Recipe details overflow at ${size.width}px',
       );
     }
   });
@@ -470,6 +485,54 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Cook profile'), findsOneWidget);
+  });
+
+  testWidgets('creates recipe reviews and paginates review list', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const _PageTestApp(
+        child: RecipeDetailsPage(
+          recipeId: 'citrus-herb-chicken-quinoa',
+          initialRecipe: _featuredRecipe,
+          recipeRepository: MockRecipeRepository(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('recipe-review-comment-field')),
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('recipe-review-comment-field')),
+      'Loved the balance and timing.',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-review-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Loved the balance and timing.'), findsOneWidget);
+    expect(find.textContaining('Showing 1-20'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byTooltip('Next review page'),
+      800,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Next review page'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Showing 21-40'), findsOneWidget);
   });
 
   testWidgets('opens author profile from recipe card author chip', (

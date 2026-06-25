@@ -321,7 +321,7 @@ class _RecipeHeroPanel extends StatelessWidget {
             final panelPadding = compact ? AppSpacing.lg : AppSpacing.xxl;
 
             return SizedBox(
-              height: compact ? 720 : 520,
+              height: compact ? 860 : 700,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -497,30 +497,41 @@ class _RecipeHeroDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: _RecipeDetailsBookmarkButton(recipe: recipe),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(recipe.title, style: Theme.of(context).textTheme.displayMedium),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          _descriptionFor(recipe),
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        Align(
-          alignment: Alignment.centerRight,
-          child: _RecipeHeroMetrics(recipe: recipe, likesCount: likesCount),
-        ),
-        if (recipe.tags.isNotEmpty) ...[
-          const Spacer(),
-          _RecipeHeroTagGrid(tags: recipe.tags),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 420;
+        final titleStyle = compact
+            ? Theme.of(context).textTheme.headlineMedium
+            : Theme.of(context).textTheme.displayMedium;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: _RecipeDetailsBookmarkButton(recipe: recipe),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(recipe.title, style: titleStyle),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              _descriptionFor(recipe),
+              maxLines: compact ? 4 : null,
+              overflow: compact ? TextOverflow.ellipsis : null,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _RecipeHeroMetrics(recipe: recipe, likesCount: likesCount),
+            ),
+            if (recipe.tags.isNotEmpty) ...[
+              const Spacer(),
+              _RecipeHeroTagGrid(tags: recipe.tags),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -616,58 +627,71 @@ class _RecipeHeroMetrics extends StatelessWidget {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : 420.0;
+        final narrow = width < 360;
+        final timeChip = _RecipeMetaChip(
+          icon: Icons.schedule_rounded,
+          label: '${recipe.minutes} min',
+        );
+        final difficultyChip = _RecipeMetaChip(
+          icon: Icons.local_fire_department_rounded,
+          label: _difficultyLabel(recipe),
+        );
+        final categoryChip = category == null
+            ? _RecipeMetaChip(
+                icon: Icons.restaurant_menu_rounded,
+                label: recipe.categoryName,
+              )
+            : _RecipeCategoryChip(category: category);
+        final likesChip = _RecipeMetaChip(
+          icon: Icons.favorite_rounded,
+          label: _formatCount(likesCount),
+        );
+        final ratingChip = _RecipeMetaChip(
+          icon: Icons.star_rounded,
+          label: recipe.rating.toStringAsFixed(1),
+        );
 
         return ConstrainedBox(
           constraints: BoxConstraints(maxWidth: width),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _RecipeMetaChip(
-                      icon: Icons.schedule_rounded,
-                      label: '${recipe.minutes} min',
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _RecipeMetaChip(
-                      icon: Icons.local_fire_department_rounded,
-                      label: _difficultyLabel(recipe),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              if (category == null)
-                _RecipeMetaChip(
-                  icon: Icons.restaurant_menu_rounded,
-                  label: recipe.categoryName,
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    timeChip,
+                    const SizedBox(height: AppSpacing.xs),
+                    difficultyChip,
+                    const SizedBox(height: AppSpacing.xs),
+                    categoryChip,
+                    const SizedBox(height: AppSpacing.xs),
+                    likesChip,
+                    const SizedBox(height: AppSpacing.xs),
+                    ratingChip,
+                  ],
                 )
-              else
-                _RecipeCategoryChip(category: category),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: _RecipeMetaChip(
-                      icon: Icons.favorite_rounded,
-                      label: _formatCount(likesCount),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: timeChip),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: difficultyChip),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _RecipeMetaChip(
-                      icon: Icons.star_rounded,
-                      label: recipe.rating.toStringAsFixed(1),
+                    const SizedBox(height: AppSpacing.sm),
+                    categoryChip,
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(child: likesChip),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: ratingChip),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
         );
       },
     );
@@ -1139,16 +1163,28 @@ class _RecipeReviewRatingPicker extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var value = 1; value <= 5; value++)
-          IconButton(
-            key: ValueKey('recipe-review-rating-$value'),
-            visualDensity: VisualDensity.compact,
-            tooltip: '$value star rating',
-            onPressed: () => onChanged(value),
-            icon: Icon(
-              value <= rating ? Icons.star_rounded : Icons.star_border_rounded,
-              color: value <= rating
-                  ? const Color(0xFFE5A03C)
-                  : palette.secondaryText,
+          Tooltip(
+            message: '$value star rating',
+            child: Semantics(
+              button: true,
+              label: '$value star rating',
+              child: InkResponse(
+                key: ValueKey('recipe-review-rating-$value'),
+                onTap: () => onChanged(value),
+                radius: 18,
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Icon(
+                    value <= rating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: value <= rating
+                        ? const Color(0xFFE5A03C)
+                        : palette.secondaryText,
+                  ),
+                ),
+              ),
             ),
           ),
       ],
@@ -1317,11 +1353,18 @@ class _RecipeMetaChip extends StatelessWidget {
         border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: 16, color: palette.icons),
           const SizedBox(width: AppSpacing.xs),
-          Text(label, style: Theme.of(context).textTheme.labelLarge),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+          ),
         ],
       ),
     );
@@ -1351,11 +1394,18 @@ class _RecipeCategoryChip extends StatelessWidget {
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(category.icon, size: 16, color: palette.primaryButtons),
           const SizedBox(width: AppSpacing.xs),
-          Text(category.title, style: Theme.of(context).textTheme.labelLarge),
+          Flexible(
+            child: Text(
+              category.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+          ),
         ],
       ),
     );
