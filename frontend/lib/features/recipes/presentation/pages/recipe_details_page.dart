@@ -302,8 +302,8 @@ class _RecipeReview {
 class _RecipeHeroPanel extends StatelessWidget {
   const _RecipeHeroPanel({required this.recipe, required this.likesCount});
 
-  static const double _desktopHeight = 640;
-  static const double _compactHeight = 860;
+  static const double _desktopHeight = 400;
+  static const double _compactHeight = 720;
 
   final RecipeModel recipe;
   final int likesCount;
@@ -330,22 +330,17 @@ class _RecipeHeroPanel extends StatelessWidget {
                 children: [
                   _RecipeDetailImage(recipe: recipe),
                   _RecipeHeroGradientOverlay(compact: compact),
+                  Positioned(
+                    top: panelPadding,
+                    right: panelPadding,
+                    child: _RecipeDetailsBookmarkButton(recipe: recipe),
+                  ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.all(panelPadding),
-                      child: Align(
-                        alignment: compact
-                            ? Alignment.bottomLeft
-                            : Alignment.centerRight,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: compact ? double.infinity : 548,
-                          ),
-                          child: _RecipeHeroDetails(
-                            recipe: recipe,
-                            likesCount: likesCount,
-                          ),
-                        ),
+                      child: _RecipeHeroDetails(
+                        recipe: recipe,
+                        likesCount: likesCount,
                       ),
                     ),
                   ),
@@ -502,36 +497,82 @@ class _RecipeHeroDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 420;
-        final titleStyle = compact
-            ? Theme.of(context).textTheme.headlineMedium
-            : Theme.of(context).textTheme.displayMedium;
+        final compact = constraints.maxWidth < 560;
+        final tight = constraints.maxHeight < 380;
+        final metricsWidth = compact
+            ? constraints.maxWidth
+            : (constraints.maxWidth * 0.28).clamp(300.0, 340.0).toDouble();
+        final contentWidth = compact
+            ? constraints.maxWidth
+            : (constraints.maxWidth - metricsWidth - AppSpacing.xl)
+                  .clamp(360.0, 640.0)
+                  .toDouble();
+        final titleStyle =
+            (compact
+                    ? Theme.of(context).textTheme.headlineMedium
+                    : Theme.of(context).textTheme.displayMedium)
+                ?.copyWith(fontSize: compact ? 34 : 46);
+        final descriptionStyle = Theme.of(context).textTheme.bodyLarge
+            ?.copyWith(fontSize: compact ? 16 : 18, height: 1.45);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final tagsBottomOffset = compact ? 160.0 : 0.0;
+
+        return Stack(
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: _RecipeDetailsBookmarkButton(recipe: recipe),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: compact ? 0 : null,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      recipe.title,
+                      maxLines: tight ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _descriptionFor(recipe),
+                      maxLines: compact ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: descriptionStyle,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(recipe.title, style: titleStyle),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              _descriptionFor(recipe),
-              maxLines: compact ? 4 : null,
-              overflow: compact ? TextOverflow.ellipsis : null,
-              style: Theme.of(context).textTheme.bodyLarge,
+            if (recipe.tags.isNotEmpty)
+              Positioned(
+                left: 0,
+                bottom: tagsBottomOffset,
+                right: compact ? 0 : null,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: contentWidth),
+                  child: _RecipeHeroTagGrid(tags: recipe.tags),
+                ),
+              ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              left: compact ? 0 : null,
+              child: Align(
+                alignment: compact
+                    ? Alignment.bottomLeft
+                    : Alignment.bottomRight,
+                child: SizedBox(
+                  width: metricsWidth,
+                  child: _RecipeHeroMetrics(
+                    recipe: recipe,
+                    likesCount: likesCount,
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _RecipeHeroMetrics(recipe: recipe, likesCount: likesCount),
-            ),
-            if (recipe.tags.isNotEmpty) ...[
-              const Spacer(),
-              _RecipeHeroTagGrid(tags: recipe.tags),
-            ],
           ],
         );
       },
@@ -546,41 +587,15 @@ class _RecipeHeroTagGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 420 ? 2 : 3;
-        final rows = <List<String>>[];
-
-        for (var index = 0; index < tags.length; index += columns) {
-          rows.add(tags.skip(index).take(columns).toList(growable: false));
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
-              if (rowIndex > 0) const SizedBox(height: AppSpacing.xxs),
-              Row(
-                children: [
-                  for (
-                    var columnIndex = 0;
-                    columnIndex < rows[rowIndex].length;
-                    columnIndex++
-                  ) ...[
-                    if (columnIndex > 0) const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: _RecipeHeroTagChip(
-                        tag: rows[rowIndex][columnIndex],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ],
-        );
-      },
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xxs,
+        children: [for (final tag in tags) _RecipeHeroTagChip(tag: tag)],
+      ),
     );
   }
 }
@@ -595,7 +610,6 @@ class _RecipeHeroTagChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
@@ -632,8 +646,8 @@ class _RecipeHeroMetrics extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : 420.0;
-        final narrow = width < 360;
+            : 340.0;
+        final narrow = width < 300;
         final timeChip = _RecipeMetaChip(
           icon: Icons.schedule_rounded,
           label: '${recipe.minutes} min',
@@ -704,13 +718,7 @@ class _RecipeHeroMetrics extends StatelessWidget {
           );
         }
 
-        return Align(
-          alignment: Alignment.centerRight,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: width),
-            child: IntrinsicWidth(child: groupedMetrics),
-          ),
-        );
+        return groupedMetrics;
       },
     );
   }
@@ -1362,8 +1370,8 @@ class _RecipeMetaChip extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.88),
@@ -1373,16 +1381,17 @@ class _RecipeMetaChip extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 14, color: palette.icons),
+          Icon(icon, size: 16, color: palette.icons),
           const SizedBox(width: AppSpacing.xs),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: palette.mainText,
                 fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
             ),
           ),
@@ -1404,8 +1413,8 @@ class _RecipeCategoryChip extends StatelessWidget {
     return Container(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
         color: palette.primaryButtons.withValues(alpha: 0.14),
@@ -1417,16 +1426,17 @@ class _RecipeCategoryChip extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(category.icon, size: 14, color: palette.primaryButtons),
+          Icon(category.icon, size: 16, color: palette.primaryButtons),
           const SizedBox(width: AppSpacing.xs),
           Flexible(
             child: Text(
               category.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: palette.mainText,
                 fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
             ),
           ),
