@@ -196,23 +196,30 @@ class _RecipeHeroPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 860;
-            final image = _RecipeDetailImage(recipe: recipe, stacked: stacked);
-            final details = _RecipeHeroDetails(recipe: recipe);
+            final compact = constraints.maxWidth < 760;
+            final panelPadding = compact ? AppSpacing.lg : AppSpacing.xxl;
 
-            if (stacked) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [image, details],
-              );
-            }
-
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            return ConstrainedBox(
+              constraints: BoxConstraints(minHeight: compact ? 620 : 520),
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Expanded(flex: 5, child: image),
-                  Expanded(flex: 5, child: details),
+                  _RecipeDetailImage(recipe: recipe),
+                  _RecipeHeroGradientOverlay(compact: compact),
+                  Padding(
+                    padding: EdgeInsets.all(panelPadding),
+                    child: Align(
+                      alignment: compact
+                          ? Alignment.bottomLeft
+                          : Alignment.centerRight,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: compact ? double.infinity : 548,
+                        ),
+                        child: _RecipeHeroDetails(recipe: recipe),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -224,64 +231,105 @@ class _RecipeHeroPanel extends StatelessWidget {
 }
 
 class _RecipeDetailImage extends StatelessWidget {
-  const _RecipeDetailImage({required this.recipe, required this.stacked});
+  const _RecipeDetailImage({required this.recipe});
 
   final RecipeModel recipe;
-  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = recipe.imageUrl?.trim();
-    final height = stacked ? 320.0 : 520.0;
 
-    return SizedBox(
-      height: height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (imageUrl == null || imageUrl.isEmpty)
-            _RecipeDetailImageFallback(recipe: recipe)
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-                final cacheWidth = _cacheDimension(
-                  constraints.maxWidth,
-                  devicePixelRatio,
-                  max: 1200,
-                );
-                final cacheHeight = _cacheDimension(
-                  constraints.maxHeight,
-                  devicePixelRatio,
-                  max: 900,
-                );
-                return OptimizedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  cacheWidth: cacheWidth,
-                  cacheHeight: cacheHeight,
-                  quality: 78,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _RecipeDetailImageFallback(recipe: recipe);
-                  },
-                );
-              },
-            ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.black.withValues(alpha: 0.18),
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.28),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (imageUrl == null || imageUrl.isEmpty)
+          _RecipeDetailImageFallback(recipe: recipe)
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+              final cacheWidth = _cacheDimension(
+                constraints.maxWidth,
+                devicePixelRatio,
+                max: 1400,
+              );
+              final cacheHeight = _cacheDimension(
+                constraints.maxHeight,
+                devicePixelRatio,
+                max: 900,
+              );
+              return OptimizedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                cacheWidth: cacheWidth,
+                cacheHeight: cacheHeight,
+                quality: 78,
+                errorBuilder: (context, error, stackTrace) {
+                  return _RecipeDetailImageFallback(recipe: recipe);
+                },
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _RecipeHeroGradientOverlay extends StatelessWidget {
+  const _RecipeHeroGradientOverlay({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: compact ? Alignment.topCenter : Alignment.centerLeft,
+              end: compact ? Alignment.bottomCenter : Alignment.centerRight,
+              colors: [
+                Colors.black.withValues(alpha: compact ? 0.16 : 0.08),
+                palette.navbarBackground.withValues(
+                  alpha: compact ? 0.54 : 0.5,
+                ),
+                palette.navbarBackground.withValues(
+                  alpha: compact ? 0.94 : 0.98,
+                ),
+              ],
+              stops: compact ? const [0, 0.48, 1] : const [0, 0.48, 1],
             ),
           ),
-        ],
-      ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: compact ? const Alignment(0.2, -0.74) : Alignment.center,
+              radius: compact ? 1.1 : 0.95,
+              colors: [
+                Colors.white.withValues(alpha: 0.12),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                palette.pageBackground.withValues(alpha: 0.1),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
