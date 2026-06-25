@@ -1091,7 +1091,7 @@ class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
     final palette = context.palette;
     final canSubmit = _commentController.text.trim().isNotEmpty;
     final ratingLabel = Text(
-      'Your rating',
+      'Leave your review',
       style: Theme.of(context).textTheme.titleMedium,
     );
     final ratingPicker = _RecipeReviewRatingPicker(
@@ -1104,7 +1104,7 @@ class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
     );
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -1113,45 +1113,83 @@ class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 320) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ratingLabel,
-                    const SizedBox(height: AppSpacing.xs),
-                    ratingPicker,
-                  ],
-                );
-              }
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              0,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 320) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ratingLabel,
+                      const SizedBox(height: AppSpacing.xs),
+                      ratingPicker,
+                    ],
+                  );
+                }
 
-              return Row(children: [ratingLabel, const Spacer(), ratingPicker]);
-            },
+                return Row(
+                  children: [ratingLabel, const Spacer(), ratingPicker],
+                );
+              },
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
-          TextField(
-            key: const ValueKey('recipe-review-comment-field'),
-            controller: _commentController,
-            minLines: 3,
-            maxLines: 5,
-            textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              hintText: 'Share what worked, what changed, or who loved it.',
-            ),
-            onChanged: (_) {
-              setState(() {});
-            },
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-              key: const ValueKey('recipe-review-submit-button'),
-              onPressed: canSubmit ? _submit : null,
-              icon: const Icon(Icons.rate_review_rounded),
-              label: const Text('Post review'),
-            ),
+          Stack(
+            children: [
+              TextField(
+                key: const ValueKey('recipe-review-comment-field'),
+                controller: _commentController,
+                minLines: 4,
+                maxLines: 6,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: 'Share what worked, what changed, or who loved it.',
+                  fillColor: palette.searchBarBackground.withValues(
+                    alpha: 0.74,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    84,
+                    68,
+                  ),
+                ),
+                onChanged: (_) {
+                  setState(() {});
+                },
+              ),
+              Positioned(
+                right: AppSpacing.md,
+                bottom: AppSpacing.md,
+                child: IconButton.filled(
+                  key: const ValueKey('recipe-review-submit-button'),
+                  tooltip: 'Post review',
+                  onPressed: canSubmit ? _submit : null,
+                  iconSize: 24,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(52),
+                    backgroundColor: palette.primaryButtons,
+                    disabledBackgroundColor: palette.borders.withValues(
+                      alpha: 0.48,
+                    ),
+                    foregroundColor: palette.pageBackground,
+                    disabledForegroundColor: palette.secondaryText.withValues(
+                      alpha: 0.74,
+                    ),
+                  ),
+                  icon: const Icon(Icons.send_rounded),
+                ),
+              ),
+            ],
           ),
         ],
       ),
