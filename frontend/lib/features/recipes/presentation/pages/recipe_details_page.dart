@@ -320,8 +320,8 @@ class _RecipeHeroPanel extends StatelessWidget {
             final compact = constraints.maxWidth < 760;
             final panelPadding = compact ? AppSpacing.lg : AppSpacing.xxl;
 
-            return ConstrainedBox(
-              constraints: BoxConstraints(minHeight: compact ? 620 : 520),
+            return SizedBox(
+              height: compact ? 720 : 520,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
