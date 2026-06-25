@@ -142,6 +142,9 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
                             recipe: recipe,
                             likesCount: _displayLikesFor(recipe),
                             reviews: _reviewsFor(recipe),
+                            onReviewSubmitted: (rating, comment) {
+                              _addReview(recipe, rating, comment);
+                            },
                           ),
                   ),
                 ),
@@ -229,6 +232,21 @@ class _RecipeDetailsPageState extends State<RecipeDetailsPage> {
       () => _seedReviewsFor(recipe),
     );
   }
+
+  void _addReview(RecipeModel recipe, int rating, String comment) {
+    final now = DateTime.now();
+    final review = _RecipeReview(
+      id: '${recipe.id}-review-user-${now.microsecondsSinceEpoch}',
+      author: 'You',
+      rating: rating,
+      comment: comment,
+      createdAt: now,
+    );
+
+    setState(() {
+      _reviewsByRecipeId[recipe.id] = [review, ..._reviewsFor(recipe)];
+    });
+  }
 }
 
 class _RecipeDetailsContent extends StatelessWidget {
@@ -236,11 +254,13 @@ class _RecipeDetailsContent extends StatelessWidget {
     required this.recipe,
     required this.likesCount,
     required this.reviews,
+    required this.onReviewSubmitted,
   });
 
   final RecipeModel recipe;
   final int likesCount;
   final List<_RecipeReview> reviews;
+  final void Function(int rating, String comment) onReviewSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +272,11 @@ class _RecipeDetailsContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _RecipeOverviewPanel(recipe: recipe),
         const SizedBox(height: AppSpacing.lg),
-        _RecipeReviewsSection(recipe: recipe, reviews: reviews),
+        _RecipeReviewsSection(
+          recipe: recipe,
+          reviews: reviews,
+          onReviewSubmitted: onReviewSubmitted,
+        ),
       ],
     );
   }
@@ -710,10 +734,15 @@ class _RecipeOverviewPanel extends StatelessWidget {
 }
 
 class _RecipeReviewsSection extends StatelessWidget {
-  const _RecipeReviewsSection({required this.recipe, required this.reviews});
+  const _RecipeReviewsSection({
+    required this.recipe,
+    required this.reviews,
+    required this.onReviewSubmitted,
+  });
 
   final RecipeModel recipe;
   final List<_RecipeReview> reviews;
+  final void Function(int rating, String comment) onReviewSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -742,8 +771,138 @@ class _RecipeReviewsSection extends StatelessWidget {
             '${reviews.length} cooks reviewed this recipe.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          const SizedBox(height: AppSpacing.lg),
+          _RecipeReviewComposer(onSubmitted: onReviewSubmitted),
         ],
       ),
+    );
+  }
+}
+
+class _RecipeReviewComposer extends StatefulWidget {
+  const _RecipeReviewComposer({required this.onSubmitted});
+
+  final void Function(int rating, String comment) onSubmitted;
+
+  @override
+  State<_RecipeReviewComposer> createState() => _RecipeReviewComposerState();
+}
+
+class _RecipeReviewComposerState extends State<_RecipeReviewComposer> {
+  final TextEditingController _commentController = TextEditingController();
+  int _rating = 5;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final canSubmit = _commentController.text.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Your rating',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Spacer(),
+              _RecipeReviewRatingPicker(
+                rating: _rating,
+                onChanged: (rating) {
+                  setState(() {
+                    _rating = rating;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            key: const ValueKey('recipe-review-comment-field'),
+            controller: _commentController,
+            minLines: 3,
+            maxLines: 5,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              hintText: 'Share what worked, what changed, or who loved it.',
+            ),
+            onChanged: (_) {
+              setState(() {});
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              key: const ValueKey('recipe-review-submit-button'),
+              onPressed: canSubmit ? _submit : null,
+              icon: const Icon(Icons.rate_review_rounded),
+              label: const Text('Post review'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() {
+    final comment = _commentController.text.trim();
+    if (comment.isEmpty) {
+      return;
+    }
+
+    widget.onSubmitted(_rating, comment);
+    _commentController.clear();
+    setState(() {
+      _rating = 5;
+    });
+  }
+}
+
+class _RecipeReviewRatingPicker extends StatelessWidget {
+  const _RecipeReviewRatingPicker({
+    required this.rating,
+    required this.onChanged,
+  });
+
+  final int rating;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var value = 1; value <= 5; value++)
+          IconButton(
+            key: ValueKey('recipe-review-rating-$value'),
+            visualDensity: VisualDensity.compact,
+            tooltip: '$value star rating',
+            onPressed: () => onChanged(value),
+            icon: Icon(
+              value <= rating ? Icons.star_rounded : Icons.star_border_rounded,
+              color: value <= rating
+                  ? const Color(0xFFE5A03C)
+                  : palette.secondaryText,
+            ),
+          ),
+      ],
     );
   }
 }
