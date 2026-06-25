@@ -657,47 +657,59 @@ class _RecipeHeroMetrics extends StatelessWidget {
           label: recipe.rating.toStringAsFixed(1),
         );
 
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: width),
-          child: narrow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    timeChip,
-                    const SizedBox(height: AppSpacing.xs),
-                    difficultyChip,
-                    const SizedBox(height: AppSpacing.xs),
-                    categoryChip,
-                    const SizedBox(height: AppSpacing.xs),
-                    likesChip,
-                    const SizedBox(height: AppSpacing.xs),
-                    ratingChip,
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: timeChip),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(child: difficultyChip),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    categoryChip,
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      children: [
-                        Expanded(child: likesChip),
-                        const SizedBox(width: AppSpacing.xs),
-                        Expanded(child: ratingChip),
-                      ],
-                    ),
-                  ],
-                ),
+        final stackedMetrics = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            timeChip,
+            const SizedBox(height: AppSpacing.xs),
+            difficultyChip,
+            const SizedBox(height: AppSpacing.xs),
+            categoryChip,
+            const SizedBox(height: AppSpacing.xs),
+            likesChip,
+            const SizedBox(height: AppSpacing.xs),
+            ratingChip,
+          ],
+        );
+
+        final groupedMetrics = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(child: timeChip),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(child: difficultyChip),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            categoryChip,
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(child: likesChip),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(child: ratingChip),
+              ],
+            ),
+          ],
+        );
+
+        if (narrow) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: width),
+            child: stackedMetrics,
+          );
+        }
+
+        return Align(
+          alignment: Alignment.centerRight,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: width),
+            child: IntrinsicWidth(child: groupedMetrics),
+          ),
         );
       },
     );
