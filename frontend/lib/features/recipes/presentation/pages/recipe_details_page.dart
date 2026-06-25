@@ -370,65 +370,99 @@ class _RecipeHeroDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    final categories = _categoriesFor(recipe);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: _RecipeDetailsBookmarkButton(recipe: recipe),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(recipe.title, style: Theme.of(context).textTheme.displayMedium),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          _descriptionFor(recipe),
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _RecipeHeroMetrics(recipe: recipe),
+        ),
+      ],
+    );
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+class _RecipeHeroMetrics extends StatelessWidget {
+  const _RecipeHeroMetrics({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = _categoryFor(recipe);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 420.0;
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: width),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Text(
-                  recipe.categoryName.toUpperCase(),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: palette.categoryTags,
-                    letterSpacing: 0.9,
+              Row(
+                children: [
+                  Expanded(
+                    child: _RecipeMetaChip(
+                      icon: Icons.schedule_rounded,
+                      label: '${recipe.minutes} min',
+                    ),
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _RecipeMetaChip(
+                      icon: Icons.local_fire_department_rounded,
+                      label: _difficultyLabel(recipe),
+                    ),
+                  ),
+                ],
               ),
-              _RecipeDetailsBookmarkButton(recipe: recipe),
+              const SizedBox(height: AppSpacing.sm),
+              if (category == null)
+                _RecipeMetaChip(
+                  icon: Icons.restaurant_menu_rounded,
+                  label: recipe.categoryName,
+                )
+              else
+                _RecipeCategoryChip(category: category),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: _RecipeMetaChip(
+                      icon: Icons.favorite_rounded,
+                      label: _formatCount(_likesCountFor(recipe)),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _RecipeMetaChip(
+                      icon: Icons.star_rounded,
+                      label: recipe.rating.toStringAsFixed(1),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(recipe.title, style: Theme.of(context).textTheme.displayMedium),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            _descriptionFor(recipe),
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _RecipeMetaChip(
-                icon: Icons.schedule_rounded,
-                label: '${recipe.minutes} min',
-              ),
-              _RecipeMetaChip(
-                icon: Icons.star_rounded,
-                label: recipe.rating.toStringAsFixed(1),
-              ),
-              _RecipeMetaChip(icon: Icons.person_rounded, label: recipe.author),
-            ],
-          ),
-          if (categories.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                for (final category in categories)
-                  _RecipeCategoryChip(category: category),
-              ],
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -642,6 +676,7 @@ class _RecipeMetaChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
@@ -673,6 +708,7 @@ class _RecipeCategoryChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
@@ -840,15 +876,9 @@ class _RecipeDetailsHeaderShell extends StatelessWidget {
   }
 }
 
-List<CategoryModel> _categoriesFor(RecipeModel recipe) {
-  final category =
-      CategoryCatalog.findById(recipe.categoryId) ??
+CategoryModel? _categoryFor(RecipeModel recipe) {
+  return CategoryCatalog.findById(recipe.categoryId) ??
       CategoryCatalog.findById(recipe.categoryName);
-  if (category == null) {
-    return const [];
-  }
-
-  return [category];
 }
 
 String _descriptionFor(RecipeModel recipe) {
@@ -860,14 +890,56 @@ String _descriptionFor(RecipeModel recipe) {
   return 'A practical Chefify recipe built for repeat cooking, balanced flavor, and a clean weeknight workflow.';
 }
 
+String _difficultyLabel(RecipeModel recipe) {
+  final difficulty = recipe.difficulty.clamp(1, 5);
+
+  if (difficulty <= 2) {
+    return 'Easy';
+  }
+  if (difficulty == 3) {
+    return 'Medium';
+  }
+  if (difficulty == 4) {
+    return 'Hard';
+  }
+  return 'Expert';
+}
+
 String _difficultyText(RecipeModel recipe) {
-  if (recipe.minutes <= 20) {
+  final difficulty = recipe.difficulty.clamp(1, 5);
+
+  if (difficulty <= 2) {
     return 'Quick and low-friction for busy days.';
   }
-  if (recipe.minutes <= 35) {
+  if (difficulty == 3) {
     return 'Comfortable weeknight cooking with a few focused steps.';
   }
-  return 'Best when you have a little more room for prep and finishing.';
+  if (difficulty == 4) {
+    return 'Best when you have a little more room for prep and finishing.';
+  }
+  return 'A more involved cook for confident, detail-focused sessions.';
+}
+
+int _likesCountFor(RecipeModel recipe) {
+  if (recipe.likesCount > 0) {
+    return recipe.likesCount;
+  }
+
+  final popularityBoost = recipe.popularityScore > 0
+      ? (recipe.popularityScore / 3).round()
+      : 0;
+  return (recipe.rating * 390).round() + 610 + popularityBoost;
+}
+
+String _formatCount(int value) {
+  if (value >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(1)}m';
+  }
+  if (value >= 1000) {
+    final formatted = value / 1000;
+    return '${formatted.toStringAsFixed(formatted >= 10 ? 0 : 1)}k';
+  }
+  return value.toString();
 }
 
 int _cacheDimension(
