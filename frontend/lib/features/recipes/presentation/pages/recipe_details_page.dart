@@ -206,17 +206,19 @@ class _RecipeHeroPanel extends StatelessWidget {
                 children: [
                   _RecipeDetailImage(recipe: recipe),
                   _RecipeHeroGradientOverlay(compact: compact),
-                  Padding(
-                    padding: EdgeInsets.all(panelPadding),
-                    child: Align(
-                      alignment: compact
-                          ? Alignment.bottomLeft
-                          : Alignment.centerRight,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: compact ? double.infinity : 548,
+                  Positioned.fill(
+                    child: Padding(
+                      padding: EdgeInsets.all(panelPadding),
+                      child: Align(
+                        alignment: compact
+                            ? Alignment.bottomLeft
+                            : Alignment.centerRight,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: compact ? double.infinity : 548,
+                          ),
+                          child: _RecipeHeroDetails(recipe: recipe),
                         ),
-                        child: _RecipeHeroDetails(recipe: recipe),
                       ),
                     ),
                   ),
@@ -372,7 +374,6 @@ class _RecipeHeroDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
         Align(
           alignment: Alignment.centerRight,
@@ -390,7 +391,87 @@ class _RecipeHeroDetails extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: _RecipeHeroMetrics(recipe: recipe),
         ),
+        if (recipe.tags.isNotEmpty) ...[
+          const Spacer(),
+          _RecipeHeroTagGrid(tags: recipe.tags),
+        ],
       ],
+    );
+  }
+}
+
+class _RecipeHeroTagGrid extends StatelessWidget {
+  const _RecipeHeroTagGrid({required this.tags});
+
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 420 ? 2 : 3;
+        final rows = <List<String>>[];
+
+        for (var index = 0; index < tags.length; index += columns) {
+          rows.add(tags.skip(index).take(columns).toList(growable: false));
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+              if (rowIndex > 0) const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  for (
+                    var columnIndex = 0;
+                    columnIndex < rows[rowIndex].length;
+                    columnIndex++
+                  ) ...[
+                    if (columnIndex > 0) const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: _RecipeHeroTagChip(
+                        tag: rows[rowIndex][columnIndex],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _RecipeHeroTagChip extends StatelessWidget {
+  const _RecipeHeroTagChip({required this.tag});
+
+  final String tag;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      child: Text(
+        _readableLabel(tag),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
     );
   }
 }
@@ -940,6 +1021,17 @@ String _formatCount(int value) {
     return '${formatted.toStringAsFixed(formatted >= 10 ? 0 : 1)}k';
   }
   return value.toString();
+}
+
+String _readableLabel(String value) {
+  final words = value
+      .trim()
+      .split(RegExp(r'[-_\s]+'))
+      .where((word) => word.isNotEmpty);
+
+  return words
+      .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .join(' ');
 }
 
 int _cacheDimension(
