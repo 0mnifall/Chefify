@@ -16,13 +16,25 @@ class RecipeCreatePage extends StatefulWidget {
 class _RecipeCreatePageState extends State<RecipeCreatePage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _tagController = TextEditingController();
+  final FocusNode _tagFocusNode = FocusNode();
   final List<String> _tags = [];
+  bool _isAddingTag = false;
   String? _imageUrl;
 
   @override
+  void initState() {
+    super.initState();
+    _tagFocusNode.addListener(_handleTagFocusChange);
+  }
+
+  @override
   void dispose() {
+    _tagFocusNode.removeListener(_handleTagFocusChange);
     _titleController.dispose();
     _descriptionController.dispose();
+    _tagController.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
   }
 
@@ -63,8 +75,13 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           titleController: _titleController,
                           descriptionController: _descriptionController,
                           tags: _tags,
+                          isAddingTag: _isAddingTag,
+                          tagController: _tagController,
+                          tagFocusNode: _tagFocusNode,
+                          onSubmitTag: _submitTag,
                           onRemoveTag: _removeTag,
                           onAddTagPressed: _startAddingTag,
+                          onCancelTagInput: _cancelTagInput,
                           onPickImage: _pickImage,
                         ),
                       ),
@@ -94,7 +111,50 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     });
   }
 
-  void _startAddingTag() {}
+  void _handleTagFocusChange() {
+    if (!_tagFocusNode.hasFocus && _isAddingTag) {
+      _submitTag(_tagController.text);
+    }
+  }
+
+  void _startAddingTag() {
+    if (_tags.length >= 10) {
+      return;
+    }
+
+    setState(() {
+      _isAddingTag = true;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _tagFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _submitTag(String value) {
+    final slug = RecipeFormOptions.slug(value);
+    if (slug.isEmpty) {
+      _cancelTagInput();
+      return;
+    }
+
+    setState(() {
+      if (!_tags.contains(slug) && _tags.length < 10) {
+        _tags.add(slug);
+      }
+      _tagController.clear();
+      _isAddingTag = false;
+    });
+  }
+
+  void _cancelTagInput() {
+    setState(() {
+      _tagController.clear();
+      _isAddingTag = false;
+    });
+  }
 
   void _removeTag(String tag) {
     setState(() {
@@ -109,8 +169,13 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.titleController,
     required this.descriptionController,
     required this.tags,
+    required this.isAddingTag,
+    required this.tagController,
+    required this.tagFocusNode,
+    required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
+    required this.onCancelTagInput,
     required this.onPickImage,
   });
 
@@ -118,8 +183,13 @@ class _RecipeCreateContent extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController descriptionController;
   final List<String> tags;
+  final bool isAddingTag;
+  final TextEditingController tagController;
+  final FocusNode tagFocusNode;
+  final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
+  final VoidCallback onCancelTagInput;
   final VoidCallback onPickImage;
 
   @override
@@ -132,8 +202,13 @@ class _RecipeCreateContent extends StatelessWidget {
           titleController: titleController,
           descriptionController: descriptionController,
           tags: tags,
+          isAddingTag: isAddingTag,
+          tagController: tagController,
+          tagFocusNode: tagFocusNode,
+          onSubmitTag: onSubmitTag,
           onRemoveTag: onRemoveTag,
           onAddTagPressed: onAddTagPressed,
+          onCancelTagInput: onCancelTagInput,
           onPickImage: onPickImage,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -148,8 +223,13 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
     required this.titleController,
     required this.descriptionController,
     required this.tags,
+    required this.isAddingTag,
+    required this.tagController,
+    required this.tagFocusNode,
+    required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
+    required this.onCancelTagInput,
     required this.onPickImage,
   });
 
@@ -160,8 +240,13 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController descriptionController;
   final List<String> tags;
+  final bool isAddingTag;
+  final TextEditingController tagController;
+  final FocusNode tagFocusNode;
+  final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
+  final VoidCallback onCancelTagInput;
   final VoidCallback onPickImage;
 
   @override
@@ -197,8 +282,13 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                         titleController: titleController,
                         descriptionController: descriptionController,
                         tags: tags,
+                        isAddingTag: isAddingTag,
+                        tagController: tagController,
+                        tagFocusNode: tagFocusNode,
+                        onSubmitTag: onSubmitTag,
                         onRemoveTag: onRemoveTag,
                         onAddTagPressed: onAddTagPressed,
+                        onCancelTagInput: onCancelTagInput,
                       ),
                     ),
                   ),
@@ -217,15 +307,25 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
     required this.titleController,
     required this.descriptionController,
     required this.tags,
+    required this.isAddingTag,
+    required this.tagController,
+    required this.tagFocusNode,
+    required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
+    required this.onCancelTagInput,
   });
 
   final TextEditingController titleController;
   final TextEditingController descriptionController;
   final List<String> tags;
+  final bool isAddingTag;
+  final TextEditingController tagController;
+  final FocusNode tagFocusNode;
+  final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
+  final VoidCallback onCancelTagInput;
 
   @override
   Widget build(BuildContext context) {
@@ -279,8 +379,13 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
                 constraints: BoxConstraints(maxWidth: editorWidth),
                 child: _RecipeCreateTagRow(
                   tags: tags,
+                  isAddingTag: isAddingTag,
+                  tagController: tagController,
+                  tagFocusNode: tagFocusNode,
+                  onSubmitTag: onSubmitTag,
                   onRemoveTag: onRemoveTag,
                   onAddTagPressed: onAddTagPressed,
+                  onCancelTagInput: onCancelTagInput,
                 ),
               ),
             ),
@@ -294,13 +399,23 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
 class _RecipeCreateTagRow extends StatelessWidget {
   const _RecipeCreateTagRow({
     required this.tags,
+    required this.isAddingTag,
+    required this.tagController,
+    required this.tagFocusNode,
+    required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
+    required this.onCancelTagInput,
   });
 
   final List<String> tags;
+  final bool isAddingTag;
+  final TextEditingController tagController;
+  final FocusNode tagFocusNode;
+  final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
+  final VoidCallback onCancelTagInput;
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +425,14 @@ class _RecipeCreateTagRow extends StatelessWidget {
       children: [
         for (final tag in tags)
           _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
-        if (tags.length < 10)
+        if (isAddingTag)
+          _RecipeCreateTagInputChip(
+            controller: tagController,
+            focusNode: tagFocusNode,
+            onSubmitted: onSubmitTag,
+            onCancel: onCancelTagInput,
+          )
+        else if (tags.length < 10)
           _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
       ],
     );
@@ -352,6 +474,72 @@ class _RecipeCreateTagChip extends StatelessWidget {
             onTap: onRemove,
             radius: 14,
             child: Icon(Icons.remove_rounded, size: 16, color: palette.icons),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeCreateTagInputChip extends StatelessWidget {
+  const _RecipeCreateTagInputChip({
+    required this.controller,
+    required this.focusNode,
+    required this.onSubmitted,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('recipe-create-tag-input'),
+              controller: controller,
+              focusNode: focusNode,
+              minLines: 1,
+              maxLines: 1,
+              textInputAction: TextInputAction.done,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Tag',
+                hintStyle: TextStyle(color: palette.secondaryText),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onSubmitted: onSubmitted,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Cancel tag',
+            onPressed: onCancel,
+            icon: const Icon(Icons.remove_rounded),
+            iconSize: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
           ),
         ],
       ),
