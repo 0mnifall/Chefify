@@ -432,7 +432,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                     imageUrl: imageUrl,
                     onPressed: onPickImage,
                   ),
-                  _RecipeCreateHeroGradientOverlay(compact: compact),
+                  IgnorePointer(
+                    child: _RecipeCreateHeroGradientOverlay(compact: compact),
+                  ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.all(
@@ -512,7 +514,7 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 560;
+        final compact = constraints.maxWidth < 720;
         final editorWidth = compact
             ? constraints.maxWidth
             : (constraints.maxWidth * 0.54).clamp(440.0, 640.0).toDouble();
@@ -1435,49 +1437,52 @@ class _RecipeCreateImageDropZone extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (selectedImageUrl == null)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      palette.searchBarBackground.withValues(alpha: 0.9),
-                      palette.cardsSurface.withValues(alpha: 0.72),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: onPressed,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (selectedImageUrl == null)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        palette.searchBarBackground.withValues(alpha: 0.9),
+                        palette.cardsSurface.withValues(alpha: 0.72),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
-                ),
-              )
-            else
-              Image.network(selectedImageUrl, fit: BoxFit.cover),
-            Center(
-              child: Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: selectedImageUrl == null
-                      ? palette.primaryButtons.withValues(alpha: 0.15)
-                      : palette.navbarBackground.withValues(alpha: 0.72),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: palette.primaryButtons.withValues(alpha: 0.5),
+                )
+              else
+                Image.network(selectedImageUrl, fit: BoxFit.cover),
+              Center(
+                child: Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    color: selectedImageUrl == null
+                        ? palette.primaryButtons.withValues(alpha: 0.15)
+                        : palette.navbarBackground.withValues(alpha: 0.72),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: palette.primaryButtons.withValues(alpha: 0.5),
+                    ),
                   ),
-                ),
-                child: Icon(
-                  selectedImageUrl == null
-                      ? Icons.add_rounded
-                      : Icons.image_rounded,
-                  size: 52,
-                  color: palette.mainText,
+                  child: Icon(
+                    selectedImageUrl == null
+                        ? Icons.add_rounded
+                        : Icons.image_rounded,
+                    size: 52,
+                    color: palette.mainText,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
