@@ -436,6 +436,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                   IgnorePointer(
                     child: _RecipeCreateHeroGradientOverlay(compact: compact),
                   ),
+                  IgnorePointer(
+                    child: _RecipeCreateUploadHint(imageUrl: imageUrl),
+                  ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.all(
@@ -1460,30 +1463,41 @@ class _RecipeCreateImageDropZone extends StatelessWidget {
                 )
               else
                 Image.network(selectedImageUrl, fit: BoxFit.cover),
-              Center(
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: selectedImageUrl == null
-                        ? palette.primaryButtons.withValues(alpha: 0.15)
-                        : palette.navbarBackground.withValues(alpha: 0.72),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: palette.primaryButtons.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Icon(
-                    selectedImageUrl == null
-                        ? Icons.add_rounded
-                        : Icons.image_rounded,
-                    size: 52,
-                    color: palette.mainText,
-                  ),
-                ),
-              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeCreateUploadHint extends StatelessWidget {
+  const _RecipeCreateUploadHint({required this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final hasImage = imageUrl != null;
+
+    return Center(
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: hasImage
+              ? palette.navbarBackground.withValues(alpha: 0.72)
+              : palette.primaryButtons.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: palette.primaryButtons.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Icon(
+          hasImage ? Icons.image_rounded : Icons.add_rounded,
+          size: 52,
+          color: palette.mainText,
         ),
       ),
     );
