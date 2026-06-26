@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/app/app.dart';
 import 'package:frontend/app/app_settings.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/app/theme.dart';
 import 'package:frontend/features/categories/presentation/pages/categories_page.dart';
 import 'package:frontend/features/home/presentation/widgets/category_card.dart';
@@ -9,6 +10,7 @@ import 'package:frontend/features/home/presentation/widgets/hero_section.dart';
 import 'package:frontend/features/home/presentation/widgets/recipe_card.dart';
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
+import 'package:frontend/features/recipes/presentation/pages/recipe_create_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipe_details_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
@@ -121,7 +123,44 @@ void main() {
         isNull,
         reason: 'Recipe details overflow at ${size.width}px',
       );
+
+      await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Recipe create overflow at ${size.width}px',
+      );
     }
+  });
+
+  testWidgets('opens recipe creation page from direct route', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final bookmarks = BookmarkStore.memory();
+    addTearDown(bookmarks.dispose);
+
+    await tester.pumpWidget(
+      ChefifyApp(
+        bookmarkStore: bookmarks,
+        recipeRepository: const MockRecipeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Navigator.of(
+      tester.element(find.byType(HomePage)),
+    ).pushNamed(AppRouter.recipeCreate);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('recipe-create-page')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipe-create-title-field')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {

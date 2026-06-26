@@ -90,6 +90,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
 
     return Scaffold(
+      key: const ValueKey('recipe-create-page'),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
