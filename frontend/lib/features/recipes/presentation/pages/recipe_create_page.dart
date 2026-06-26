@@ -1365,7 +1365,7 @@ class _RecipeCreateAddTagChip extends StatelessWidget {
   }
 }
 
-class _RecipeHeroTextField extends StatelessWidget {
+class _RecipeHeroTextField extends StatefulWidget {
   const _RecipeHeroTextField({
     super.key,
     required this.controller,
@@ -1382,34 +1382,60 @@ class _RecipeHeroTextField extends StatelessWidget {
   final int maxLines;
 
   @override
+  State<_RecipeHeroTextField> createState() => _RecipeHeroTextFieldState();
+}
+
+class _RecipeHeroTextFieldState extends State<_RecipeHeroTextField> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode()..addListener(_handleFieldStateChange);
+    widget.controller.addListener(_handleFieldStateChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipeHeroTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleFieldStateChange);
+      widget.controller.addListener(_handleFieldStateChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleFieldStateChange);
+    _focusNode.removeListener(_handleFieldStateChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final hasText = widget.controller.text.trim().isNotEmpty;
+    final isPlainText = hasText && !_focusNode.hasFocus;
 
     return TextField(
-      controller: controller,
-      minLines: minLines,
-      maxLines: maxLines,
-      style: style,
+      controller: widget.controller,
+      focusNode: _focusNode,
+      minLines: widget.minLines,
+      maxLines: widget.maxLines,
+      style: widget.style,
       cursorColor: palette.primaryButtons,
       decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: style?.copyWith(
+        hintText: widget.hintText,
+        hintStyle: widget.style?.copyWith(
           color: palette.mainText.withValues(alpha: 0.5),
         ),
         filled: true,
-        fillColor: palette.searchBarBackground.withValues(alpha: 0.42),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          borderSide: BorderSide(
-            color: palette.borders.withValues(alpha: 0.36),
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          borderSide: BorderSide(
-            color: palette.borders.withValues(alpha: 0.36),
-          ),
-        ),
+        fillColor: isPlainText
+            ? Colors.transparent
+            : palette.searchBarBackground.withValues(alpha: 0.42),
+        border: _fieldBorder(palette, isPlainText: isPlainText),
+        enabledBorder: _fieldBorder(palette, isPlainText: isPlainText),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           borderSide: BorderSide(
@@ -1420,6 +1446,26 @@ class _RecipeHeroTextField extends StatelessWidget {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
         ),
+      ),
+    );
+  }
+
+  void _handleFieldStateChange() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  OutlineInputBorder _fieldBorder(
+    AppPalette palette, {
+    required bool isPlainText,
+  }) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      borderSide: BorderSide(
+        color: isPlainText
+            ? Colors.transparent
+            : palette.borders.withValues(alpha: 0.36),
       ),
     );
   }
