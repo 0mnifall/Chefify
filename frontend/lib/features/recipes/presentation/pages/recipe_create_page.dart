@@ -3,6 +3,7 @@ import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
+import 'package:frontend/features/recipes/presentation/image_upload/recipe_image_picker.dart';
 
 class RecipeCreatePage extends StatefulWidget {
   const RecipeCreatePage({super.key});
@@ -12,6 +13,8 @@ class RecipeCreatePage extends StatefulWidget {
 }
 
 class _RecipeCreatePageState extends State<RecipeCreatePage> {
+  String? _imageUrl;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -44,7 +47,10 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                         constraints: const BoxConstraints(
                           maxWidth: AppSpacing.contentMaxWidth,
                         ),
-                        child: const _RecipeCreateContent(),
+                        child: _RecipeCreateContent(
+                          imageUrl: _imageUrl,
+                          onPickImage: _pickImage,
+                        ),
                       ),
                     ),
                   ),
@@ -60,25 +66,50 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
       ),
     );
   }
+
+  Future<void> _pickImage() async {
+    final imageUrl = await pickRecipeHeroImageUrl();
+    if (!mounted || imageUrl == null) {
+      return;
+    }
+
+    setState(() {
+      _imageUrl = imageUrl;
+    });
+  }
 }
 
 class _RecipeCreateContent extends StatelessWidget {
-  const _RecipeCreateContent();
+  const _RecipeCreateContent({
+    required this.imageUrl,
+    required this.onPickImage,
+  });
+
+  final String? imageUrl;
+  final VoidCallback onPickImage;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [_RecipeCreateHeroPanel()],
+      children: [
+        _RecipeCreateHeroPanel(imageUrl: imageUrl, onPickImage: onPickImage),
+      ],
     );
   }
 }
 
 class _RecipeCreateHeroPanel extends StatelessWidget {
-  const _RecipeCreateHeroPanel();
+  const _RecipeCreateHeroPanel({
+    required this.imageUrl,
+    required this.onPickImage,
+  });
 
   static const double _desktopHeight = 400;
   static const double _compactHeight = 720;
+
+  final String? imageUrl;
+  final VoidCallback onPickImage;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +130,10 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  const _RecipeCreateImageDropZone(),
+                  _RecipeCreateImageDropZone(
+                    imageUrl: imageUrl,
+                    onPressed: onPickImage,
+                  ),
                   _RecipeCreateHeroGradientOverlay(compact: compact),
                 ],
               ),
@@ -112,35 +146,64 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
 }
 
 class _RecipeCreateImageDropZone extends StatelessWidget {
-  const _RecipeCreateImageDropZone();
+  const _RecipeCreateImageDropZone({
+    required this.imageUrl,
+    required this.onPressed,
+  });
+
+  final String? imageUrl;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final selectedImageUrl = imageUrl;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            palette.searchBarBackground.withValues(alpha: 0.9),
-            palette.cardsSurface.withValues(alpha: 0.72),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: palette.primaryButtons.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: palette.primaryButtons.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (selectedImageUrl == null)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      palette.searchBarBackground.withValues(alpha: 0.9),
+                      palette.cardsSurface.withValues(alpha: 0.72),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              )
+            else
+              Image.network(selectedImageUrl, fit: BoxFit.cover),
+            Center(
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: selectedImageUrl == null
+                      ? palette.primaryButtons.withValues(alpha: 0.15)
+                      : palette.navbarBackground.withValues(alpha: 0.72),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: palette.primaryButtons.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Icon(
+                  selectedImageUrl == null
+                      ? Icons.add_rounded
+                      : Icons.image_rounded,
+                  size: 52,
+                  color: palette.mainText,
+                ),
+              ),
             ),
-          ),
-          child: Icon(Icons.add_rounded, size: 52, color: palette.mainText),
+          ],
         ),
       ),
     );
