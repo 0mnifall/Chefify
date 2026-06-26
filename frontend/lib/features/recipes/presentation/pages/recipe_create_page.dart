@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
@@ -415,7 +417,14 @@ class _RecipeCreateHeroPanel extends StatefulWidget {
 }
 
 class _RecipeCreateHeroPanelState extends State<_RecipeCreateHeroPanel> {
+  Timer? _imageHoverTimer;
   bool _isImageHovered = false;
+
+  @override
+  void dispose() {
+    _imageHoverTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -492,13 +501,23 @@ class _RecipeCreateHeroPanelState extends State<_RecipeCreateHeroPanel> {
   }
 
   void _setImageHovered(bool isHovered) {
-    if (_isImageHovered == isHovered) {
-      return;
-    }
+    _imageHoverTimer?.cancel();
 
-    setState(() {
-      _isImageHovered = isHovered;
-    });
+    if (isHovered) {
+      _imageHoverTimer = Timer(const Duration(milliseconds: 180), () {
+        if (!mounted || _isImageHovered) {
+          return;
+        }
+
+        setState(() {
+          _isImageHovered = true;
+        });
+      });
+    } else if (_isImageHovered) {
+      setState(() {
+        _isImageHovered = false;
+      });
+    }
   }
 }
 
@@ -1206,7 +1225,7 @@ class _RecipeDurationStepper extends StatelessWidget {
   }
 }
 
-class _RecipeCreateTagRow extends StatelessWidget {
+class _RecipeCreateTagRow extends StatefulWidget {
   const _RecipeCreateTagRow({
     required this.tags,
     required this.isAddingTag,
@@ -1230,41 +1249,298 @@ class _RecipeCreateTagRow extends StatelessWidget {
   final VoidCallback onCancelTagInput;
 
   @override
+  State<_RecipeCreateTagRow> createState() => _RecipeCreateTagRowState();
+}
+
+class _RecipeCreateTagRowState extends State<_RecipeCreateTagRow> {
+  final GlobalKey _tagInputAnchorKey = GlobalKey();
+  OverlayEntry? _suggestionsOverlay;
+
+  @override
+  void didUpdateWidget(covariant _RecipeCreateTagRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleSuggestionsOverlaySync();
+  }
+
+  @override
+  void dispose() {
+    _removeSuggestionsOverlay();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Wrap(
-          alignment: WrapAlignment.start,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xxs,
+    _scheduleSuggestionsOverlaySync();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = _buildRows(context, constraints.maxWidth);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            for (final tag in tags)
-              _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
-            if (isAddingTag)
-              _RecipeCreateTagInputChip(
-                controller: tagController,
-                focusNode: tagFocusNode,
-                onSubmitted: onSubmitTag,
-                onCancel: onCancelTagInput,
-              )
-            else if (tags.length < 10)
-              _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
+            for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (
+                    var itemIndex = 0;
+                    itemIndex < rows[rowIndex].length;
+                    itemIndex++
+                  ) ...[
+                    if (itemIndex > 0) const SizedBox(width: AppSpacing.xs),
+                    SizedBox(
+                      width: rows[rowIndex][itemIndex].width,
+                      child: _buildTagItem(rows[rowIndex][itemIndex].item),
+                    ),
+                  ],
+                ],
+              ),
+              if (rowIndex < rows.length - 1)
+                const SizedBox(height: AppSpacing.xxs),
+            ],
           ],
-        ),
-        if (tagSuggestions.isNotEmpty)
-          Positioned(
-            left: 0,
-            top: 40,
-            child: _RecipeCreateTagSuggestions(
-              tags: tagSuggestions,
-              onSelected: onSubmitTag,
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
+
+  List<List<_RecipeCreateTagLayout>> _buildRows(
+    BuildContext context,
+    double maxWidth,
+  ) {
+    final safeWidth = maxWidth.isFinite && maxWidth > 0
+        ? maxWidth
+        : AppSpacing.contentMaxWidth;
+    final seeds = _buildSeeds(context, safeWidth);
+    final rows = <List<_RecipeCreateTagSeed>>[];
+    var currentRow = <_RecipeCreateTagSeed>[];
+    var currentWidth = 0.0;
+
+    for (final seed in seeds) {
+      final nextWidth =
+          currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xs) + seed.width;
+
+      if (currentRow.isNotEmpty && nextWidth > safeWidth) {
+        rows.add(currentRow);
+        currentRow = [seed];
+        currentWidth = seed.width;
+      } else {
+        currentRow.add(seed);
+        currentWidth = nextWidth;
+      }
+    }
+
+    if (currentRow.isNotEmpty) {
+      rows.add(currentRow);
+    }
+
+    if (rows.isEmpty) {
+      return const [];
+    }
+
+    final targetWidth = rows
+        .map(_rowWidth)
+        .fold<double>(0, (largest, width) => width > largest ? width : largest)
+        .clamp(0, safeWidth)
+        .toDouble();
+
+    return [for (final row in rows) _justifyRow(row, targetWidth)];
+  }
+
+  List<_RecipeCreateTagSeed> _buildSeeds(
+    BuildContext context,
+    double maxWidth,
+  ) {
+    return [
+      for (final tag in widget.tags)
+        _RecipeCreateTagSeed(
+          _RecipeCreateTagItem.tag(tag),
+          _measureTagChipWidth(context, tag, maxWidth),
+        ),
+      if (widget.isAddingTag)
+        const _RecipeCreateTagSeed(
+          _RecipeCreateTagItem.input(),
+          _RecipeCreateTagInputChip.width,
+        )
+      else if (widget.tags.length < 10)
+        _RecipeCreateTagSeed(
+          const _RecipeCreateTagItem.add(),
+          _measureAddTagChipWidth(context, maxWidth),
+        ),
+    ];
+  }
+
+  List<_RecipeCreateTagLayout> _justifyRow(
+    List<_RecipeCreateTagSeed> row,
+    double targetWidth,
+  ) {
+    final spacing = AppSpacing.xs * (row.length - 1);
+    final baseWidth = row.fold<double>(0, (sum, seed) => sum + seed.width);
+    final extra = (targetWidth - spacing - baseWidth).clamp(0, double.infinity);
+    final extraPerChip = row.isEmpty ? 0.0 : extra / row.length;
+
+    return [
+      for (final seed in row)
+        _RecipeCreateTagLayout(seed.item, seed.width + extraPerChip),
+    ];
+  }
+
+  Widget _buildTagItem(_RecipeCreateTagItem item) {
+    return switch (item.type) {
+      _RecipeCreateTagItemType.tag => _RecipeCreateTagChip(
+        tag: item.tag!,
+        onRemove: () => widget.onRemoveTag(item.tag!),
+      ),
+      _RecipeCreateTagItemType.input => KeyedSubtree(
+        key: _tagInputAnchorKey,
+        child: _RecipeCreateTagInputChip(
+          controller: widget.tagController,
+          focusNode: widget.tagFocusNode,
+          onSubmitted: widget.onSubmitTag,
+          onCancel: widget.onCancelTagInput,
+        ),
+      ),
+      _RecipeCreateTagItemType.add => _RecipeCreateAddTagChip(
+        onPressed: widget.onAddTagPressed,
+      ),
+    };
+  }
+
+  double _rowWidth(List<_RecipeCreateTagSeed> row) {
+    final spacing = AppSpacing.xs * (row.length - 1);
+    return row.fold<double>(spacing, (sum, seed) => sum + seed.width);
+  }
+
+  double _measureTagChipWidth(
+    BuildContext context,
+    String tag,
+    double maxWidth,
+  ) {
+    final textStyle =
+        Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700) ??
+        DefaultTextStyle.of(context).style;
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: RecipeFormOptions.readableTagLabel(tag),
+        style: textStyle,
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 24 + AppSpacing.xs + (AppSpacing.sm * 2))
+        .clamp(58, maxWidth)
+        .toDouble();
+  }
+
+  double _measureAddTagChipWidth(BuildContext context, double maxWidth) {
+    final textStyle =
+        Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800) ??
+        DefaultTextStyle.of(context).style;
+    final textPainter = TextPainter(
+      text: TextSpan(text: 'Tag', style: textStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 22 + AppSpacing.xxs + (AppSpacing.sm * 2))
+        .clamp(58, maxWidth)
+        .toDouble();
+  }
+
+  void _scheduleSuggestionsOverlaySync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncSuggestionsOverlay();
+      }
+    });
+  }
+
+  void _syncSuggestionsOverlay() {
+    final shouldShow = widget.isAddingTag && widget.tagSuggestions.isNotEmpty;
+
+    if (!shouldShow) {
+      _removeSuggestionsOverlay();
+      return;
+    }
+
+    if (_suggestionsOverlay == null) {
+      _suggestionsOverlay = OverlayEntry(
+        builder: (context) {
+          final anchorRect = _tagInputRect;
+          if (anchorRect == null) {
+            return const SizedBox.shrink();
+          }
+
+          return Positioned(
+            left: anchorRect.left,
+            top: anchorRect.bottom + AppSpacing.xs,
+            child: _RecipeCreateTagSuggestions(
+              tags: widget.tagSuggestions,
+              onSelected: widget.onSubmitTag,
+            ),
+          );
+        },
+      );
+      Overlay.of(context, rootOverlay: true).insert(_suggestionsOverlay!);
+      return;
+    }
+
+    _suggestionsOverlay?.markNeedsBuild();
+  }
+
+  Rect? get _tagInputRect {
+    final renderObject = _tagInputAnchorKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
+    }
+
+    final offset = renderObject.localToGlobal(Offset.zero);
+    return offset & renderObject.size;
+  }
+
+  void _removeSuggestionsOverlay() {
+    _suggestionsOverlay?.remove();
+    _suggestionsOverlay = null;
+  }
+}
+
+enum _RecipeCreateTagItemType { tag, input, add }
+
+class _RecipeCreateTagItem {
+  const _RecipeCreateTagItem.tag(this.tag)
+    : type = _RecipeCreateTagItemType.tag;
+
+  const _RecipeCreateTagItem.input()
+    : type = _RecipeCreateTagItemType.input,
+      tag = null;
+
+  const _RecipeCreateTagItem.add()
+    : type = _RecipeCreateTagItemType.add,
+      tag = null;
+
+  final _RecipeCreateTagItemType type;
+  final String? tag;
+}
+
+class _RecipeCreateTagSeed {
+  const _RecipeCreateTagSeed(this.item, this.width);
+
+  final _RecipeCreateTagItem item;
+  final double width;
+}
+
+class _RecipeCreateTagLayout {
+  const _RecipeCreateTagLayout(this.item, this.width);
+
+  final _RecipeCreateTagItem item;
+  final double width;
 }
 
 class _RecipeCreateTagChip extends StatelessWidget {
@@ -1278,6 +1554,7 @@ class _RecipeCreateTagChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
@@ -1288,13 +1565,18 @@ class _RecipeCreateTagChip extends StatelessWidget {
         border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         children: [
-          Text(
-            RecipeFormOptions.readableTagLabel(tag),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: palette.mainText,
-              fontWeight: FontWeight.w700,
+          Expanded(
+            child: Text(
+              RecipeFormOptions.readableTagLabel(tag),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
@@ -1376,6 +1658,8 @@ class _RecipeCreateTagInputChip extends StatelessWidget {
     required this.onCancel,
   });
 
+  static const double width = 180;
+
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onSubmitted;
@@ -1386,7 +1670,8 @@ class _RecipeCreateTagInputChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      width: 180,
+      alignment: Alignment.center,
+      width: width,
       padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xs),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.92),
@@ -1450,6 +1735,7 @@ class _RecipeCreateAddTagChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onPressed,
         child: Container(
+          alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm,
             vertical: AppSpacing.xs,
@@ -1647,7 +1933,8 @@ class _RecipeCreateUploadHint extends StatelessWidget {
 
     return AnimatedOpacity(
       opacity: isVisible ? 1 : 0,
-      duration: const Duration(milliseconds: 140),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       child: Center(
         child: Container(
           width: 96,
