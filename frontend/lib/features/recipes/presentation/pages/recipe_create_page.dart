@@ -1163,8 +1163,8 @@ class _RecipeCreateTagRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
         Wrap(
           spacing: AppSpacing.xs,
@@ -1183,13 +1183,15 @@ class _RecipeCreateTagRow extends StatelessWidget {
               _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
           ],
         ),
-        if (tagSuggestions.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xs),
-          _RecipeCreateTagSuggestions(
-            tags: tagSuggestions,
-            onSelected: onSubmitTag,
+        if (tagSuggestions.isNotEmpty)
+          Positioned(
+            left: 0,
+            top: 46,
+            child: _RecipeCreateTagSuggestions(
+              tags: tagSuggestions,
+              onSelected: onSubmitTag,
+            ),
           ),
-        ],
       ],
     );
   }
