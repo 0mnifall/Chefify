@@ -654,6 +654,7 @@ class _RecipeCreateMetaPanel extends StatelessWidget {
                   icon: Icons.schedule_rounded,
                   label: duration.label,
                   onPressed: onEditDuration,
+                  isEditable: true,
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
@@ -662,6 +663,7 @@ class _RecipeCreateMetaPanel extends StatelessWidget {
                   icon: Icons.local_fire_department_rounded,
                   label: difficulty,
                   onPressed: onEditDifficulty,
+                  isEditable: true,
                 ),
               ),
             ],
@@ -673,7 +675,27 @@ class _RecipeCreateMetaPanel extends StatelessWidget {
               icon: category?.icon ?? Icons.restaurant_menu_rounded,
               label: category?.title ?? 'Category',
               onPressed: onEditCategory,
+              isEditable: true,
+              isHighlighted: true,
             ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              Expanded(
+                child: _RecipeCreateMetaChip(
+                  icon: Icons.favorite_rounded,
+                  label: '0',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: _RecipeCreateMetaChip(
+                  icon: Icons.star_rounded,
+                  label: '0.0',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -685,16 +707,23 @@ class _RecipeCreateMetaChip extends StatelessWidget {
   const _RecipeCreateMetaChip({
     required this.icon,
     required this.label,
-    required this.onPressed,
+    this.onPressed,
+    this.isEditable = false,
+    this.isHighlighted = false,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isEditable;
+  final bool isHighlighted;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final foregroundColor = isHighlighted
+        ? palette.primaryButtons
+        : palette.icons;
 
     return Material(
       color: Colors.transparent,
@@ -708,27 +737,48 @@ class _RecipeCreateMetaChip extends StatelessWidget {
             vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: palette.searchBarBackground.withValues(alpha: 0.88),
+            color: isHighlighted
+                ? palette.primaryButtons.withValues(alpha: 0.14)
+                : palette.searchBarBackground.withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+            border: Border.all(
+              color: isHighlighted
+                  ? palette.primaryButtons.withValues(alpha: 0.42)
+                  : palette.borders.withValues(alpha: 0.72),
+            ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Icon(icon, size: 16, color: palette.icons),
-              const SizedBox(width: AppSpacing.xs),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: palette.mainText,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: foregroundColor),
+                  const SizedBox(width: AppSpacing.xs),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: palette.mainText,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isEditable)
+                Positioned(
+                  right: 0,
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 13,
+                    color: palette.secondaryText.withValues(alpha: 0.8),
                   ),
                 ),
-              ),
             ],
           ),
         ),
