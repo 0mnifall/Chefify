@@ -59,6 +59,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     hours: 0,
     minutes: 20,
   );
+  String _difficulty = 'Easy';
   bool _isAddingTag = false;
   String? _imageUrl;
 
@@ -122,7 +123,9 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           tagFocusNode: _tagFocusNode,
                           tagSuggestions: _tagSuggestions,
                           duration: _duration,
+                          difficulty: _difficulty,
                           onEditDuration: _editDuration,
+                          onEditDifficulty: _editDifficulty,
                           onSubmitTag: _submitTag,
                           onRemoveTag: _removeTag,
                           onAddTagPressed: _startAddingTag,
@@ -221,6 +224,20 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     });
   }
 
+  Future<void> _editDifficulty() async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => _RecipeDifficultyDialog(selected: _difficulty),
+    );
+    if (!mounted || value == null) {
+      return;
+    }
+
+    setState(() {
+      _difficulty = value;
+    });
+  }
+
   void _removeTag(String tag) {
     setState(() {
       _tags.remove(tag);
@@ -264,7 +281,9 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.tagFocusNode,
     required this.tagSuggestions,
     required this.duration,
+    required this.difficulty,
     required this.onEditDuration,
+    required this.onEditDifficulty,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -281,7 +300,9 @@ class _RecipeCreateContent extends StatelessWidget {
   final FocusNode tagFocusNode;
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
+  final String difficulty;
   final VoidCallback onEditDuration;
+  final VoidCallback onEditDifficulty;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -303,7 +324,9 @@ class _RecipeCreateContent extends StatelessWidget {
           tagFocusNode: tagFocusNode,
           tagSuggestions: tagSuggestions,
           duration: duration,
+          difficulty: difficulty,
           onEditDuration: onEditDuration,
+          onEditDifficulty: onEditDifficulty,
           onSubmitTag: onSubmitTag,
           onRemoveTag: onRemoveTag,
           onAddTagPressed: onAddTagPressed,
@@ -327,7 +350,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
     required this.tagFocusNode,
     required this.tagSuggestions,
     required this.duration,
+    required this.difficulty,
     required this.onEditDuration,
+    required this.onEditDifficulty,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -347,7 +372,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final FocusNode tagFocusNode;
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
+  final String difficulty;
   final VoidCallback onEditDuration;
+  final VoidCallback onEditDifficulty;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -392,7 +419,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                         tagFocusNode: tagFocusNode,
                         tagSuggestions: tagSuggestions,
                         duration: duration,
+                        difficulty: difficulty,
                         onEditDuration: onEditDuration,
+                        onEditDifficulty: onEditDifficulty,
                         onSubmitTag: onSubmitTag,
                         onRemoveTag: onRemoveTag,
                         onAddTagPressed: onAddTagPressed,
@@ -420,7 +449,9 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
     required this.tagFocusNode,
     required this.tagSuggestions,
     required this.duration,
+    required this.difficulty,
     required this.onEditDuration,
+    required this.onEditDifficulty,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -435,7 +466,9 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
   final FocusNode tagFocusNode;
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
+  final String difficulty;
   final VoidCallback onEditDuration;
+  final VoidCallback onEditDifficulty;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -509,7 +542,9 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
               bottom: 0,
               child: _RecipeCreateMetaPanel(
                 duration: duration,
+                difficulty: difficulty,
                 onEditDuration: onEditDuration,
+                onEditDifficulty: onEditDifficulty,
               ),
             ),
           ],
@@ -522,11 +557,15 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
 class _RecipeCreateMetaPanel extends StatelessWidget {
   const _RecipeCreateMetaPanel({
     required this.duration,
+    required this.difficulty,
     required this.onEditDuration,
+    required this.onEditDifficulty,
   });
 
   final _RecipeDurationValue duration;
+  final String difficulty;
   final VoidCallback onEditDuration;
+  final VoidCallback onEditDifficulty;
 
   @override
   Widget build(BuildContext context) {
@@ -539,6 +578,14 @@ class _RecipeCreateMetaPanel extends StatelessWidget {
               icon: Icons.schedule_rounded,
               label: duration.label,
               onPressed: onEditDuration,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: _RecipeCreateMetaChip(
+              icon: Icons.local_fire_department_rounded,
+              label: difficulty,
+              onPressed: onEditDifficulty,
             ),
           ),
         ],
@@ -597,6 +644,84 @@ class _RecipeCreateMetaChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeDifficultyDialog extends StatelessWidget {
+  const _RecipeDifficultyDialog({required this.selected});
+
+  static const List<String> _options = ['Easy', 'Medium', 'Hard'];
+
+  final String selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          backgroundColor: palette.cardsSurface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Difficulty', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.lg),
+              for (final option in _options)
+                _RecipeDifficultyOption(
+                  label: option,
+                  selected: selected == option,
+                  onSelected: () => Navigator.of(context).pop(option),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeDifficultyOption extends StatelessWidget {
+  const _RecipeDifficultyOption({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.16)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          leading: Icon(
+            Icons.local_fire_department_rounded,
+            color: selected ? palette.primaryButtons : palette.icons,
+          ),
+          title: Text(label),
+          trailing: selected ? const Icon(Icons.check_rounded) : null,
+          onTap: onSelected,
         ),
       ),
     );
