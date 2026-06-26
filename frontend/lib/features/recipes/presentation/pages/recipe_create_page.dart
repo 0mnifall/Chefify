@@ -364,7 +364,7 @@ class _RecipeCreateContent extends StatelessWidget {
   }
 }
 
-class _RecipeCreateHeroPanel extends StatelessWidget {
+class _RecipeCreateHeroPanel extends StatefulWidget {
   const _RecipeCreateHeroPanel({
     required this.imageUrl,
     required this.titleController,
@@ -411,6 +411,13 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final VoidCallback onPickImage;
 
   @override
+  State<_RecipeCreateHeroPanel> createState() => _RecipeCreateHeroPanelState();
+}
+
+class _RecipeCreateHeroPanelState extends State<_RecipeCreateHeroPanel> {
+  bool _isImageHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
@@ -425,19 +432,29 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
             final compact = constraints.maxWidth < 760;
 
             return SizedBox(
-              height: compact ? _compactHeight : _desktopHeight,
+              height: compact
+                  ? _RecipeCreateHeroPanel._compactHeight
+                  : _RecipeCreateHeroPanel._desktopHeight,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _RecipeCreateImageDropZone(
-                    imageUrl: imageUrl,
-                    onPressed: onPickImage,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    onEnter: (_) => _setImageHovered(true),
+                    onExit: (_) => _setImageHovered(false),
+                    child: _RecipeCreateImageDropZone(
+                      imageUrl: widget.imageUrl,
+                      onPressed: widget.onPickImage,
+                    ),
                   ),
                   IgnorePointer(
                     child: _RecipeCreateHeroGradientOverlay(compact: compact),
                   ),
                   IgnorePointer(
-                    child: _RecipeCreateUploadHint(imageUrl: imageUrl),
+                    child: _RecipeCreateUploadHint(
+                      imageUrl: widget.imageUrl,
+                      isImageHovered: _isImageHovered,
+                    ),
                   ),
                   Positioned.fill(
                     child: Padding(
@@ -445,23 +462,23 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                         compact ? AppSpacing.lg : AppSpacing.xl,
                       ),
                       child: _RecipeCreateHeroEditor(
-                        titleController: titleController,
-                        descriptionController: descriptionController,
-                        tags: tags,
-                        isAddingTag: isAddingTag,
-                        tagController: tagController,
-                        tagFocusNode: tagFocusNode,
-                        tagSuggestions: tagSuggestions,
-                        duration: duration,
-                        difficulty: difficulty,
-                        category: category,
-                        onEditDuration: onEditDuration,
-                        onEditDifficulty: onEditDifficulty,
-                        onEditCategory: onEditCategory,
-                        onSubmitTag: onSubmitTag,
-                        onRemoveTag: onRemoveTag,
-                        onAddTagPressed: onAddTagPressed,
-                        onCancelTagInput: onCancelTagInput,
+                        titleController: widget.titleController,
+                        descriptionController: widget.descriptionController,
+                        tags: widget.tags,
+                        isAddingTag: widget.isAddingTag,
+                        tagController: widget.tagController,
+                        tagFocusNode: widget.tagFocusNode,
+                        tagSuggestions: widget.tagSuggestions,
+                        duration: widget.duration,
+                        difficulty: widget.difficulty,
+                        category: widget.category,
+                        onEditDuration: widget.onEditDuration,
+                        onEditDifficulty: widget.onEditDifficulty,
+                        onEditCategory: widget.onEditCategory,
+                        onSubmitTag: widget.onSubmitTag,
+                        onRemoveTag: widget.onRemoveTag,
+                        onAddTagPressed: widget.onAddTagPressed,
+                        onCancelTagInput: widget.onCancelTagInput,
                       ),
                     ),
                   ),
@@ -472,6 +489,16 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _setImageHovered(bool isHovered) {
+    if (_isImageHovered == isHovered) {
+      return;
+    }
+
+    setState(() {
+      _isImageHovered = isHovered;
+    });
   }
 }
 
@@ -1487,30 +1514,27 @@ class _RecipeCreateImageDropZone extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: InkWell(
-          onTap: onPressed,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (selectedImageUrl == null)
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        palette.searchBarBackground.withValues(alpha: 0.9),
-                        palette.cardsSurface.withValues(alpha: 0.72),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+      child: InkWell(
+        onTap: onPressed,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (selectedImageUrl == null)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      palette.searchBarBackground.withValues(alpha: 0.9),
+                      palette.cardsSurface.withValues(alpha: 0.72),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                )
-              else
-                Image.network(selectedImageUrl, fit: BoxFit.cover),
-            ],
-          ),
+                ),
+              )
+            else
+              Image.network(selectedImageUrl, fit: BoxFit.cover),
+          ],
         ),
       ),
     );
@@ -1518,32 +1542,37 @@ class _RecipeCreateImageDropZone extends StatelessWidget {
 }
 
 class _RecipeCreateUploadHint extends StatelessWidget {
-  const _RecipeCreateUploadHint({required this.imageUrl});
+  const _RecipeCreateUploadHint({
+    required this.imageUrl,
+    required this.isImageHovered,
+  });
 
   final String? imageUrl;
+  final bool isImageHovered;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final hasImage = imageUrl != null;
+    final isVisible = !hasImage || isImageHovered;
 
-    return Center(
-      child: Container(
-        width: 96,
-        height: 96,
-        decoration: BoxDecoration(
-          color: hasImage
-              ? palette.navbarBackground.withValues(alpha: 0.72)
-              : palette.primaryButtons.withValues(alpha: 0.15),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: palette.primaryButtons.withValues(alpha: 0.5),
+    return AnimatedOpacity(
+      opacity: isVisible ? 1 : 0,
+      duration: const Duration(milliseconds: 140),
+      child: Center(
+        child: Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            color: hasImage
+                ? palette.navbarBackground.withValues(alpha: 0.72)
+                : palette.primaryButtons.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: palette.primaryButtons.withValues(alpha: 0.5),
+            ),
           ),
-        ),
-        child: Icon(
-          hasImage ? Icons.image_rounded : Icons.add_rounded,
-          size: 52,
-          color: palette.mainText,
+          child: Icon(Icons.add_rounded, size: 52, color: palette.mainText),
         ),
       ),
     );
