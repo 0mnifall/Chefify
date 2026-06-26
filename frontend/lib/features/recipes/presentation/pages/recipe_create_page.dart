@@ -1167,8 +1167,10 @@ class _RecipeCreateTagRow extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Wrap(
+          alignment: WrapAlignment.start,
+          crossAxisAlignment: WrapCrossAlignment.center,
           spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xxs,
           children: [
             for (final tag in tags)
               _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
@@ -1186,7 +1188,7 @@ class _RecipeCreateTagRow extends StatelessWidget {
         if (tagSuggestions.isNotEmpty)
           Positioned(
             left: 0,
-            top: 46,
+            top: 40,
             child: _RecipeCreateTagSuggestions(
               tags: tagSuggestions,
               onSelected: onSubmitTag,
@@ -1209,7 +1211,7 @@ class _RecipeCreateTagChip extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
+        horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
@@ -1316,7 +1318,7 @@ class _RecipeCreateTagInputChip extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      width: 220,
+      width: 180,
       padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xs),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.92),
@@ -1373,22 +1375,39 @@ class _RecipeCreateAddTagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return ActionChip(
-      key: const ValueKey('recipe-create-add-tag-chip'),
-      onPressed: onPressed,
-      avatar: Icon(Icons.add_rounded, size: 20, color: palette.mainText),
-      label: const Text('Tag'),
-      labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: palette.mainText,
-        fontWeight: FontWeight.w800,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      backgroundColor: palette.primaryButtons.withValues(alpha: 0.18),
-      shape: StadiumBorder(
-        side: BorderSide(color: palette.primaryButtons.withValues(alpha: 0.48)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const ValueKey('recipe-create-add-tag-chip'),
+        borderRadius: BorderRadius.circular(999),
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: palette.primaryButtons.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: palette.primaryButtons.withValues(alpha: 0.48),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, size: 18, color: palette.mainText),
+              const SizedBox(width: AppSpacing.xxs),
+              Text(
+                'Tag',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.mainText,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
