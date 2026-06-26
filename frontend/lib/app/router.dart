@@ -4,12 +4,14 @@ import 'package:frontend/features/categories/presentation/pages/categories_page.
 import 'package:frontend/features/home/presentation/pages/home_page.dart';
 import 'package:frontend/features/recipes/data/recipe_repository.dart';
 import 'package:frontend/features/recipes/domain/recipes_page_arguments.dart';
+import 'package:frontend/features/recipes/presentation/pages/recipe_create_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipe_details_page.dart';
 import 'package:frontend/features/recipes/presentation/pages/recipes_page.dart';
 
 class AppRouter {
   static const String home = '/';
   static const String recipes = '/recipes';
+  static const String recipeCreate = '/recipes/create';
   static const String categories = '/categories';
   static const String authors = '/authors';
 
@@ -26,7 +28,9 @@ class AppRouter {
     RecipeRepository recipeRepository = const ApiRecipeRepository(),
   }) {
     final routeName = settings.name ?? home;
-    final recipeId = _recipeIdFromRoute(routeName);
+    final recipeId = routeName == recipeCreate
+        ? null
+        : _recipeIdFromRoute(routeName);
     final authorSlug = _authorSlugFromRoute(routeName);
 
     if (recipeId != null) {
@@ -75,6 +79,11 @@ class AppRouter {
             initialAuthorIds: arguments.authorIds,
             initialQuery: arguments.query,
           ),
+          settings: settings,
+        );
+      case recipeCreate:
+        return MaterialPageRoute<void>(
+          builder: (_) => const RecipeCreatePage(),
           settings: settings,
         );
       case categories:
