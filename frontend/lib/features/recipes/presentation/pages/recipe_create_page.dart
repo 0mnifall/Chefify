@@ -26,11 +26,13 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
   void initState() {
     super.initState();
     _tagFocusNode.addListener(_handleTagFocusChange);
+    _tagController.addListener(_handleTagTextChange);
   }
 
   @override
   void dispose() {
     _tagFocusNode.removeListener(_handleTagFocusChange);
+    _tagController.removeListener(_handleTagTextChange);
     _titleController.dispose();
     _descriptionController.dispose();
     _tagController.dispose();
@@ -78,6 +80,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           isAddingTag: _isAddingTag,
                           tagController: _tagController,
                           tagFocusNode: _tagFocusNode,
+                          tagSuggestions: _tagSuggestions,
                           onSubmitTag: _submitTag,
                           onRemoveTag: _removeTag,
                           onAddTagPressed: _startAddingTag,
@@ -117,6 +120,12 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     }
   }
 
+  void _handleTagTextChange() {
+    if (_isAddingTag) {
+      setState(() {});
+    }
+  }
+
   void _startAddingTag() {
     if (_tags.length >= 10) {
       return;
@@ -144,22 +153,47 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
       if (!_tags.contains(slug) && _tags.length < 10) {
         _tags.add(slug);
       }
-      _tagController.clear();
       _isAddingTag = false;
     });
+    _tagController.clear();
   }
 
   void _cancelTagInput() {
     setState(() {
-      _tagController.clear();
       _isAddingTag = false;
     });
+    _tagController.clear();
   }
 
   void _removeTag(String tag) {
     setState(() {
       _tags.remove(tag);
     });
+  }
+
+  List<String> get _tagSuggestions {
+    if (!_isAddingTag) {
+      return const [];
+    }
+
+    final query = RecipeFormOptions.slug(_tagController.text);
+    final suggestions = RecipeFormOptions.availableTags
+        .where((tag) {
+          if (_tags.contains(tag)) {
+            return false;
+          }
+
+          if (query.isEmpty) {
+            return true;
+          }
+
+          final label = RecipeFormOptions.readableTagLabel(tag).toLowerCase();
+          return tag.contains(query) ||
+              label.contains(query.replaceAll('-', ' '));
+        })
+        .take(6);
+
+    return suggestions.toList(growable: false);
   }
 }
 
@@ -172,6 +206,7 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.isAddingTag,
     required this.tagController,
     required this.tagFocusNode,
+    required this.tagSuggestions,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -186,6 +221,7 @@ class _RecipeCreateContent extends StatelessWidget {
   final bool isAddingTag;
   final TextEditingController tagController;
   final FocusNode tagFocusNode;
+  final List<String> tagSuggestions;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -205,6 +241,7 @@ class _RecipeCreateContent extends StatelessWidget {
           isAddingTag: isAddingTag,
           tagController: tagController,
           tagFocusNode: tagFocusNode,
+          tagSuggestions: tagSuggestions,
           onSubmitTag: onSubmitTag,
           onRemoveTag: onRemoveTag,
           onAddTagPressed: onAddTagPressed,
@@ -226,6 +263,7 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
     required this.isAddingTag,
     required this.tagController,
     required this.tagFocusNode,
+    required this.tagSuggestions,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -243,6 +281,7 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final bool isAddingTag;
   final TextEditingController tagController;
   final FocusNode tagFocusNode;
+  final List<String> tagSuggestions;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -285,6 +324,7 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                         isAddingTag: isAddingTag,
                         tagController: tagController,
                         tagFocusNode: tagFocusNode,
+                        tagSuggestions: tagSuggestions,
                         onSubmitTag: onSubmitTag,
                         onRemoveTag: onRemoveTag,
                         onAddTagPressed: onAddTagPressed,
@@ -310,6 +350,7 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
     required this.isAddingTag,
     required this.tagController,
     required this.tagFocusNode,
+    required this.tagSuggestions,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -322,6 +363,7 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
   final bool isAddingTag;
   final TextEditingController tagController;
   final FocusNode tagFocusNode;
+  final List<String> tagSuggestions;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -382,6 +424,7 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
                   isAddingTag: isAddingTag,
                   tagController: tagController,
                   tagFocusNode: tagFocusNode,
+                  tagSuggestions: tagSuggestions,
                   onSubmitTag: onSubmitTag,
                   onRemoveTag: onRemoveTag,
                   onAddTagPressed: onAddTagPressed,
@@ -402,6 +445,7 @@ class _RecipeCreateTagRow extends StatelessWidget {
     required this.isAddingTag,
     required this.tagController,
     required this.tagFocusNode,
+    required this.tagSuggestions,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -412,6 +456,7 @@ class _RecipeCreateTagRow extends StatelessWidget {
   final bool isAddingTag;
   final TextEditingController tagController;
   final FocusNode tagFocusNode;
+  final List<String> tagSuggestions;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -419,21 +464,33 @@ class _RecipeCreateTagRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final tag in tags)
-          _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
-        if (isAddingTag)
-          _RecipeCreateTagInputChip(
-            controller: tagController,
-            focusNode: tagFocusNode,
-            onSubmitted: onSubmitTag,
-            onCancel: onCancelTagInput,
-          )
-        else if (tags.length < 10)
-          _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final tag in tags)
+              _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
+            if (isAddingTag)
+              _RecipeCreateTagInputChip(
+                controller: tagController,
+                focusNode: tagFocusNode,
+                onSubmitted: onSubmitTag,
+                onCancel: onCancelTagInput,
+              )
+            else if (tags.length < 10)
+              _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
+          ],
+        ),
+        if (tagSuggestions.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          _RecipeCreateTagSuggestions(
+            tags: tagSuggestions,
+            onSelected: onSubmitTag,
+          ),
+        ],
       ],
     );
   }
@@ -475,6 +532,65 @@ class _RecipeCreateTagChip extends StatelessWidget {
             radius: 14,
             child: Icon(Icons.remove_rounded, size: 16, color: palette.icons),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeCreateTagSuggestions extends StatelessWidget {
+  const _RecipeCreateTagSuggestions({
+    required this.tags,
+    required this.onSelected,
+  });
+
+  final List<String> tags;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: palette.navbarBackground.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.62)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          for (final tag in tags)
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTapDown: (_) => onSelected(tag),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Text(
+                    RecipeFormOptions.readableTagLabel(tag),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: palette.mainText,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
