@@ -18,6 +18,14 @@ class _RecipeDurationValue {
   final int hours;
   final int minutes;
 
+  _RecipeDurationValue copyWith({int? days, int? hours, int? minutes}) {
+    return _RecipeDurationValue(
+      days: days ?? this.days,
+      hours: hours ?? this.hours,
+      minutes: minutes ?? this.minutes,
+    );
+  }
+
   String get label {
     final parts = <String>[];
     if (days > 0) {
@@ -46,7 +54,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
   final TextEditingController _tagController = TextEditingController();
   final FocusNode _tagFocusNode = FocusNode();
   final List<String> _tags = [];
-  final _RecipeDurationValue _duration = const _RecipeDurationValue(
+  _RecipeDurationValue _duration = const _RecipeDurationValue(
     days: 0,
     hours: 0,
     minutes: 20,
@@ -199,7 +207,19 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     _tagController.clear();
   }
 
-  void _editDuration() {}
+  Future<void> _editDuration() async {
+    final value = await showDialog<_RecipeDurationValue>(
+      context: context,
+      builder: (context) => _RecipeDurationPickerDialog(initial: _duration),
+    );
+    if (!mounted || value == null) {
+      return;
+    }
+
+    setState(() {
+      _duration = value;
+    });
+  }
 
   void _removeTag(String tag) {
     setState(() {
@@ -578,6 +598,212 @@ class _RecipeCreateMetaChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecipeDurationPickerDialog extends StatefulWidget {
+  const _RecipeDurationPickerDialog({required this.initial});
+
+  final _RecipeDurationValue initial;
+
+  @override
+  State<_RecipeDurationPickerDialog> createState() =>
+      _RecipeDurationPickerDialogState();
+}
+
+class _RecipeDurationPickerDialogState
+    extends State<_RecipeDurationPickerDialog> {
+  late _RecipeDurationValue _value = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          backgroundColor: palette.cardsSurface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set cooking time',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final stacked = constraints.maxWidth < 380;
+                  final steppers = [
+                    _RecipeDurationStepper(
+                      label: 'Days',
+                      value: _value.days,
+                      onIncrement: () =>
+                          _setDays(_nextCyclic(_value.days, 0, 30)),
+                      onDecrement: () =>
+                          _setDays(_previousCyclic(_value.days, 0, 30)),
+                    ),
+                    _RecipeDurationStepper(
+                      label: 'Hours',
+                      value: _value.hours,
+                      onIncrement: () =>
+                          _setHours(_nextCyclic(_value.hours, 0, 23)),
+                      onDecrement: () =>
+                          _setHours(_previousCyclic(_value.hours, 0, 23)),
+                    ),
+                    _RecipeDurationStepper(
+                      label: 'Minutes',
+                      value: _value.minutes,
+                      onIncrement: () => _setMinutes(
+                        _nextCyclic(_value.minutes, 0, 55, step: 5),
+                      ),
+                      onDecrement: () => _setMinutes(
+                        _previousCyclic(_value.minutes, 0, 55, step: 5),
+                      ),
+                    ),
+                  ];
+
+                  if (stacked) {
+                    return Column(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < steppers.length;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(height: AppSpacing.sm),
+                          steppers[index],
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      for (var index = 0; index < steppers.length; index++) ...[
+                        if (index > 0) const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: steppers[index]),
+                      ],
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(_value),
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _setDays(int days) {
+    setState(() {
+      _value = _value.copyWith(days: days);
+    });
+  }
+
+  void _setHours(int hours) {
+    setState(() {
+      _value = _value.copyWith(hours: hours);
+    });
+  }
+
+  void _setMinutes(int minutes) {
+    setState(() {
+      _value = _value.copyWith(minutes: minutes);
+    });
+  }
+
+  int _nextCyclic(int value, int min, int max, {int step = 1}) {
+    final next = value + step;
+    return next > max ? min : next;
+  }
+
+  int _previousCyclic(int value, int min, int max, {int step = 1}) {
+    final previous = value - step;
+    return previous < min ? max : previous;
+  }
+}
+
+class _RecipeDurationStepper extends StatelessWidget {
+  const _RecipeDurationStepper({
+    required this.label,
+    required this.value,
+    required this.onIncrement,
+    required this.onDecrement,
+  });
+
+  final String label;
+  final int value;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: palette.secondaryText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                tooltip: 'Decrease $label',
+                onPressed: onDecrement,
+                icon: const Icon(Icons.remove_rounded),
+              ),
+              SizedBox(
+                width: 44,
+                child: Text(
+                  value.toString().padLeft(2, '0'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Increase $label',
+                onPressed: onIncrement,
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
