@@ -5,6 +5,7 @@ import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/recipes/data/recipe_form_options.dart';
 import 'package:frontend/features/recipes/presentation/image_upload/recipe_image_picker.dart';
+import 'package:frontend/shared/models/home_models.dart';
 
 @immutable
 class _RecipeDurationValue {
@@ -60,6 +61,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     minutes: 20,
   );
   String _difficulty = 'Easy';
+  CategoryModel? _category;
   bool _isAddingTag = false;
   String? _imageUrl;
 
@@ -124,8 +126,10 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           tagSuggestions: _tagSuggestions,
                           duration: _duration,
                           difficulty: _difficulty,
+                          category: _category,
                           onEditDuration: _editDuration,
                           onEditDifficulty: _editDifficulty,
+                          onEditCategory: _editCategory,
                           onSubmitTag: _submitTag,
                           onRemoveTag: _removeTag,
                           onAddTagPressed: _startAddingTag,
@@ -238,6 +242,20 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     });
   }
 
+  Future<void> _editCategory() async {
+    final value = await showDialog<CategoryModel>(
+      context: context,
+      builder: (context) => _RecipeCategoryDialog(selected: _category),
+    );
+    if (!mounted || value == null) {
+      return;
+    }
+
+    setState(() {
+      _category = value;
+    });
+  }
+
   void _removeTag(String tag) {
     setState(() {
       _tags.remove(tag);
@@ -282,8 +300,10 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.tagSuggestions,
     required this.duration,
     required this.difficulty,
+    required this.category,
     required this.onEditDuration,
     required this.onEditDifficulty,
+    required this.onEditCategory,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -301,8 +321,10 @@ class _RecipeCreateContent extends StatelessWidget {
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
   final String difficulty;
+  final CategoryModel? category;
   final VoidCallback onEditDuration;
   final VoidCallback onEditDifficulty;
+  final VoidCallback onEditCategory;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -325,8 +347,10 @@ class _RecipeCreateContent extends StatelessWidget {
           tagSuggestions: tagSuggestions,
           duration: duration,
           difficulty: difficulty,
+          category: category,
           onEditDuration: onEditDuration,
           onEditDifficulty: onEditDifficulty,
+          onEditCategory: onEditCategory,
           onSubmitTag: onSubmitTag,
           onRemoveTag: onRemoveTag,
           onAddTagPressed: onAddTagPressed,
@@ -351,8 +375,10 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
     required this.tagSuggestions,
     required this.duration,
     required this.difficulty,
+    required this.category,
     required this.onEditDuration,
     required this.onEditDifficulty,
+    required this.onEditCategory,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -373,8 +399,10 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
   final String difficulty;
+  final CategoryModel? category;
   final VoidCallback onEditDuration;
   final VoidCallback onEditDifficulty;
+  final VoidCallback onEditCategory;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -420,8 +448,10 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                         tagSuggestions: tagSuggestions,
                         duration: duration,
                         difficulty: difficulty,
+                        category: category,
                         onEditDuration: onEditDuration,
                         onEditDifficulty: onEditDifficulty,
+                        onEditCategory: onEditCategory,
                         onSubmitTag: onSubmitTag,
                         onRemoveTag: onRemoveTag,
                         onAddTagPressed: onAddTagPressed,
@@ -450,8 +480,10 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
     required this.tagSuggestions,
     required this.duration,
     required this.difficulty,
+    required this.category,
     required this.onEditDuration,
     required this.onEditDifficulty,
+    required this.onEditCategory,
     required this.onSubmitTag,
     required this.onRemoveTag,
     required this.onAddTagPressed,
@@ -467,8 +499,10 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
   final List<String> tagSuggestions;
   final _RecipeDurationValue duration;
   final String difficulty;
+  final CategoryModel? category;
   final VoidCallback onEditDuration;
   final VoidCallback onEditDifficulty;
+  final VoidCallback onEditCategory;
   final ValueChanged<String> onSubmitTag;
   final ValueChanged<String> onRemoveTag;
   final VoidCallback onAddTagPressed;
@@ -543,8 +577,10 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
               child: _RecipeCreateMetaPanel(
                 duration: duration,
                 difficulty: difficulty,
+                category: category,
                 onEditDuration: onEditDuration,
                 onEditDifficulty: onEditDifficulty,
+                onEditCategory: onEditCategory,
               ),
             ),
           ],
@@ -558,34 +594,52 @@ class _RecipeCreateMetaPanel extends StatelessWidget {
   const _RecipeCreateMetaPanel({
     required this.duration,
     required this.difficulty,
+    required this.category,
     required this.onEditDuration,
     required this.onEditDifficulty,
+    required this.onEditCategory,
   });
 
   final _RecipeDurationValue duration;
   final String difficulty;
+  final CategoryModel? category;
   final VoidCallback onEditDuration;
   final VoidCallback onEditDifficulty;
+  final VoidCallback onEditCategory;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 320,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _RecipeCreateMetaChip(
-              icon: Icons.schedule_rounded,
-              label: duration.label,
-              onPressed: onEditDuration,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _RecipeCreateMetaChip(
+                  icon: Icons.schedule_rounded,
+                  label: duration.label,
+                  onPressed: onEditDuration,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: _RecipeCreateMetaChip(
+                  icon: Icons.local_fire_department_rounded,
+                  label: difficulty,
+                  onPressed: onEditDifficulty,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
+          const SizedBox(height: AppSpacing.xs),
+          SizedBox(
+            width: double.infinity,
             child: _RecipeCreateMetaChip(
-              icon: Icons.local_fire_department_rounded,
-              label: difficulty,
-              onPressed: onEditDifficulty,
+              icon: category?.icon ?? Icons.restaurant_menu_rounded,
+              label: category?.title ?? 'Category',
+              onPressed: onEditCategory,
             ),
           ),
         ],
@@ -644,6 +698,123 @@ class _RecipeCreateMetaChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeCategoryDialog extends StatefulWidget {
+  const _RecipeCategoryDialog({required this.selected});
+
+  final CategoryModel? selected;
+
+  @override
+  State<_RecipeCategoryDialog> createState() => _RecipeCategoryDialogState();
+}
+
+class _RecipeCategoryDialogState extends State<_RecipeCategoryDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final query = RecipeFormOptions.slug(_controller.text);
+    final categories = RecipeFormOptions.categories
+        .where((category) {
+          if (query.isEmpty) {
+            return true;
+          }
+
+          return category.id.contains(query) ||
+              category.title.toLowerCase().contains(query.replaceAll('-', ' '));
+        })
+        .toList(growable: false);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          backgroundColor: palette.cardsSurface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Category', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                key: const ValueKey('recipe-create-category-search'),
+                controller: _controller,
+                decoration: const InputDecoration(hintText: 'Search category'),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      for (final category in categories)
+                        _RecipeCategoryOption(
+                          category: category,
+                          selected: widget.selected?.id == category.id,
+                          onSelected: () => Navigator.of(context).pop(category),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeCategoryOption extends StatelessWidget {
+  const _RecipeCategoryOption({
+    required this.category,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final CategoryModel category;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.16)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          leading: Icon(
+            category.icon,
+            color: selected ? palette.primaryButtons : palette.icons,
+          ),
+          title: Text(category.title),
+          subtitle: Text(category.description),
+          trailing: selected ? const Icon(Icons.check_rounded) : null,
+          onTap: onSelected,
         ),
       ),
     );
