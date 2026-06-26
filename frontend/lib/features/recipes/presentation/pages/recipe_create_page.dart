@@ -1143,7 +1143,10 @@ class _RecipeDurationStepper extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: palette.searchBarBackground.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -1161,14 +1164,22 @@ class _RecipeDurationStepper extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 tooltip: 'Decrease $label',
                 onPressed: onDecrement,
                 icon: const Icon(Icons.remove_rounded),
+                iconSize: 18,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                visualDensity: VisualDensity.compact,
               ),
               SizedBox(
-                width: 44,
+                width: 38,
                 child: Text(
                   value.toString().padLeft(2, '0'),
                   textAlign: TextAlign.center,
@@ -1179,6 +1190,13 @@ class _RecipeDurationStepper extends StatelessWidget {
                 tooltip: 'Increase $label',
                 onPressed: onIncrement,
                 icon: const Icon(Icons.add_rounded),
+                iconSize: 18,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
