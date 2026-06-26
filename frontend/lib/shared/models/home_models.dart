@@ -50,10 +50,12 @@ class RecipeModel {
     required this.minutes,
     required this.rating,
     required this.accentColor,
+    this.difficulty = 2,
     this.description = '',
     this.imageUrl,
     this.thumbnailUrl,
     this.tags = const [],
+    this.likesCount = 0,
     this.popularityScore = 0,
     this.isSaved = false,
   });
@@ -64,7 +66,7 @@ class RecipeModel {
       fallback: 'Untitled recipe',
     );
     final difficulty = _intValue(_jsonValue(json, 'difficulty'), fallback: 2);
-    final normalizedDifficulty = difficulty.clamp(1, 5).toDouble();
+    final normalizedDifficulty = difficulty.clamp(1, 5);
     final categoryName = _categoryNameValue(json);
     final categoryId = _categoryIdValue(
       json,
@@ -82,9 +84,10 @@ class RecipeModel {
         _jsonValue(json, 'cookingTime') ?? _jsonValue(json, 'minutes'),
         fallback: 30,
       ),
+      difficulty: normalizedDifficulty,
       rating: _doubleValue(
         _jsonValue(json, 'rating'),
-        fallback: 4.2 + (normalizedDifficulty * 0.12),
+        fallback: 4.2 + (normalizedDifficulty.toDouble() * 0.12),
       ).clamp(0, 5).toDouble(),
       imageUrl: _stringValue(
         _jsonValue(json, 'imageUrl') ??
@@ -97,6 +100,11 @@ class RecipeModel {
             _jsonValue(json, 'previewImageUrl'),
       ),
       tags: _tagsValue(json, categoryName: categoryName),
+      likesCount: _intValue(
+        _jsonValue(json, 'likesCount') ??
+            _jsonValue(json, 'likes') ??
+            _jsonValue(json, 'favoritesCount'),
+      ),
       popularityScore: _intValue(_jsonValue(json, 'popularityScore')),
       accentColor: _colorValue(
         _jsonValue(json, 'accentColor'),
@@ -113,10 +121,12 @@ class RecipeModel {
   final int minutes;
   final double rating;
   final Color accentColor;
+  final int difficulty;
   final String description;
   final String? imageUrl;
   final String? thumbnailUrl;
   final List<String> tags;
+  final int likesCount;
   final int popularityScore;
   final bool isSaved;
 
