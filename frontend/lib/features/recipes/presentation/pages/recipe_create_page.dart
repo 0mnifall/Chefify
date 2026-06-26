@@ -3,6 +3,7 @@ import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
 import 'package:frontend/core/widgets/app_card.dart';
 import 'package:frontend/features/home/presentation/widgets/app_header.dart';
+import 'package:frontend/features/recipes/data/recipe_form_options.dart';
 import 'package:frontend/features/recipes/presentation/image_upload/recipe_image_picker.dart';
 
 class RecipeCreatePage extends StatefulWidget {
@@ -15,6 +16,7 @@ class RecipeCreatePage extends StatefulWidget {
 class _RecipeCreatePageState extends State<RecipeCreatePage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final List<String> _tags = [];
   String? _imageUrl;
 
   @override
@@ -60,6 +62,9 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           imageUrl: _imageUrl,
                           titleController: _titleController,
                           descriptionController: _descriptionController,
+                          tags: _tags,
+                          onRemoveTag: _removeTag,
+                          onAddTagPressed: _startAddingTag,
                           onPickImage: _pickImage,
                         ),
                       ),
@@ -88,6 +93,14 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
       _imageUrl = imageUrl;
     });
   }
+
+  void _startAddingTag() {}
+
+  void _removeTag(String tag) {
+    setState(() {
+      _tags.remove(tag);
+    });
+  }
 }
 
 class _RecipeCreateContent extends StatelessWidget {
@@ -95,12 +108,18 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.imageUrl,
     required this.titleController,
     required this.descriptionController,
+    required this.tags,
+    required this.onRemoveTag,
+    required this.onAddTagPressed,
     required this.onPickImage,
   });
 
   final String? imageUrl;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
+  final List<String> tags;
+  final ValueChanged<String> onRemoveTag;
+  final VoidCallback onAddTagPressed;
   final VoidCallback onPickImage;
 
   @override
@@ -112,6 +131,9 @@ class _RecipeCreateContent extends StatelessWidget {
           imageUrl: imageUrl,
           titleController: titleController,
           descriptionController: descriptionController,
+          tags: tags,
+          onRemoveTag: onRemoveTag,
+          onAddTagPressed: onAddTagPressed,
           onPickImage: onPickImage,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -125,6 +147,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
     required this.imageUrl,
     required this.titleController,
     required this.descriptionController,
+    required this.tags,
+    required this.onRemoveTag,
+    required this.onAddTagPressed,
     required this.onPickImage,
   });
 
@@ -134,6 +159,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
   final String? imageUrl;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
+  final List<String> tags;
+  final ValueChanged<String> onRemoveTag;
+  final VoidCallback onAddTagPressed;
   final VoidCallback onPickImage;
 
   @override
@@ -168,6 +196,9 @@ class _RecipeCreateHeroPanel extends StatelessWidget {
                       child: _RecipeCreateHeroEditor(
                         titleController: titleController,
                         descriptionController: descriptionController,
+                        tags: tags,
+                        onRemoveTag: onRemoveTag,
+                        onAddTagPressed: onAddTagPressed,
                       ),
                     ),
                   ),
@@ -185,10 +216,16 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
   const _RecipeCreateHeroEditor({
     required this.titleController,
     required this.descriptionController,
+    required this.tags,
+    required this.onRemoveTag,
+    required this.onAddTagPressed,
   });
 
   final TextEditingController titleController;
   final TextEditingController descriptionController;
+  final List<String> tags;
+  final ValueChanged<String> onRemoveTag;
+  final VoidCallback onAddTagPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -199,41 +236,155 @@ class _RecipeCreateHeroEditor extends StatelessWidget {
             ? constraints.maxWidth
             : (constraints.maxWidth * 0.54).clamp(440.0, 640.0).toDouble();
 
-        return Align(
-          alignment: Alignment.topLeft,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: editorWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RecipeHeroTextField(
-                  key: const ValueKey('recipe-create-title-field'),
-                  controller: titleController,
-                  hintText: 'Title',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    fontSize: compact ? 34 : 46,
-                  ),
-                  minLines: 1,
-                  maxLines: 2,
+        return Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: editorWidth),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecipeHeroTextField(
+                      key: const ValueKey('recipe-create-title-field'),
+                      controller: titleController,
+                      hintText: 'Title',
+                      style: Theme.of(context).textTheme.displayMedium
+                          ?.copyWith(fontSize: compact ? 34 : 46),
+                      minLines: 1,
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _RecipeHeroTextField(
+                      key: const ValueKey('recipe-create-description-field'),
+                      controller: descriptionController,
+                      hintText: 'Description',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontSize: compact ? 16 : 18,
+                        height: 1.45,
+                      ),
+                      minLines: 2,
+                      maxLines: 3,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                _RecipeHeroTextField(
-                  key: const ValueKey('recipe-create-description-field'),
-                  controller: descriptionController,
-                  hintText: 'Description',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontSize: compact ? 16 : 18,
-                    height: 1.45,
-                  ),
-                  minLines: 2,
-                  maxLines: 3,
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              bottom: compact ? 156 : 0,
+              right: compact ? 0 : null,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: editorWidth),
+                child: _RecipeCreateTagRow(
+                  tags: tags,
+                  onRemoveTag: onRemoveTag,
+                  onAddTagPressed: onAddTagPressed,
+                ),
+              ),
+            ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _RecipeCreateTagRow extends StatelessWidget {
+  const _RecipeCreateTagRow({
+    required this.tags,
+    required this.onRemoveTag,
+    required this.onAddTagPressed,
+  });
+
+  final List<String> tags;
+  final ValueChanged<String> onRemoveTag;
+  final VoidCallback onAddTagPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        for (final tag in tags)
+          _RecipeCreateTagChip(tag: tag, onRemove: () => onRemoveTag(tag)),
+        if (tags.length < 10)
+          _RecipeCreateAddTagChip(onPressed: onAddTagPressed),
+      ],
+    );
+  }
+}
+
+class _RecipeCreateTagChip extends StatelessWidget {
+  const _RecipeCreateTagChip({required this.tag, required this.onRemove});
+
+  final String tag;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            RecipeFormOptions.readableTagLabel(tag),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: palette.mainText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          InkResponse(
+            onTap: onRemove,
+            radius: 14,
+            child: Icon(Icons.remove_rounded, size: 16, color: palette.icons),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeCreateAddTagChip extends StatelessWidget {
+  const _RecipeCreateAddTagChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return ActionChip(
+      key: const ValueKey('recipe-create-add-tag-chip'),
+      onPressed: onPressed,
+      avatar: Icon(Icons.add_rounded, size: 20, color: palette.mainText),
+      label: const Text('Tag'),
+      labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: palette.mainText,
+        fontWeight: FontWeight.w800,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      backgroundColor: palette.primaryButtons.withValues(alpha: 0.18),
+      shape: StadiumBorder(
+        side: BorderSide(color: palette.primaryButtons.withValues(alpha: 0.48)),
+      ),
     );
   }
 }
