@@ -9,6 +9,11 @@ abstract class RecipeRepository {
   Future<List<RecipeModel>> fetchRecipes();
 
   Future<List<RecipeModel>> fetchPopularRecipes({int take = 4});
+
+  Future<void> updateRecipeLike({
+    required String recipeId,
+    required bool isLiked,
+  });
 }
 
 class ApiRecipeRepository implements RecipeRepository {
@@ -69,6 +74,24 @@ class ApiRecipeRepository implements RecipeRepository {
     return recipes.take(safeTake).toList();
   }
 
+  @override
+  Future<void> updateRecipeLike({
+    required String recipeId,
+    required bool isLiked,
+  }) async {
+    try {
+      await http
+          .post(
+            _uri('Recipes/${Uri.encodeComponent(recipeId)}/likes'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'liked': isLiked, 'delta': isLiked ? 1 : -1}),
+          )
+          .timeout(timeout);
+    } on Object {
+      // The backend endpoint is not available yet. Keep the optimistic UI stable.
+    }
+  }
+
   Future<List<RecipeModel>> _fetchRecipes({
     required String path,
     required List<RecipeModel> fallback,
@@ -123,4 +146,10 @@ class MockRecipeRepository implements RecipeRepository {
   Future<List<RecipeModel>> fetchPopularRecipes({int take = 4}) async {
     return RecipeCatalog.popular(take: take);
   }
+
+  @override
+  Future<void> updateRecipeLike({
+    required String recipeId,
+    required bool isLiked,
+  }) async {}
 }

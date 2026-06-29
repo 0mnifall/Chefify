@@ -1,13 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/widgets/app_card.dart';
+import 'package:frontend/features/recipes/domain/recipes_page_arguments.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
 import 'package:frontend/shared/models/home_models.dart';
 
 class RecipeCard extends StatelessWidget {
-  const RecipeCard({super.key, required this.recipe});
+  const RecipeCard({super.key, required this.recipe, this.onTap});
+
+  final RecipeModel recipe;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final hasFixedHeight =
+                  constraints.hasBoundedHeight &&
+                  constraints.minHeight == constraints.maxHeight;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 162,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (_recipePreviewImageUrl(recipe) == null)
+                          _RecipeImageFallback(recipe: recipe)
+                        else
+                          _RecipeNetworkImage(recipe: recipe),
+                        Positioned(
+                          top: AppSpacing.sm,
+                          left: AppSpacing.sm,
+                          child: _RecipeAuthorChip(
+                            recipe: recipe,
+                            maxExpandedWidth: _authorChipMaxWidth(
+                              constraints.maxWidth,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: AppSpacing.sm,
+                          right: AppSpacing.sm,
+                          child: _RecipeBookmarkButton(recipe: recipe),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hasFixedHeight)
+                    Expanded(
+                      child: _RecipeCardBody(recipe: recipe, pinFooter: true),
+                    )
+                  else
+                    _RecipeCardBody(recipe: recipe, pinFooter: false),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeBookmarkButton extends StatelessWidget {
+  const _RecipeBookmarkButton({required this.recipe});
 
   final RecipeModel recipe;
 
@@ -16,57 +86,152 @@ class RecipeCard extends StatelessWidget {
     final bookmarks = BookmarkScope.of(context);
     final isSaved = bookmarks.isRecipeSaved(recipe);
 
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final hasFixedHeight =
-                constraints.hasBoundedHeight &&
-                constraints.minHeight == constraints.maxHeight;
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleRecipe(recipe);
+      },
+    );
+  }
+}
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 162,
-                  width: double.infinity,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (recipe.imageUrl == null || recipe.imageUrl!.isEmpty)
-                        _RecipeImageFallback(recipe: recipe)
-                      else
-                        Image.network(
-                          recipe.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _RecipeImageFallback(recipe: recipe);
-                          },
-                        ),
-                      Positioned(
-                        top: AppSpacing.sm,
-                        right: AppSpacing.sm,
-                        child: BookmarkButton(
-                          isSaved: isSaved,
-                          onPressed: () {
-                            bookmarks.toggleRecipe(recipe);
-                          },
+class _RecipeAuthorChip extends StatefulWidget {
+  const _RecipeAuthorChip({
+    required this.recipe,
+    required this.maxExpandedWidth,
+  });
+
+  final RecipeModel recipe;
+  final double maxExpandedWidth;
+
+  @override
+  State<_RecipeAuthorChip> createState() => _RecipeAuthorChipState();
+}
+
+class _RecipeAuthorChipState extends State<_RecipeAuthorChip> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  bool get _expanded => _hovered || _focused;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final expandedWidth = widget.maxExpandedWidth.clamp(44.0, 164.0);
+    final width = _expanded ? expandedWidth : 44.0;
+    final foregroundColor = palette.mainText;
+
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() {
+          _hovered = true;
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          _hovered = false;
+        });
+      },
+      cursor: SystemMouseCursors.click,
+      child: FocusableActionDetector(
+        onFocusChange: (focused) {
+          setState(() {
+            _focused = focused;
+          });
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey('recipe-author-chip-${widget.recipe.id}'),
+            onTap: () {
+              Navigator.of(context).pushNamed(
+                AppRouter.authorProfilePath(widget.recipe.author),
+                arguments: widget.recipe.author,
+              );
+            },
+            borderRadius: BorderRadius.circular(999),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: width,
+              height: 44,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: palette.cardsSurface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: palette.borders.withValues(alpha: 0.84),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecipeAuthorAvatar(author: widget.recipe.author),
+                    Flexible(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 130),
+                        curve: Curves.easeOut,
+                        opacity: _expanded ? 1 : 0,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: AppSpacing.xs,
+                            right: AppSpacing.xs,
+                          ),
+                          child: Text(
+                            widget.recipe.author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: foregroundColor),
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                if (hasFixedHeight)
-                  Expanded(
-                    child: _RecipeCardBody(recipe: recipe, pinFooter: true),
-                  )
-                else
-                  _RecipeCardBody(recipe: recipe, pinFooter: false),
-              ],
-            );
-          },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeAuthorAvatar extends StatelessWidget {
+  const _RecipeAuthorAvatar({required this.author});
+
+  final String author;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: palette.primaryButtons.withValues(alpha: 0.18),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Text(
+        _authorInitials(author),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: palette.primaryButtons,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -90,7 +255,7 @@ class _RecipeCardBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            recipe.tag,
+            recipe.categoryName,
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(color: palette.categoryTags),
@@ -104,6 +269,10 @@ class _RecipeCardBody extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           if (pinFooter) const Spacer(),
+          if (recipe.tags.isNotEmpty) ...[
+            _RecipeTagRow(recipeId: recipe.id, tags: recipe.tags),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -126,6 +295,589 @@ class _RecipeCardBody extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RecipeTagRow extends StatelessWidget {
+  const _RecipeTagRow({required this.recipeId, required this.tags});
+
+  final String recipeId;
+  final List<String> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: palette.mainText,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tagLayout = _tagLayoutForWidth(
+          context,
+          tags,
+          constraints.maxWidth,
+          textStyle,
+        );
+
+        return SizedBox(
+          height: 24,
+          child: Row(
+            children: [
+              for (
+                var index = 0;
+                index < tagLayout.visibleTags.length;
+                index++
+              ) ...[
+                if (index > 0) const SizedBox(width: AppSpacing.xxs),
+                _RecipeTagChip(
+                  key: ValueKey(
+                    'recipe-card-tag-$recipeId-${_tagKey(tagLayout.visibleTags[index].tag)}',
+                  ),
+                  width: tagLayout.visibleTags[index].width,
+                  tag: tagLayout.visibleTags[index].tag,
+                  label: tagLayout.visibleTags[index].label,
+                  textStyle: textStyle,
+                ),
+              ],
+              if (tagLayout.hasOverflow) ...[
+                if (tagLayout.visibleTags.isNotEmpty)
+                  const SizedBox(width: AppSpacing.xxs),
+                _RecipeOverflowTagChip(
+                  recipeId: recipeId,
+                  tags: tags,
+                  textStyle: textStyle,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  _RecipeTagRowLayout _tagLayoutForWidth(
+    BuildContext context,
+    List<String> tags,
+    double maxWidth,
+    TextStyle? textStyle,
+  ) {
+    if (!maxWidth.isFinite || maxWidth <= 0) {
+      return _RecipeTagRowLayout(
+        visibleTags: [
+          for (final tag in tags.take(2))
+            _RecipeTagItem(
+              tag: tag,
+              label: _formatRecipeTag(tag),
+              width: _measureTagWidth(
+                context,
+                _formatRecipeTag(tag),
+                textStyle,
+              ),
+            ),
+        ],
+        hasOverflow: tags.length > 2,
+      );
+    }
+
+    final visibleTags = <_RecipeTagItem>[];
+    var usedWidth = 0.0;
+    final overflowChipWidth = _measureTagWidth(context, '...', textStyle);
+
+    for (var index = 0; index < tags.length; index++) {
+      final tag = tags[index];
+      final label = _formatRecipeTag(tag);
+      final chipWidth = _measureTagWidth(context, label, textStyle);
+      final hasRemainingTags = index < tags.length - 1;
+      final leadingSpacing = visibleTags.isEmpty ? 0 : AppSpacing.xxs;
+      final overflowReserve = hasRemainingTags
+          ? AppSpacing.xxs + overflowChipWidth
+          : 0.0;
+      final nextWidth =
+          usedWidth + leadingSpacing + chipWidth + overflowReserve;
+
+      if (nextWidth > maxWidth) {
+        return _RecipeTagRowLayout(visibleTags: visibleTags, hasOverflow: true);
+      }
+
+      visibleTags.add(_RecipeTagItem(tag: tag, label: label, width: chipWidth));
+      usedWidth += leadingSpacing + chipWidth;
+    }
+
+    return _RecipeTagRowLayout(visibleTags: visibleTags);
+  }
+
+  double _measureTagWidth(
+    BuildContext context,
+    String label,
+    TextStyle? textStyle,
+  ) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: textStyle ?? DefaultTextStyle.of(context).style,
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 20).clamp(36, 118).toDouble();
+  }
+}
+
+class _RecipeTagRowLayout {
+  const _RecipeTagRowLayout({
+    required this.visibleTags,
+    this.hasOverflow = false,
+  });
+
+  final List<_RecipeTagItem> visibleTags;
+  final bool hasOverflow;
+}
+
+class _RecipeTagItem {
+  const _RecipeTagItem({
+    required this.tag,
+    required this.label,
+    required this.width,
+  });
+
+  final String tag;
+  final String label;
+  final double width;
+}
+
+class _RecipeOverflowTagChip extends StatefulWidget {
+  const _RecipeOverflowTagChip({
+    required this.recipeId,
+    required this.tags,
+    required this.textStyle,
+  });
+
+  final String recipeId;
+  final List<String> tags;
+  final TextStyle? textStyle;
+
+  @override
+  State<_RecipeOverflowTagChip> createState() => _RecipeOverflowTagChipState();
+}
+
+class _RecipeOverflowTagChipState extends State<_RecipeOverflowTagChip> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+  bool _anchorHovered = false;
+  bool _popoverHovered = false;
+  bool _focused = false;
+
+  bool get _shouldShowOverlay => _anchorHovered || _popoverHovered || _focused;
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: MouseRegion(
+        onEnter: (_) => _setAnchorHovered(true),
+        onExit: (_) => _setAnchorHovered(false),
+        cursor: SystemMouseCursors.click,
+        child: FocusableActionDetector(
+          onFocusChange: (focused) {
+            setState(() {
+              _focused = focused;
+            });
+            _syncOverlay();
+          },
+          child: Material(
+            color: palette.searchBarBackground.withValues(alpha: 0.76),
+            shape: StadiumBorder(
+              side: BorderSide(color: palette.borders.withValues(alpha: 0.72)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: ValueKey('recipe-card-tag-overflow-${widget.recipeId}'),
+              onTap: _syncOverlay,
+              child: Container(
+                height: 24,
+                constraints: const BoxConstraints(minWidth: 36),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                child: Text('...', style: widget.textStyle),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _setAnchorHovered(bool hovered) {
+    setState(() {
+      _anchorHovered = hovered;
+    });
+    _syncOverlay();
+  }
+
+  void _setPopoverHovered(bool hovered) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _popoverHovered = hovered;
+    });
+    _syncOverlay();
+  }
+
+  void _syncOverlay() {
+    if (_shouldShowOverlay) {
+      _showOverlay();
+      return;
+    }
+
+    Future<void>.delayed(const Duration(milliseconds: 80), () {
+      if (!mounted || _shouldShowOverlay) {
+        return;
+      }
+      _removeOverlay();
+    });
+  }
+
+  void _showOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.markNeedsBuild();
+      return;
+    }
+
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) {
+        final layout = _popoverOverlayLayout();
+        if (layout == null) {
+          return const SizedBox.shrink();
+        }
+
+        return CompositedTransformFollower(
+          link: _layerLink,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: Offset(layout.horizontalOffset, AppSpacing.xs),
+          showWhenUnlinked: false,
+          child: MouseRegion(
+            onEnter: (_) => _setPopoverHovered(true),
+            onExit: (_) => _setPopoverHovered(false),
+            child: Material(
+              color: Colors.transparent,
+              child: Align(
+                alignment: Alignment.topLeft,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: _RecipeTagPopover(
+                  tags: widget.tags,
+                  textStyle: widget.textStyle,
+                  onTagSelected: (tag) {
+                    _removeOverlay();
+                    _openRecipeTagFilter(context, tag);
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  _RecipePopoverOverlayLayout? _popoverOverlayLayout() {
+    final overlay = Overlay.maybeOf(context);
+    final overlayRenderObject = overlay?.context.findRenderObject();
+    final anchorRenderObject = context.findRenderObject();
+    if (overlayRenderObject is! RenderBox ||
+        anchorRenderObject is! RenderBox ||
+        !overlayRenderObject.hasSize ||
+        !anchorRenderObject.hasSize) {
+      return null;
+    }
+
+    const margin = AppSpacing.sm;
+    final overlayWidth = overlayRenderObject.size.width;
+    const popoverWidth = _RecipeTagPopover.width;
+
+    final anchorLeft = anchorRenderObject
+        .localToGlobal(Offset.zero, ancestor: overlayRenderObject)
+        .dx;
+    final minLeft = overlayWidth >= popoverWidth + (margin * 2) ? margin : 0.0;
+    final maxLeft = (overlayWidth - popoverWidth - margin)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+    final safeMaxLeft = maxLeft < minLeft ? minLeft : maxLeft;
+    final clampedLeft = anchorLeft.clamp(minLeft, safeMaxLeft).toDouble();
+
+    return _RecipePopoverOverlayLayout(
+      horizontalOffset: clampedLeft - anchorLeft,
+    );
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+}
+
+class _RecipePopoverOverlayLayout {
+  const _RecipePopoverOverlayLayout({required this.horizontalOffset});
+
+  final double horizontalOffset;
+}
+
+class _RecipeTagPopover extends StatelessWidget {
+  const _RecipeTagPopover({
+    required this.tags,
+    required this.textStyle,
+    required this.onTagSelected,
+  });
+
+  static const double width = 228;
+
+  final List<String> tags;
+  final TextStyle? textStyle;
+  final ValueChanged<String> onTagSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      key: const ValueKey('recipe-tag-popover'),
+      width: _RecipeTagPopover.width,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.76)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final rows = _buildRows(context, constraints.maxWidth);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+                Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < rows[rowIndex].length;
+                      index++
+                    ) ...[
+                      if (index > 0) const SizedBox(width: AppSpacing.xxs),
+                      Expanded(
+                        flex: rows[rowIndex][index].flex,
+                        child: _RecipeTagChip(
+                          fillWidth: true,
+                          tag: rows[rowIndex][index].tag,
+                          label: rows[rowIndex][index].label,
+                          textStyle: textStyle,
+                          textAlign: TextAlign.center,
+                          onSelected: onTagSelected,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (rowIndex < rows.length - 1)
+                  const SizedBox(height: AppSpacing.xxs),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  List<List<_RecipePopoverTagItem>> _buildRows(
+    BuildContext context,
+    double maxWidth,
+  ) {
+    final safeWidth = maxWidth.isFinite && maxWidth > 0 ? maxWidth : 202.0;
+    final rows = <List<_RecipePopoverTagItem>>[];
+    var currentRow = <_RecipePopoverTagItem>[];
+    var currentWidth = 0.0;
+
+    for (final tag in tags) {
+      final label = _formatRecipeTag(tag);
+      final baseWidth = _measurePopoverTagWidth(context, label);
+      final nextWidth =
+          currentWidth + (currentRow.isEmpty ? 0 : AppSpacing.xxs) + baseWidth;
+
+      if (currentRow.isNotEmpty &&
+          (currentRow.length >= 3 || nextWidth > safeWidth)) {
+        rows.add(currentRow);
+        currentRow = [_RecipePopoverTagItem(tag, label, baseWidth)];
+        currentWidth = baseWidth;
+      } else {
+        currentRow.add(_RecipePopoverTagItem(tag, label, baseWidth));
+        currentWidth = nextWidth;
+      }
+    }
+
+    if (currentRow.isNotEmpty) {
+      rows.add(currentRow);
+    }
+
+    return rows;
+  }
+
+  double _measurePopoverTagWidth(BuildContext context, String label) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: textStyle ?? DefaultTextStyle.of(context).style,
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+
+    return (textPainter.width + 22).clamp(58, 118).toDouble();
+  }
+}
+
+class _RecipeTagChip extends StatelessWidget {
+  const _RecipeTagChip({
+    super.key,
+    this.width,
+    this.fillWidth = false,
+    required this.tag,
+    required this.label,
+    required this.textStyle,
+    this.textAlign = TextAlign.start,
+    this.onSelected,
+  });
+
+  final double? width;
+  final bool fillWidth;
+  final String tag;
+  final String label;
+  final TextStyle? textStyle;
+  final TextAlign textAlign;
+  final ValueChanged<String>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Material(
+      color: palette.searchBarBackground.withValues(alpha: 0.76),
+      shape: StadiumBorder(
+        side: BorderSide(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          final handler = onSelected;
+          if (handler != null) {
+            handler(tag);
+            return;
+          }
+
+          _openRecipeTagFilter(context, tag);
+        },
+        mouseCursor: SystemMouseCursors.click,
+        child: Container(
+          width: fillWidth ? double.infinity : width,
+          constraints: width == null
+              ? const BoxConstraints(maxWidth: 118)
+              : const BoxConstraints(),
+          alignment: width == null ? Alignment.centerLeft : Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: textAlign,
+            style: textStyle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipePopoverTagItem {
+  const _RecipePopoverTagItem(this.tag, this.label, this.width);
+
+  final String tag;
+  final String label;
+  final double width;
+
+  int get flex => (width * 100).round().clamp(1, 100000);
+}
+
+class _RecipeNetworkImage extends StatelessWidget {
+  const _RecipeNetworkImage({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = _cacheDimension(
+          constraints.maxWidth,
+          devicePixelRatio,
+          max: 720,
+        );
+        final cacheHeight = _cacheDimension(
+          constraints.maxHeight,
+          devicePixelRatio,
+          max: 520,
+        );
+
+        return OptimizedNetworkImage(
+          imageUrl: _recipePreviewImageUrl(recipe)!,
+          fit: BoxFit.cover,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) {
+            return _RecipeImageFallback(recipe: recipe);
+          },
+        );
+      },
+    );
+  }
+}
+
+String? _recipePreviewImageUrl(RecipeModel recipe) {
+  final thumbnailUrl = recipe.thumbnailUrl?.trim();
+  if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) {
+    return thumbnailUrl;
+  }
+
+  final imageUrl = recipe.imageUrl?.trim();
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    return imageUrl;
+  }
+
+  return null;
 }
 
 class _RecipeImageFallback extends StatelessWidget {
@@ -155,4 +907,74 @@ class _RecipeImageFallback extends StatelessWidget {
       ),
     );
   }
+}
+
+int _cacheDimension(
+  double logicalPixels,
+  double devicePixelRatio, {
+  required int max,
+}) {
+  if (!logicalPixels.isFinite || logicalPixels <= 0) {
+    return max;
+  }
+
+  return (logicalPixels * devicePixelRatio).round().clamp(1, max).toInt();
+}
+
+double _authorChipMaxWidth(double cardWidth) {
+  if (!cardWidth.isFinite || cardWidth <= 0) {
+    return 156;
+  }
+
+  return (cardWidth - 88).clamp(44.0, 164.0).toDouble();
+}
+
+String _authorInitials(String author) {
+  final words = author
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList(growable: false);
+
+  if (words.isEmpty) {
+    return '?';
+  }
+
+  if (words.length == 1) {
+    return words.first[0].toUpperCase();
+  }
+
+  return '${words.first[0]}${words.last[0]}'.toUpperCase();
+}
+
+String _formatRecipeTag(String tag) {
+  final words = tag
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty);
+
+  return words
+      .map((word) {
+        if (word.length == 1) {
+          return word.toUpperCase();
+        }
+
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
+}
+
+void _openRecipeTagFilter(BuildContext context, String tag) {
+  Navigator.of(context).pushNamed(
+    AppRouter.recipes,
+    arguments: RecipesPageArguments(tagIds: [tag]),
+  );
+}
+
+String _tagKey(String tag) {
+  return tag
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
 }

@@ -60,9 +60,19 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
+    final nextTrendingRecipes = _popularRecipesFor(recipes, take: 4);
+    final nextPopularCategories = CategoryCatalog.popularForRecipes(
+      recipes,
+      take: 4,
+    );
+    if (_sameRecipeList(_trendingRecipes, nextTrendingRecipes) &&
+        _sameCategoryList(_popularCategories, nextPopularCategories)) {
+      return;
+    }
+
     setState(() {
-      _trendingRecipes = _popularRecipesFor(recipes, take: 4);
-      _popularCategories = CategoryCatalog.popularForRecipes(recipes, take: 4);
+      _trendingRecipes = nextTrendingRecipes;
+      _popularCategories = nextPopularCategories;
     });
   }
 
@@ -144,6 +154,43 @@ class _HomePageState extends State<HomePage> {
         : take.clamp(1, sortedRecipes.length).toInt();
     return sortedRecipes.take(safeTake).toList(growable: false);
   }
+}
+
+bool _sameRecipeList(List<RecipeModel> left, List<RecipeModel> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var index = 0; index < left.length; index++) {
+    if (left[index].id != right[index].id ||
+        left[index].title != right[index].title ||
+        left[index].imageUrl != right[index].imageUrl ||
+        left[index].thumbnailUrl != right[index].thumbnailUrl ||
+        left[index].rating != right[index].rating ||
+        left[index].accentColor != right[index].accentColor ||
+        left[index].popularityScore != right[index].popularityScore) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _sameCategoryList(List<CategoryModel> left, List<CategoryModel> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+
+  for (var index = 0; index < left.length; index++) {
+    if (left[index].id != right[index].id ||
+        left[index].title != right[index].title ||
+        left[index].description != right[index].description ||
+        left[index].icon != right[index].icon ||
+        left[index].recipesCount != right[index].recipesCount ||
+        left[index].imageUrl != right[index].imageUrl) {
+      return false;
+    }
+  }
+  return true;
 }
 
 class _StickyHeaderShell extends StatelessWidget {

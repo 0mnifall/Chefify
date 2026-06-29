@@ -343,14 +343,9 @@ class CategoryCatalog {
     RecipeModel recipe,
     CategoryModel category,
   ) {
-    final recipeCategoryIds = recipe.categoryIds.map(slug).toSet();
-    if (recipeCategoryIds.contains(category.id)) {
-      return true;
-    }
-
-    final normalizedTag = slug(recipe.tag);
-    return normalizedTag == category.id ||
-        normalizedTag == slug(category.title);
+    return slug(recipe.categoryId) == category.id ||
+        slug(recipe.categoryName) == category.id ||
+        slug(recipe.categoryName) == slug(category.title);
   }
 
   static String slug(String value) {

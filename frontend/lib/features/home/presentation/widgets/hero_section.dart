@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/app/router.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
+import 'package:frontend/core/images/optimized_network_image.dart';
 import 'package:frontend/core/localization/app_strings.dart';
 import 'package:frontend/shared/bookmarks/bookmark_button.dart';
 import 'package:frontend/shared/bookmarks/bookmark_store.dart';
@@ -87,7 +88,7 @@ class _DesktopHeroLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final heroHeight = width < 1280 ? 540.0 : 560.0;
+    final heroHeight = width < 1280 ? 540.0 : 580.0;
 
     return SizedBox(
       height: heroHeight,
@@ -399,14 +400,27 @@ class _HeroPhotoPlaceholder extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (hasImage)
-          Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            errorBuilder: (context, error, stackTrace) {
-              return _HeroPhotoFallback(
-                recipe: recipe,
-                isDarkTheme: isDarkTheme,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+              final cacheWidth = _cacheDimension(
+                constraints.maxWidth,
+                devicePixelRatio,
+                max: 1440,
+              );
+
+              return OptimizedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                cacheWidth: cacheWidth ?? 1200,
+                quality: 78,
+                errorBuilder: (context, error, stackTrace) {
+                  return _HeroPhotoFallback(
+                    recipe: recipe,
+                    isDarkTheme: isDarkTheme,
+                  );
+                },
               );
             },
           )
@@ -524,8 +538,6 @@ class _TiltedRecipeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final strings = AppStrings.of(context);
-    final bookmarks = BookmarkScope.of(context);
-    final isSaved = bookmarks.isRecipeSaved(recipe);
     final likes = _formatLikes((recipe.rating * 390).round() + 610);
     final baseWidth = compact ? 268.0 : 292.0;
     final cardWidth = maxWidth == null || maxWidth! > baseWidth
@@ -534,83 +546,110 @@ class _TiltedRecipeCard extends StatelessWidget {
 
     return Transform.rotate(
       angle: compact ? 0.025 : 0.055,
-      child: Container(
-        width: cardWidth,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        decoration: BoxDecoration(
-          color: palette.recipeCardBackground.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: palette.borders.withValues(alpha: 0.82)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 24,
-              offset: const Offset(0, 14),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            Navigator.of(context).pushNamed(
+              AppRouter.recipeDetailsPath(recipe.id),
+              arguments: recipe,
+            );
+          },
+          child: Container(
+            width: cardWidth,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            decoration: BoxDecoration(
+              color: palette.recipeCardBackground.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: palette.borders.withValues(alpha: 0.82),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 24,
+                  offset: const Offset(0, 14),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Text(
-                    strings.recipeOfTheDay,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: palette.secondaryText,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        strings.recipeOfTheDay,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: palette.secondaryText,
+                        ),
+                      ),
                     ),
-                  ),
+                    _HeroRecipeBookmarkButton(recipe: recipe),
+                  ],
                 ),
-                BookmarkButton(
-                  isSaved: isSaved,
-                  onPressed: () {
-                    bookmarks.toggleRecipe(recipe);
-                  },
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  recipe.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(height: 1.2),
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              recipe.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(height: 1.2),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                _MetaChip(
-                  icon: Icons.star_rounded,
-                  label: recipe.rating.toStringAsFixed(1),
-                  iconColor: const Color(0xFFE5A03C),
-                ),
-                _MetaChip(
-                  icon: Icons.schedule_rounded,
-                  label: '${recipe.minutes} ${strings.minutesShort}',
-                  iconColor: palette.icons,
-                ),
-                _MetaChip(
-                  icon: Icons.local_fire_department_rounded,
-                  label: _difficulty(recipe.minutes, strings),
-                  iconColor: recipe.accentColor,
-                ),
-                _MetaChip(
-                  icon: Icons.favorite_rounded,
-                  label: likes,
-                  iconColor: const Color(0xFFD56E5A),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    _MetaChip(
+                      icon: Icons.star_rounded,
+                      label: recipe.rating.toStringAsFixed(1),
+                      iconColor: const Color(0xFFE5A03C),
+                    ),
+                    _MetaChip(
+                      icon: Icons.schedule_rounded,
+                      label: '${recipe.minutes} ${strings.minutesShort}',
+                      iconColor: palette.icons,
+                    ),
+                    _MetaChip(
+                      icon: Icons.local_fire_department_rounded,
+                      label: _difficulty(recipe.minutes, strings),
+                      iconColor: recipe.accentColor,
+                    ),
+                    _MetaChip(
+                      icon: Icons.favorite_rounded,
+                      label: likes,
+                      iconColor: const Color(0xFFD56E5A),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroRecipeBookmarkButton extends StatelessWidget {
+  const _HeroRecipeBookmarkButton({required this.recipe});
+
+  final RecipeModel recipe;
+
+  @override
+  Widget build(BuildContext context) {
+    final bookmarks = BookmarkScope.of(context);
+    final isSaved = bookmarks.isRecipeSaved(recipe);
+
+    return BookmarkButton(
+      isSaved: isSaved,
+      onPressed: () {
+        bookmarks.toggleRecipe(recipe);
+      },
     );
   }
 }
@@ -735,4 +774,16 @@ String _formatLikes(int likes) {
     return '${formatted.toStringAsFixed(decimals)}k';
   }
   return likes.toString();
+}
+
+int? _cacheDimension(double logicalSize, double devicePixelRatio, {int? max}) {
+  if (!logicalSize.isFinite || logicalSize <= 0) {
+    return null;
+  }
+
+  final dimension = (logicalSize * devicePixelRatio).round();
+  if (max == null) {
+    return dimension;
+  }
+  return dimension.clamp(1, max);
 }
