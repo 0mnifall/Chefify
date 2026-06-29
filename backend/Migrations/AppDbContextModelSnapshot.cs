@@ -99,9 +99,6 @@ namespace backend.Migrations
                     b.Property<int?>("Difficulty")
                         .HasColumnType("integer");
 
-                    b.Property<float>("Rating")
-                        .HasColumnType("real");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -246,11 +243,67 @@ namespace backend.Migrations
                                 .HasForeignKey("RecipeId");
                         });
 
+                    b.OwnsOne("backend.Dto.RecipeRating", "Rating", b1 =>
+                        {
+                            b1.Property<int>("RecipeId")
+                                .HasColumnType("integer");
+
+                            b1.Property<float>("Avg")
+                                .HasColumnType("real");
+
+                            b1.PrimitiveCollection<List<int>>("ByRate")
+                                .IsRequired()
+                                .HasColumnType("integer[]");
+
+                            b1.Property<int>("Quantity")
+                                .HasColumnType("integer");
+
+                            b1.HasKey("RecipeId");
+
+                            b1.ToTable("Recipes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecipeId");
+                        });
+
+                    b.OwnsMany("backend.Dto.RecipeReview", "Reviews", b1 =>
+                        {
+                            b1.Property<int>("RecipeId")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
+
+                            b1.Property<string>("Overview")
+                                .HasColumnType("text");
+
+                            b1.Property<int>("Rate")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("ReviewerId")
+                                .HasColumnType("integer");
+
+                            b1.HasKey("RecipeId", "Id");
+
+                            b1.ToTable("RecipeReview");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecipeId");
+                        });
+
                     b.Navigation("Blocks");
 
                     b.Navigation("Category");
 
                     b.Navigation("Creator");
+
+                    b.Navigation("Rating")
+                        .IsRequired();
+
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("backend.Models.RecipeIngredient", b =>

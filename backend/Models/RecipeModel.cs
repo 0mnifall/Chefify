@@ -10,11 +10,13 @@ public class Recipe
     public int? CookingTime { get; set; }
     public int? Difficulty { get; set; }
 
-    public float Rating { get; set; }
+    public /*required*/ RecipeRating Rating { get; set; }
     public Category? Category { get; set; }
     public required List<Tag> Tags { get; set; } = [];
     
     public required List<BlockTemplate> Blocks { get; set; } = [];
+
+    public List<RecipeReview> Reviews { get; set; } = [];
     
     public int CreatorId { get; set; }
     public User Creator { get; set; }

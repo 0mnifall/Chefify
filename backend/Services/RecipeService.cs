@@ -24,6 +24,7 @@ public class RecipeService(AppDbContext context)
             Description = dto.Description,
             CookingTime = dto.CookingTime,
             Difficulty = dto.Difficulty,
+            Rating = new RecipeRating(),
             Category = await context.Categories.FindAsync(dto.CategoryId),
             Tags = tags,
             Blocks = dto.Blocks,
@@ -84,6 +85,7 @@ public class RecipeService(AppDbContext context)
     {
         return await context.Recipes
             .Include(r => r.Creator)
+            .Include(r => r.Rating)
             .Include(r => r.Category)
             .Include(r => r.Tags)
             .Include(r =>  r.Blocks)
@@ -97,7 +99,7 @@ public class RecipeService(AppDbContext context)
             Description = recipe.Description,
             CookingTime = recipe.CookingTime,
             Difficulty = recipe.Difficulty,
-            
+            Rating = recipe.Rating.Avg,
             Category = recipe.Category != null ? new CategoryPreviewDto
             {
                 Id = recipe.Category.Id,
@@ -140,5 +142,42 @@ public class RecipeService(AppDbContext context)
         
         context.Recipes.Update(recipe);
         await  context.SaveChangesAsync();
+    }
+
+    public async Task<Recipe?> GetRecipeForRatingReview(int id)
+    {
+        return await context.Recipes
+            .Include(r => r.Rating)
+            .Include(r => r.Reviews)
+            .FirstOrDefaultAsync(r => r.Id == id);
+    }
+
+    private async Task CalculateAvgRating(Recipe recipe)
+    {
+        int sum = 0;
+        for (int i = 1; i <= 5; i++)
+        {
+            sum += recipe.Rating.ByRate[i - 1] * i;
+        }
+
+        recipe.Rating.Avg = Single.Round(sum / (float)recipe.Rating.Quantity, 2);
+        
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UploadReview(Recipe recipe, CreateRecipeReview review, int reviewerId)
+    {
+        recipe.Rating.Quantity++;
+        recipe.Rating.ByRate[review.Rate - 1]++;
+        await CalculateAvgRating(recipe);
+        
+        recipe.Reviews.Add(new RecipeReview
+        {
+            ReviewerId = reviewerId,
+            Rate = review.Rate,
+            Overview = review.Overview
+        });
+        
+        await context.SaveChangesAsync();
     }
 }

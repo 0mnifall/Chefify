@@ -34,6 +34,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Recipe>()
             .OwnsMany(r => r.Blocks);
         
+        modelBuilder.Entity<Recipe>()
+            .OwnsMany(r => r.Reviews);
+        
+        modelBuilder.Entity<Recipe>()
+            .OwnsOne(r => r.Rating);
+        
         base.OnModelCreating(modelBuilder);
     }
 }

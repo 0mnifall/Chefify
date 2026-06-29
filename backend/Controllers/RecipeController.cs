@@ -84,4 +84,20 @@ public class RecipeController(RecipeService service) : ControllerBase
         
         return NoContent();
     }
+
+    [HttpPost("{id}/review")]
+    [Authorize(Roles = "User,Admin")]
+    public async Task<IActionResult> UploadReview(int id, CreateRecipeReview review)
+    {
+        var recipe = await service.GetRecipeForRatingReview(id);
+
+        if (recipe == null)
+        {
+            return NotFound();
+        }
+
+        await service.UploadReview(recipe, review, int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value));
+
+        return Ok();
+    }
 }

@@ -33,6 +33,8 @@ public class AdminUsersController(UserService service, AuthService auth) : Contr
         {
             return NotFound();
         }
+
+        await service.UpdateUser(user, dto);
         
         return Ok();
     }

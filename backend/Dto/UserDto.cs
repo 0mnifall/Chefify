@@ -6,5 +6,9 @@ namespace backend.Dto;
 public class UserDto
 {
     public required string Username { get; set; }
-    //public string ProfilePictureRef { get; set; }
+    //  TO DO
+    //
+    //  Recipes
+    //
+    //  public string ProfilePictureRef { get; set; }
 }
