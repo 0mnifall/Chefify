@@ -10,7 +10,7 @@ public class Recipe
     public int? CookingTime { get; set; }
     public int? Difficulty { get; set; }
 
-    public /*required*/ RecipeRating Rating { get; set; }
+    public RecipeRating Rating { get; set; } = new RecipeRating();
     public Category? Category { get; set; }
     public required List<Tag> Tags { get; set; } = [];
     
@@ -19,7 +19,7 @@ public class Recipe
     public List<RecipeReview> Reviews { get; set; } = [];
     
     public int CreatorId { get; set; }
-    public User Creator { get; set; }
+    public User Creator { get; set; } = null!;
 
     //public List<RecipeIngredient> RecipeIngredients { get; set; }
 }
