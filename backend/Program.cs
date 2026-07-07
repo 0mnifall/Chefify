@@ -1,5 +1,4 @@
 using backend.Data;
-using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -8,26 +7,63 @@ using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<RecipeService>();
+builder.Services.AddScoped<RecipeQueryService>();
+builder.Services.AddScoped<RecipeCommandService>();
+builder.Services.AddScoped<RecipeReviewService>();
+builder.Services.AddScoped<RecipeAuthorizationService>();
+builder.Services.AddScoped<AdminRecipeService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<CategoryService>();
 
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
+
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFlutter", policy =>
     {
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? [];
+
+        if (allowedOrigins.Length == 0)
+        {
+            if (!builder.Environment.IsDevelopment())
+            {
+                throw new InvalidOperationException("Cors:AllowedOrigins is not configured.");
+            }
+
+            allowedOrigins =
+            [
+                "http://localhost:8088",
+                "http://localhost:8089",
+                "http://localhost:8090"
+            ];
+        }
+
         policy
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowAnyOrigin();
+            .AllowAnyMethod();
     });
 });
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Jwt:Key is not configured.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -44,8 +80,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 ValidAudience = builder.Configuration["Jwt:Audience"],
 
                 IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(
-                        builder.Configuration["Jwt:Key"]))
+                    Encoding.UTF8.GetBytes(jwtKey))
             };
     });
 
@@ -90,31 +125,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddControllers();
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-
-    var adminEmail = config["ADMIN_EMAIL"];
-    var adminPassword = config["ADMIN_PASSWORD"];
-
-    if (!context.Users.Any(u => u.Email == adminEmail))
-    {
-        context.Users.Add(new User
-        {
-            Id = 1,
-            Username = "admin",
-            Email = adminEmail!,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
-            Role = Role.Admin
-        });
-
-        context.SaveChanges();
-    }
-}
+await app.InitializeDatabaseAsync();
 
 if (app.Environment.IsDevelopment())
 {

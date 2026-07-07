@@ -7,13 +7,18 @@ namespace backend.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/[controller]")]
-public class AdminRecipeController(RecipeService service) : ControllerBase
+public class AdminRecipeController(RecipeQueryService queries,
+    RecipeCommandService commands,
+    AdminRecipeService adminService) : ControllerBase
 {
     [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> CreateRecipe(CreateRecipeDto dto)
     {
-        await service.AddRecipe(dto, 1);
+        if (await commands.AddRecipe(dto, 1) == 0)
+        {
+            return BadRequest("Invalid category ID.");
+        }
         
         return Ok();
     }
@@ -22,14 +27,19 @@ public class AdminRecipeController(RecipeService service) : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateRecipe(int id, AdminRecipeDto dto)
     {
-        var recipe = await service.GetRecipeForPatch(id);
+        var recipe = await queries.GetRecipeForPatch(id);
         
         if (recipe == null)
         {
             return NotFound();
         }
         
-        await service.UpdateRecipe(recipe, dto);
+        var error = await adminService.UpdateRecipe(recipe, dto);
+
+        if (error != null)
+        {
+            return BadRequest(error);
+        }
         
         return NoContent();
     }
@@ -38,14 +48,14 @@ public class AdminRecipeController(RecipeService service) : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRecipe(int id)
     {
-        var recipe = await service.GetRecipeForDeleting(id);
+        var recipe = await queries.GetRecipeForDeleting(id);
         
         if (recipe == null)
         {
             return NotFound();
         }
 
-        await service.DeleteRecipe(recipe);
+        await commands.DeleteRecipe(recipe);
         
         return NoContent();
     }

@@ -39,7 +39,8 @@ public class AuthService(AppDbContext context, IConfiguration configuration)
             Id = u.Id,
             Username = u.Username,
             Email = u.Email,
-            PasswordHash = u.PasswordHash,
+            Role = u.Role,
+            PasswordHash = u.PasswordHash
         }).FirstOrDefaultAsync(s => s.Email == email);
     }
     

@@ -3,13 +3,8 @@ using backend.Models;
 
 namespace backend.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
-        : base(options)
-    {
-    }
-    
     public DbSet<Recipe> Recipes { get; set; }
     
     public DbSet<Category> Categories { get; set; }
@@ -35,6 +30,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Category>()
             .HasIndex(c => c.Name)
             .IsUnique();
+        
+        modelBuilder.Entity<Recipe>()
+            .OwnsMany(r => r.Blocks);
+        
+        modelBuilder.Entity<Recipe>()
+            .OwnsMany(r => r.Reviews);
+        
+        modelBuilder.Entity<Recipe>()
+            .OwnsOne(r => r.Rating);
         
         base.OnModelCreating(modelBuilder);
     }
