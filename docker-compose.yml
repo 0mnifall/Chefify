@@ -38,6 +38,12 @@ services:
       Jwt__Key: ${JWT_KEY}
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
+      S3__BucketName: ${S3_BUCKET_NAME}
+      S3__Region: ${S3_REGION}
+      S3__AccessKey: ${AWS_ACCESS_KEY_ID}
+      S3__SecretKey: ${AWS_SECRET_ACCESS_KEY}
+      S3__PresignedUrlMinutes: ${S3_PRESIGNED_URL_MINUTES}
+      S3__MaxUploadBytes: ${S3_MAX_UPLOAD_BYTES}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       

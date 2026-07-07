@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Amazon;
+using Amazon.Runtime;
+using Amazon.S3;
+using backend.Options;
 using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +19,38 @@ builder.Services.AddScoped<AdminRecipeService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<S3FileStorageService>();
+
+builder.Services.Configure<S3Options>(builder.Configuration.GetSection(S3Options.SectionName));
+
+builder.Services.AddSingleton<IAmazonS3>(_ =>
+{
+    var s3Options = builder.Configuration
+        .GetSection(S3Options.SectionName)
+        .Get<S3Options>() ?? new S3Options();
+
+    if (string.IsNullOrWhiteSpace(s3Options.BucketName))
+    {
+        throw new InvalidOperationException("S3:BucketName is not configured.");
+    }
+
+    if (string.IsNullOrWhiteSpace(s3Options.Region))
+    {
+        throw new InvalidOperationException("S3:Region is not configured.");
+    }
+
+    var region = RegionEndpoint.GetBySystemName(s3Options.Region);
+
+    if (!string.IsNullOrWhiteSpace(s3Options.AccessKey) &&
+        !string.IsNullOrWhiteSpace(s3Options.SecretKey))
+    {
+        return new AmazonS3Client(
+            new BasicAWSCredentials(s3Options.AccessKey, s3Options.SecretKey),
+            region);
+    }
+
+    return new AmazonS3Client(region);
+});
 
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
