@@ -1664,6 +1664,7 @@ class _RecipeCompactTemplateList extends StatelessWidget {
               vertical: 4,
             ),
             child: _RecipeTemplatePreviewTarget(
+              key: ValueKey('compact-template-${template.title}'),
               template: template,
               child: Material(
                 color: palette.searchBarBackground.withValues(alpha: 0.62),
@@ -1691,6 +1692,7 @@ class _RecipeCompactTemplateList extends StatelessWidget {
 
 class _RecipeTemplatePreviewTarget extends StatefulWidget {
   const _RecipeTemplatePreviewTarget({
+    super.key,
     required this.template,
     required this.child,
   });
@@ -2258,6 +2260,7 @@ class _RecipeBlockInsertZone extends StatelessWidget {
         final active = candidateData.isNotEmpty;
 
         return Material(
+          key: ValueKey('recipe-block-insert-zone-$index'),
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -2959,6 +2962,7 @@ class _RecipeEditorPalette extends StatelessWidget {
       children: [
         for (final template in templates) ...[
           _RecipeTemplatePreviewTarget(
+            key: ValueKey('expanded-template-${template.title}'),
             template: template,
             child: _RecipePaletteItem(
               icon: template.icon,
