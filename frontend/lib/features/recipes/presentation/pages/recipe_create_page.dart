@@ -878,23 +878,10 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 onTemplateSelected: _insertTemplate,
                 onBlockSelected: _insertBlock,
               );
-              final previewPanel = Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: palette.cardsSurface.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(
-                    color: palette.borders.withValues(alpha: 0.72),
-                  ),
-                ),
-                child: Text(
-                  '${_blocks.length} root block ready',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: palette.mainText,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+              final canvasPanel = _RecipeEditorCanvas(
+                blocks: _blocks,
+                selectedBlockId: _selectedBlockId,
+                onBlockSelected: _selectBlock,
               );
 
               if (compact) {
@@ -902,7 +889,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                   children: [
                     palettePanel,
                     const SizedBox(height: AppSpacing.md),
-                    previewPanel,
+                    canvasPanel,
                   ],
                 );
               }
@@ -912,7 +899,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 children: [
                   SizedBox(width: 280, child: palettePanel),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: previewPanel),
+                  Expanded(child: canvasPanel),
                 ],
               );
             },
@@ -925,6 +912,12 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   void _setActiveTab(_RecipeEditorTab tab) {
     setState(() {
       _activeTab = tab;
+    });
+  }
+
+  void _selectBlock(String blockId) {
+    setState(() {
+      _selectedBlockId = blockId;
     });
   }
 
@@ -946,6 +939,207 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       _blocks = [..._blocks, ...blocks];
       _selectedBlockId = blocks.last.id;
     });
+  }
+}
+
+class _RecipeEditorCanvas extends StatelessWidget {
+  const _RecipeEditorCanvas({
+    required this.blocks,
+    required this.selectedBlockId,
+    required this.onBlockSelected,
+  });
+
+  final List<_RecipeEditorBlock> blocks;
+  final String? selectedBlockId;
+  final ValueChanged<String> onBlockSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _RecipeLockedAuthorBlock(),
+          const SizedBox(height: AppSpacing.lg),
+          for (final block in blocks) ...[
+            _RecipeEditorBlockCard(
+              block: block,
+              selectedBlockId: selectedBlockId,
+              depth: 0,
+              onBlockSelected: onBlockSelected,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeLockedAuthorBlock extends StatelessWidget {
+  const _RecipeLockedAuthorBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Transform.translate(
+      offset: const Offset(0, -10),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: palette.searchBarBackground.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: palette.borders.withValues(alpha: 0.74)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: palette.primaryButtons.withValues(alpha: 0.2),
+              child: Text(
+                'CS',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: palette.primaryButtons,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Chef Sofia',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: palette.mainText,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'Author block is locked and comes from the signed-in user.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: palette.secondaryText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.lock_rounded, color: palette.icons, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeEditorBlockCard extends StatelessWidget {
+  const _RecipeEditorBlockCard({
+    required this.block,
+    required this.selectedBlockId,
+    required this.depth,
+    required this.onBlockSelected,
+  });
+
+  final _RecipeEditorBlock block;
+  final String? selectedBlockId;
+  final int depth;
+  final ValueChanged<String> onBlockSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final selected = selectedBlockId == block.id;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        onTap: () => onBlockSelected(block.id),
+        child: Container(
+          padding: EdgeInsets.all(depth == 0 ? AppSpacing.md : AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: palette.recipeCardBackground.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: selected
+                  ? palette.primaryButtons
+                  : palette.borders.withValues(alpha: 0.72),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    block.kind.icon,
+                    size: 18,
+                    color: palette.primaryButtons,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      block.kind.label,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: palette.categoryTags,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (block.title.isNotEmpty)
+                Text(
+                  block.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: palette.mainText,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              if (block.body.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  block.body,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: palette.secondaryText,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+              if (block.children.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                for (final child in block.children) ...[
+                  _RecipeEditorBlockCard(
+                    block: child,
+                    selectedBlockId: selectedBlockId,
+                    depth: depth + 1,
+                    onBlockSelected: onBlockSelected,
+                  ),
+                  if (child != block.children.last)
+                    const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
