@@ -1413,8 +1413,89 @@ class _RecipeEditorBlockCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final widthFactor = switch (block.width) {
+          _RecipeBlockWidth.narrow => 0.56,
+          _RecipeBlockWidth.normal => 0.78,
+          _RecipeBlockWidth.wide => 0.92,
+          _RecipeBlockWidth.full => 1.0,
+        };
+        final alignment = switch (block.alignment) {
+          _RecipeBlockAlignment.left => Alignment.centerLeft,
+          _RecipeBlockAlignment.center => Alignment.center,
+          _RecipeBlockAlignment.right => Alignment.centerRight,
+        };
+
+        return Align(
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: constraints.maxWidth * widthFactor,
+            ),
+            child: _RecipeEditorBlockSurface(
+              block: block,
+              selectedBlockId: selectedBlockId,
+              depth: depth,
+              onBlockSelected: onBlockSelected,
+              onBlockTitleChanged: onBlockTitleChanged,
+              onBlockBodyChanged: onBlockBodyChanged,
+              onDuplicateBlock: onDuplicateBlock,
+              onDeleteBlock: onDeleteBlock,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RecipeEditorBlockSurface extends StatelessWidget {
+  const _RecipeEditorBlockSurface({
+    required this.block,
+    required this.selectedBlockId,
+    required this.depth,
+    required this.onBlockSelected,
+    required this.onBlockTitleChanged,
+    required this.onBlockBodyChanged,
+    required this.onDuplicateBlock,
+    required this.onDeleteBlock,
+  });
+
+  final _RecipeEditorBlock block;
+  final String? selectedBlockId;
+  final int depth;
+  final ValueChanged<String> onBlockSelected;
+  final void Function(String blockId, String title) onBlockTitleChanged;
+  final void Function(String blockId, String body) onBlockBodyChanged;
+  final ValueChanged<String> onDuplicateBlock;
+  final ValueChanged<String> onDeleteBlock;
+
+  @override
+  Widget build(BuildContext context) {
     final palette = context.palette;
     final selected = selectedBlockId == block.id;
+    final padding = switch (block.spacing) {
+      _RecipeBlockSpacing.compact => AppSpacing.sm,
+      _RecipeBlockSpacing.normal => depth == 0 ? AppSpacing.md : AppSpacing.sm,
+      _RecipeBlockSpacing.spacious => AppSpacing.lg,
+    };
+    final gap = switch (block.spacing) {
+      _RecipeBlockSpacing.compact => AppSpacing.xs,
+      _RecipeBlockSpacing.normal => AppSpacing.sm,
+      _RecipeBlockSpacing.spacious => AppSpacing.md,
+    };
+    final background = switch (block.variant) {
+      _RecipeBlockVariant.simple => palette.recipeCardBackground.withValues(
+        alpha: 0.72,
+      ),
+      _RecipeBlockVariant.cards => palette.searchBarBackground.withValues(
+        alpha: 0.76,
+      ),
+      _RecipeBlockVariant.timeline => palette.recipeCardBackground.withValues(
+        alpha: 0.64,
+      ),
+    };
 
     return Material(
       color: Colors.transparent,
@@ -1422,15 +1503,24 @@ class _RecipeEditorBlockCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         onTap: () => onBlockSelected(block.id),
         child: Container(
-          padding: EdgeInsets.all(depth == 0 ? AppSpacing.md : AppSpacing.sm),
+          padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
-            color: palette.recipeCardBackground.withValues(alpha: 0.72),
+            color: background,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             border: Border.all(
               color: selected
                   ? palette.primaryButtons
                   : palette.borders.withValues(alpha: 0.72),
             ),
+            boxShadow: block.variant == _RecipeBlockVariant.cards
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1470,7 +1560,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
+              SizedBox(height: gap),
               if (block.kind == _RecipeBlockKind.divider)
                 Divider(color: palette.borders.withValues(alpha: 0.8))
               else
@@ -1495,7 +1585,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                   ),
                 ),
               if (block.kind != _RecipeBlockKind.divider) ...[
-                const SizedBox(height: AppSpacing.xs),
+                SizedBox(height: gap / 2),
                 TextFormField(
                   key: ValueKey('${block.id}-body'),
                   initialValue: block.body,
@@ -1519,7 +1609,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                 ),
               ],
               if (block.children.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
+                SizedBox(height: gap),
                 for (final child in block.children) ...[
                   _RecipeEditorBlockCard(
                     block: child,
@@ -1531,8 +1621,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                     onDuplicateBlock: onDuplicateBlock,
                     onDeleteBlock: onDeleteBlock,
                   ),
-                  if (child != block.children.last)
-                    const SizedBox(height: AppSpacing.sm),
+                  if (child != block.children.last) SizedBox(height: gap),
                 ],
               ],
             ],
