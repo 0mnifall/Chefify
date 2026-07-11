@@ -1623,6 +1623,9 @@ class _RecipeEditorBlockCard extends StatelessWidget {
           _RecipeBlockWidth.wide => 0.92,
           _RecipeBlockWidth.full => 1.0,
         };
+        final effectiveWidthFactor = constraints.maxWidth < 420
+            ? 1.0
+            : widthFactor;
         final alignment = switch (block.alignment) {
           _RecipeBlockAlignment.left => Alignment.centerLeft,
           _RecipeBlockAlignment.center => Alignment.center,
@@ -1633,7 +1636,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: constraints.maxWidth * widthFactor,
+              maxWidth: constraints.maxWidth * effectiveWidthFactor,
             ),
             child: _RecipeEditorBlockSurface(
               block: block,
