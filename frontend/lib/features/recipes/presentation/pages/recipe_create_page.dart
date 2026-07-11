@@ -885,6 +885,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 onBlockTitleChanged: _updateBlockTitle,
                 onBlockBodyChanged: _updateBlockBody,
                 onInsertParagraphAt: _insertParagraphAt,
+                onMoveBlock: _moveRootBlock,
               );
 
               if (compact) {
@@ -976,6 +977,27 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
+  void _moveRootBlock(String blockId, int targetIndex) {
+    final currentIndex = _blocks.indexWhere((block) => block.id == blockId);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    setState(() {
+      final nextBlocks = [..._blocks];
+      final block = nextBlocks.removeAt(currentIndex);
+      final adjustedIndex = currentIndex < targetIndex
+          ? targetIndex - 1
+          : targetIndex;
+      nextBlocks.insert(
+        adjustedIndex.clamp(0, nextBlocks.length).toInt(),
+        block,
+      );
+      _blocks = nextBlocks;
+      _selectedBlockId = block.id;
+    });
+  }
+
   void _insertRootBlocks(List<_RecipeEditorBlock> blocks) {
     if (blocks.isEmpty) {
       return;
@@ -996,6 +1018,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
     required this.onInsertParagraphAt,
+    required this.onMoveBlock,
   });
 
   final List<_RecipeEditorBlock> blocks;
@@ -1004,6 +1027,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
   final ValueChanged<int> onInsertParagraphAt;
+  final void Function(String blockId, int targetIndex) onMoveBlock;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,16 +1050,32 @@ class _RecipeEditorCanvas extends StatelessWidget {
             _RecipeBlockInsertZone(
               index: index,
               onPressed: () => onInsertParagraphAt(index),
+              onMoveBlock: onMoveBlock,
             ),
             if (index < blocks.length) ...[
               const SizedBox(height: AppSpacing.xs),
-              _RecipeEditorBlockCard(
-                block: blocks[index],
-                selectedBlockId: selectedBlockId,
-                depth: 0,
-                onBlockSelected: onBlockSelected,
-                onBlockTitleChanged: onBlockTitleChanged,
-                onBlockBodyChanged: onBlockBodyChanged,
+              LongPressDraggable<String>(
+                data: blocks[index].id,
+                feedback: _RecipeBlockDragFeedback(block: blocks[index]),
+                childWhenDragging: Opacity(
+                  opacity: 0.38,
+                  child: _RecipeEditorBlockCard(
+                    block: blocks[index],
+                    selectedBlockId: selectedBlockId,
+                    depth: 0,
+                    onBlockSelected: onBlockSelected,
+                    onBlockTitleChanged: onBlockTitleChanged,
+                    onBlockBodyChanged: onBlockBodyChanged,
+                  ),
+                ),
+                child: _RecipeEditorBlockCard(
+                  block: blocks[index],
+                  selectedBlockId: selectedBlockId,
+                  depth: 0,
+                  onBlockSelected: onBlockSelected,
+                  onBlockTitleChanged: onBlockTitleChanged,
+                  onBlockBodyChanged: onBlockBodyChanged,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
             ],
@@ -1107,10 +1147,66 @@ class _RecipeLockedAuthorBlock extends StatelessWidget {
 }
 
 class _RecipeBlockInsertZone extends StatelessWidget {
-  const _RecipeBlockInsertZone({required this.index, required this.onPressed});
+  const _RecipeBlockInsertZone({
+    required this.index,
+    required this.onPressed,
+    required this.onMoveBlock,
+  });
 
   final int index;
   final VoidCallback onPressed;
+  final void Function(String blockId, int targetIndex) onMoveBlock;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+      onAcceptWithDetails: (details) => onMoveBlock(details.data, index),
+      builder: (context, candidateData, rejectedData) {
+        final active = candidateData.isNotEmpty;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: active ? 42 : 34,
+              decoration: BoxDecoration(
+                color: active
+                    ? palette.primaryButtons.withValues(alpha: 0.16)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: active
+                      ? palette.primaryButtons
+                      : palette.borders.withValues(alpha: 0.58),
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  active
+                      ? Icons.vertical_align_center_rounded
+                      : Icons.add_rounded,
+                  size: 20,
+                  color: palette.primaryButtons,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RecipeBlockDragFeedback extends StatelessWidget {
+  const _RecipeBlockDragFeedback({required this.block});
+
+  final _RecipeEditorBlock block;
 
   @override
   Widget build(BuildContext context) {
@@ -1118,22 +1214,40 @@ class _RecipeBlockInsertZone extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Container(
-          height: 34,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: palette.borders.withValues(alpha: 0.58)),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.add_rounded,
-              size: 20,
-              color: palette.primaryButtons,
+      child: Container(
+        width: 280,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: palette.navbarBackground.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(color: palette.primaryButtons),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(block.kind.icon, size: 18, color: palette.primaryButtons),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                block.title.isEmpty ? block.kind.label : block.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.mainText,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
