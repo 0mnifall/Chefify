@@ -1482,6 +1482,65 @@ class _RecipeCompactPalette extends StatelessWidget {
           ),
         ),
         const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: activeTab == _RecipeEditorTab.templates
+                ? _RecipeCompactTemplateList(
+                    templates: templates,
+                    onSelected: onTemplateSelected,
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeCompactTemplateList extends StatelessWidget {
+  const _RecipeCompactTemplateList({
+    required this.templates,
+    required this.onSelected,
+  });
+
+  final List<_RecipeTemplateDefinition> templates;
+  final ValueChanged<_RecipeTemplateDefinition> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      children: [
+        for (final template in templates)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: 4,
+            ),
+            child: Tooltip(
+              message: template.title,
+              preferBelow: false,
+              child: Material(
+                color: palette.searchBarBackground.withValues(alpha: 0.62),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                child: InkWell(
+                  onTap: () => onSelected(template),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  child: SizedBox(
+                    width: 80,
+                    height: 68,
+                    child: Icon(
+                      template.icon,
+                      size: 28,
+                      color: palette.primaryButtons,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
