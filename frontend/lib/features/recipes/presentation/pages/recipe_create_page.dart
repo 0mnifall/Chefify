@@ -614,7 +614,7 @@ class _RecipeCreateContent extends StatelessWidget {
           onCancelTagInput: onCancelTagInput,
           onPickImage: onPickImage,
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        const SizedBox(height: 160),
         _RecipeBodyEditor(scrollController: scrollController),
       ],
     );
@@ -2190,7 +2190,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
-              160,
+              AppSpacing.lg,
               AppSpacing.lg,
               AppSpacing.lg,
             ),
@@ -2253,7 +2253,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: -58,
+            top: -192,
             right: -14,
             child: Transform.rotate(
               angle: -0.075,
