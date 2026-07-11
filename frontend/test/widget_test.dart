@@ -293,7 +293,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 180));
       final targetRect = tester.getRect(target);
       final targetOffset = Offset(
-        escapeParent ? targetRect.left + 12 : targetRect.center.dx,
+        escapeParent
+            ? targetRect.left + (targetRect.width * 0.55)
+            : targetRect.center.dx,
         targetRect.center.dy,
       );
       await gesture.moveTo(
