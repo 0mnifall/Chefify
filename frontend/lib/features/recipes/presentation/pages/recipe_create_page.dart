@@ -2229,6 +2229,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       hoveredBlockId: hoveredBlockId,
                       parentBlockId: null,
                       depth: 0,
+                      avoidAuthorOverlay: index == 0,
                       canMoveBlock: canMoveBlock,
                       onMoveBlock: onMoveBlock,
                       onBlockSelected: onBlockSelected,
@@ -2651,6 +2652,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    this.avoidAuthorOverlay = false,
     required this.canMoveBlock,
     required this.onMoveBlock,
     required this.onBlockSelected,
@@ -2664,6 +2666,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final bool avoidAuthorOverlay;
   final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
   canMoveBlock;
   final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
@@ -2686,6 +2689,11 @@ class _RecipeEditorBlockCard extends StatelessWidget {
         final effectiveWidthFactor = constraints.maxWidth < 420
             ? 1.0
             : widthFactor;
+        final blockWidth = constraints.maxWidth * effectiveWidthFactor;
+        final deleteButtonOffset =
+            avoidAuthorOverlay && constraints.maxWidth >= 760
+            ? constraints.maxWidth - blockWidth + 70
+            : 0.0;
         final alignment = switch (block.alignment) {
           _RecipeBlockAlignment.left => Alignment.centerLeft,
           _RecipeBlockAlignment.center => Alignment.center,
@@ -2695,15 +2703,14 @@ class _RecipeEditorBlockCard extends StatelessWidget {
         return Align(
           alignment: alignment,
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: constraints.maxWidth * effectiveWidthFactor,
-            ),
+            constraints: BoxConstraints(maxWidth: blockWidth),
             child: _RecipeEditorBlockSurface(
               block: block,
               selectedBlockId: selectedBlockId,
               hoveredBlockId: hoveredBlockId,
               parentBlockId: parentBlockId,
               depth: depth,
+              deleteButtonOffset: deleteButtonOffset,
               canMoveBlock: canMoveBlock,
               onMoveBlock: onMoveBlock,
               onBlockSelected: onBlockSelected,
@@ -2725,6 +2732,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    required this.deleteButtonOffset,
     required this.canMoveBlock,
     required this.onMoveBlock,
     required this.onBlockSelected,
@@ -2738,6 +2746,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final double deleteButtonOffset;
   final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
   canMoveBlock;
   final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
@@ -2848,13 +2857,18 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                                       ),
                                 ),
                               ),
-                              IconButton(
-                                tooltip: 'Delete block',
-                                onPressed: () => onDeleteBlock(block.id),
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                iconSize: 18,
-                                visualDensity: VisualDensity.compact,
-                                color: palette.icons,
+                              Transform.translate(
+                                offset: Offset(deleteButtonOffset, 0),
+                                child: IconButton(
+                                  tooltip: 'Delete block',
+                                  onPressed: () => onDeleteBlock(block.id),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                  ),
+                                  iconSize: 18,
+                                  visualDensity: VisualDensity.compact,
+                                  color: palette.icons,
+                                ),
                               ),
                             ],
                           ),
@@ -3029,6 +3043,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         hoveredBlockId: hoveredBlockId,
         parentBlockId: block.id,
         depth: depth + 1,
+        avoidAuthorOverlay: false,
         canMoveBlock: canMoveBlock,
         onMoveBlock: onMoveBlock,
         onBlockSelected: onBlockSelected,
