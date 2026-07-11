@@ -882,6 +882,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 blocks: _blocks,
                 selectedBlockId: _selectedBlockId,
                 onBlockSelected: _selectBlock,
+                onBlockTitleChanged: _updateBlockTitle,
+                onBlockBodyChanged: _updateBlockBody,
               );
 
               if (compact) {
@@ -921,6 +923,37 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
+  void _updateBlockTitle(String blockId, String title) {
+    _updateBlock(blockId, (block) => block.copyWith(title: title));
+  }
+
+  void _updateBlockBody(String blockId, String body) {
+    _updateBlock(blockId, (block) => block.copyWith(body: body));
+  }
+
+  void _updateBlock(
+    String blockId,
+    _RecipeEditorBlock Function(_RecipeEditorBlock block) update,
+  ) {
+    setState(() {
+      _blocks = _mapBlocks(_blocks, blockId, update);
+    });
+  }
+
+  List<_RecipeEditorBlock> _mapBlocks(
+    List<_RecipeEditorBlock> blocks,
+    String blockId,
+    _RecipeEditorBlock Function(_RecipeEditorBlock block) update,
+  ) {
+    return [
+      for (final block in blocks)
+        if (block.id == blockId)
+          update(block)
+        else
+          block.copyWith(children: _mapBlocks(block.children, blockId, update)),
+    ];
+  }
+
   void _insertTemplate(_RecipeTemplateDefinition template) {
     final blocks = template.createBlocks(_newBlockId);
     _insertRootBlocks(blocks);
@@ -947,11 +980,15 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.blocks,
     required this.selectedBlockId,
     required this.onBlockSelected,
+    required this.onBlockTitleChanged,
+    required this.onBlockBodyChanged,
   });
 
   final List<_RecipeEditorBlock> blocks;
   final String? selectedBlockId;
   final ValueChanged<String> onBlockSelected;
+  final void Function(String blockId, String title) onBlockTitleChanged;
+  final void Function(String blockId, String body) onBlockBodyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -976,6 +1013,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
               selectedBlockId: selectedBlockId,
               depth: 0,
               onBlockSelected: onBlockSelected,
+              onBlockTitleChanged: onBlockTitleChanged,
+              onBlockBodyChanged: onBlockBodyChanged,
             ),
             const SizedBox(height: AppSpacing.md),
           ],
@@ -1051,12 +1090,16 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.selectedBlockId,
     required this.depth,
     required this.onBlockSelected,
+    required this.onBlockTitleChanged,
+    required this.onBlockBodyChanged,
   });
 
   final _RecipeEditorBlock block;
   final String? selectedBlockId;
   final int depth;
   final ValueChanged<String> onBlockSelected;
+  final void Function(String blockId, String title) onBlockTitleChanged;
+  final void Function(String blockId, String body) onBlockBodyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1102,23 +1145,50 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              if (block.title.isNotEmpty)
-                Text(
-                  block.title,
+              if (block.kind == _RecipeBlockKind.divider)
+                Divider(color: palette.borders.withValues(alpha: 0.8))
+              else
+                TextFormField(
+                  key: ValueKey('${block.id}-title'),
+                  initialValue: block.title,
+                  maxLines: 1,
+                  onTap: () => onBlockSelected(block.id),
+                  onChanged: (value) => onBlockTitleChanged(block.id, value),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: palette.mainText,
                     fontWeight: FontWeight.w900,
                   ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Block title',
+                    hintStyle: TextStyle(
+                      color: palette.secondaryText.withValues(alpha: 0.66),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-              if (block.body.isNotEmpty) ...[
+              if (block.kind != _RecipeBlockKind.divider) ...[
                 const SizedBox(height: AppSpacing.xs),
-                Text(
-                  block.body,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
+                TextFormField(
+                  key: ValueKey('${block.id}-body'),
+                  initialValue: block.body,
+                  minLines: 1,
+                  maxLines: block.kind == _RecipeBlockKind.heading ? 1 : 4,
+                  onTap: () => onBlockSelected(block.id),
+                  onChanged: (value) => onBlockBodyChanged(block.id, value),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: palette.secondaryText,
                     height: 1.35,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Write content',
+                    hintStyle: TextStyle(
+                      color: palette.secondaryText.withValues(alpha: 0.66),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ],
@@ -1130,6 +1200,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                     selectedBlockId: selectedBlockId,
                     depth: depth + 1,
                     onBlockSelected: onBlockSelected,
+                    onBlockTitleChanged: onBlockTitleChanged,
+                    onBlockBodyChanged: onBlockBodyChanged,
                   ),
                   if (child != block.children.last)
                     const SizedBox(height: AppSpacing.sm),
