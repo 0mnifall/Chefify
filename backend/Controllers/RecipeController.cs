@@ -41,7 +41,7 @@ public class RecipeController(RecipeQueryService queries,
             return NotFound();
         }
         
-        if (!recipeAuthorization.CanModifyRecipe(recipe, CurrentUserId))
+        if (!await recipeAuthorization.IsAuthor(recipe.Id, CurrentUserId))
         {
             return Forbid();
         }
@@ -84,7 +84,7 @@ public class RecipeController(RecipeQueryService queries,
             return NotFound();
         }
 
-        if (!recipeAuthorization.CanModifyRecipe(recipe, CurrentUserId))
+        if (!await recipeAuthorization.IsAuthor(recipe.Id, CurrentUserId))
         {
             return Forbid();
         }

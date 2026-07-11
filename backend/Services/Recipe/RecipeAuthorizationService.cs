@@ -1,11 +1,13 @@
 using backend.Models;
+using backend.Data;
 
 namespace backend.Services;
 
-public class RecipeAuthorizationService
+public class RecipeAuthorizationService(AppDbContext context)
 {
-    public bool CanModifyRecipe(Recipe recipe, int userId)
+    public async Task<bool> IsAuthor(int recipeId, int userId)
     {
-        return recipe.CreatorId == userId;
-    }
+        var recipe = await context.Recipes.FindAsync(recipeId);
+        return recipe != null && recipe.CreatorId == userId;
+    } 
 }
