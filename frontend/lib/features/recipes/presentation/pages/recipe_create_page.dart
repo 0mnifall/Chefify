@@ -961,7 +961,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     final canvasPanel = _RecipeEditorCanvas(
       blocks: _blocks,
       selectedBlockId: _selectedBlockId,
-      insertionHint: _insertionHint,
       onBlockSelected: _selectBlock,
       onBlockTitleChanged: _updateBlockTitle,
       onBlockBodyChanged: _updateBlockBody,
@@ -1014,20 +1013,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       return null;
     }
     return _findBlock(_blocks, blockId);
-  }
-
-  String get _insertionHint {
-    final selected = _selectedBlock;
-    if (selected == null) {
-      return 'Palette inserts new content at the end of the recipe.';
-    }
-
-    final depth = _depthOfBlock(_blocks, selected.id) ?? 0;
-    if (selected.canContainChildren && depth < _maxDepth) {
-      return 'Palette inserts into ${selected.title.isEmpty ? selected.kind.label : selected.title}.';
-    }
-
-    return 'Selected block cannot contain more children. Palette inserts at root.';
   }
 
   _RecipeEditorBlock? _findBlock(
@@ -1847,7 +1832,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
   const _RecipeEditorCanvas({
     required this.blocks,
     required this.selectedBlockId,
-    required this.insertionHint,
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
@@ -1859,7 +1843,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
 
   final List<_RecipeEditorBlock> blocks;
   final String? selectedBlockId;
-  final String insertionHint;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
@@ -1881,7 +1864,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
-              156,
+              216,
               AppSpacing.lg,
               AppSpacing.lg,
             ),
@@ -1895,8 +1878,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _RecipeCanvasHint(text: insertionHint),
-                const SizedBox(height: AppSpacing.md),
                 for (var index = 0; index <= blocks.length; index++) ...[
                   _RecipeBlockInsertZone(
                     index: index,
@@ -1944,50 +1925,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
             child: Transform.rotate(
               angle: -0.035,
               child: const _RecipeLockedAuthorBlock(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecipeCanvasHint extends StatelessWidget {
-  const _RecipeCanvasHint({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: palette.primaryButtons.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: palette.primaryButtons.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.alt_route_rounded,
-            size: 18,
-            color: palette.primaryButtons,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: palette.mainText,
-                fontWeight: FontWeight.w700,
-              ),
             ),
           ),
         ],
