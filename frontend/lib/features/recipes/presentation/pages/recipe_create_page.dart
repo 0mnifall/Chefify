@@ -3541,32 +3541,33 @@ class _RecipeCreateMetaChip extends StatelessWidget {
                   : palette.borders.withValues(alpha: 0.72),
             ),
           ),
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 16, color: foregroundColor),
-                  const SizedBox(width: AppSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: palette.mainText,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
+              if (isEditable) const SizedBox(width: 17),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 16, color: foregroundColor),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: palette.mainText,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (isEditable)
-                Positioned(
-                  right: 0,
+                SizedBox(
+                  width: 17,
                   child: Icon(
                     Icons.edit_rounded,
                     size: 13,
