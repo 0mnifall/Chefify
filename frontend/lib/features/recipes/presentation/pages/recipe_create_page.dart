@@ -1994,7 +1994,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
-              216,
+              160,
               AppSpacing.lg,
               AppSpacing.lg,
             ),
