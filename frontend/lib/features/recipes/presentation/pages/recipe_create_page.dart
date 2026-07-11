@@ -2414,7 +2414,7 @@ class _RecipeAuthorMoreButtonState extends State<_RecipeAuthorMoreButton> {
 
 enum _RecipeDropZoneAxis { vertical, horizontal }
 
-class _RecipeBlockDropZone extends StatelessWidget {
+class _RecipeBlockDropZone extends StatefulWidget {
   const _RecipeBlockDropZone({
     required this.target,
     required this.canMoveBlock,
@@ -2430,20 +2430,37 @@ class _RecipeBlockDropZone extends StatelessWidget {
   final _RecipeDropZoneAxis axis;
 
   @override
+  State<_RecipeBlockDropZone> createState() => _RecipeBlockDropZoneState();
+}
+
+class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
+  bool _escapeReady = true;
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final target = widget.target;
 
     return DragTarget<_RecipeBlockDragData>(
-      onWillAcceptWithDetails: (details) => canMoveBlock(details.data, target),
-      onAcceptWithDetails: (details) => onMoveBlock(details.data, target),
+      onWillAcceptWithDetails: _handleWillAccept,
+      onMove: _handleMove,
+      onLeave: (_) => _setEscapeReady(true),
+      onAcceptWithDetails: (details) {
+        if (_escapeReady && widget.canMoveBlock(details.data, target)) {
+          widget.onMoveBlock(details.data, target);
+        }
+      },
       builder: (context, candidateData, rejectedData) {
-        final active = candidateData.isNotEmpty;
-        final invalid = !active && rejectedData.isNotEmpty;
+        final hasCandidate = candidateData.isNotEmpty;
+        final active = hasCandidate && _escapeReady;
+        final invalid =
+            (hasCandidate && !_escapeReady) ||
+            (!hasCandidate && rejectedData.isNotEmpty);
         final color = invalid
             ? Theme.of(context).colorScheme.error
             : palette.primaryButtons;
 
-        if (axis == _RecipeDropZoneAxis.horizontal) {
+        if (widget.axis == _RecipeDropZoneAxis.horizontal) {
           return AnimatedContainer(
             key: ValueKey(
               'recipe-drop-zone-${target.parentId ?? 'root'}-${target.index}',
@@ -2498,9 +2515,41 @@ class _RecipeBlockDropZone extends StatelessWidget {
       },
     );
   }
+
+  bool _handleWillAccept(DragTargetDetails<_RecipeBlockDragData> details) {
+    final valid = widget.canMoveBlock(details.data, widget.target);
+    _setEscapeReady(valid && _isEscapeReady(details.data, details.offset));
+    return valid;
+  }
+
+  void _handleMove(DragTargetDetails<_RecipeBlockDragData> details) {
+    _setEscapeReady(_isEscapeReady(details.data, details.offset));
+  }
+
+  bool _isEscapeReady(_RecipeBlockDragData data, Offset globalOffset) {
+    final levelsOut = data.sourceDepth - widget.target.depth;
+    if (levelsOut <= 0) {
+      return true;
+    }
+
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return false;
+    }
+    final localOffset = renderObject.globalToLocal(globalOffset);
+    final threshold = (38.0 + (levelsOut * 14)).clamp(38.0, 80.0);
+    return localOffset.dx <= threshold;
+  }
+
+  void _setEscapeReady(bool value) {
+    if (_escapeReady == value || !mounted) {
+      return;
+    }
+    setState(() => _escapeReady = value);
+  }
 }
 
-class _RecipeBlockInsertZone extends StatelessWidget {
+class _RecipeBlockInsertZone extends StatefulWidget {
   const _RecipeBlockInsertZone({
     required this.target,
     required this.onPressed,
@@ -2516,34 +2565,59 @@ class _RecipeBlockInsertZone extends StatelessWidget {
   onMoveBlock;
 
   @override
+  State<_RecipeBlockInsertZone> createState() => _RecipeBlockInsertZoneState();
+}
+
+class _RecipeBlockInsertZoneState extends State<_RecipeBlockInsertZone> {
+  bool _escapeReady = true;
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
     return DragTarget<_RecipeBlockDragData>(
-      onWillAcceptWithDetails: (details) => canMoveBlock(details.data, target),
-      onAcceptWithDetails: (details) => onMoveBlock(details.data, target),
+      onWillAcceptWithDetails: (details) {
+        final valid = widget.canMoveBlock(details.data, widget.target);
+        _setEscapeReady(valid && _isEscapeReady(details.data, details.offset));
+        return valid;
+      },
+      onMove: (details) =>
+          _setEscapeReady(_isEscapeReady(details.data, details.offset)),
+      onLeave: (_) => _setEscapeReady(true),
+      onAcceptWithDetails: (details) {
+        if (_escapeReady && widget.canMoveBlock(details.data, widget.target)) {
+          widget.onMoveBlock(details.data, widget.target);
+        }
+      },
       builder: (context, candidateData, rejectedData) {
-        final active = candidateData.isNotEmpty;
+        final hasCandidate = candidateData.isNotEmpty;
+        final active = hasCandidate && _escapeReady;
+        final invalid =
+            (hasCandidate && !_escapeReady) ||
+            (!hasCandidate && rejectedData.isNotEmpty);
+        final activeColor = invalid
+            ? Theme.of(context).colorScheme.error
+            : palette.primaryButtons;
 
         return Material(
           key: ValueKey(
-            'recipe-block-insert-zone-${target.parentId ?? 'root'}-${target.index}',
+            'recipe-block-insert-zone-${widget.target.parentId ?? 'root'}-${widget.target.index}',
           ),
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            onTap: onPressed,
+            onTap: widget.onPressed,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              height: active ? 96 : 84,
+              height: active || invalid ? 96 : 84,
               decoration: BoxDecoration(
-                color: active
-                    ? palette.primaryButtons.withValues(alpha: 0.16)
+                color: active || invalid
+                    ? activeColor.withValues(alpha: 0.16)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 border: Border.all(
-                  color: active
-                      ? palette.primaryButtons
+                  color: active || invalid
+                      ? activeColor
                       : palette.borders.withValues(alpha: 0.58),
                 ),
               ),
@@ -2552,8 +2626,8 @@ class _RecipeBlockInsertZone extends StatelessWidget {
                   active
                       ? Icons.vertical_align_center_rounded
                       : Icons.add_rounded,
-                  size: active ? 34 : 32,
-                  color: palette.primaryButtons,
+                  size: active || invalid ? 34 : 32,
+                  color: activeColor,
                 ),
               ),
             ),
@@ -2561,6 +2635,28 @@ class _RecipeBlockInsertZone extends StatelessWidget {
         );
       },
     );
+  }
+
+  bool _isEscapeReady(_RecipeBlockDragData data, Offset globalOffset) {
+    final levelsOut = data.sourceDepth - widget.target.depth;
+    if (levelsOut <= 0) {
+      return true;
+    }
+
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return false;
+    }
+    final localOffset = renderObject.globalToLocal(globalOffset);
+    final threshold = (38.0 + (levelsOut * 14)).clamp(38.0, 80.0);
+    return localOffset.dx <= threshold;
+  }
+
+  void _setEscapeReady(bool value) {
+    if (_escapeReady == value || !mounted) {
+      return;
+    }
+    setState(() => _escapeReady = value);
   }
 }
 
