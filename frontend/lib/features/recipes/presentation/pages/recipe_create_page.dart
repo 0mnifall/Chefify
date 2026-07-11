@@ -983,10 +983,20 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         selectedBlock: _selectedBlock,
         onTabChanged: _setActiveTab,
         onPaletteExpandedChanged: (value) {
-          setState(() => _paletteExpanded = value);
+          setState(() {
+            _paletteExpanded = value;
+            if (value) {
+              _inspectorExpanded = false;
+            }
+          });
         },
         onInspectorExpandedChanged: (value) {
-          setState(() => _inspectorExpanded = value);
+          setState(() {
+            _inspectorExpanded = value;
+            if (value) {
+              _paletteExpanded = false;
+            }
+          });
         },
         onTemplateSelected: _insertTemplate,
         onBlockSelected: _insertBlock,
