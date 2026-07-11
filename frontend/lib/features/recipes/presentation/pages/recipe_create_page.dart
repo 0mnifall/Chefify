@@ -1385,7 +1385,9 @@ class _RecipeEditorOverlay extends StatelessWidget {
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
           top: top,
-          bottom: AppSpacing.sm,
+          height: inspectorExpanded
+              ? MediaQuery.sizeOf(context).height - top - AppSpacing.sm
+              : 52,
           right: inspectorExpanded ? AppSpacing.sm : 0,
           child: _RecipeInspectorDock(
             expanded: inspectorExpanded,
