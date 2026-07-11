@@ -1372,7 +1372,7 @@ class _RecipePaletteDock extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
-      width: expanded ? 292 : 64,
+      width: expanded ? 292 : 112,
       decoration: BoxDecoration(
         color: palette.navbarBackground.withValues(
           alpha: expanded ? 0.9 : 0.96,
@@ -1419,25 +1419,112 @@ class _RecipePaletteDock extends StatelessWidget {
                 ),
               ],
             )
-          : Column(
-              children: [
-                IconButton(
-                  tooltip: 'Templates',
-                  onPressed: () => onTabChanged(_RecipeEditorTab.templates),
-                  icon: const Icon(Icons.dashboard_customize_rounded),
-                ),
-                IconButton(
-                  tooltip: 'Blocks',
-                  onPressed: () => onTabChanged(_RecipeEditorTab.blocks),
-                  icon: const Icon(Icons.widgets_rounded),
-                ),
-                IconButton(
-                  tooltip: 'Expand block palette',
-                  onPressed: () => onExpandedChanged(true),
-                  icon: const Icon(Icons.chevron_right_rounded),
-                ),
-              ],
+          : _RecipeCompactPalette(
+              activeTab: activeTab,
+              templates: templates,
+              blocks: blocks,
+              onTabChanged: onTabChanged,
+              onExpanded: () => onExpandedChanged(true),
+              onTemplateSelected: onTemplateSelected,
+              onBlockSelected: onBlockSelected,
             ),
+    );
+  }
+}
+
+class _RecipeCompactPalette extends StatelessWidget {
+  const _RecipeCompactPalette({
+    required this.activeTab,
+    required this.templates,
+    required this.blocks,
+    required this.onTabChanged,
+    required this.onExpanded,
+    required this.onTemplateSelected,
+    required this.onBlockSelected,
+  });
+
+  final _RecipeEditorTab activeTab;
+  final List<_RecipeTemplateDefinition> templates;
+  final List<_RecipeBlockDefinition> blocks;
+  final ValueChanged<_RecipeEditorTab> onTabChanged;
+  final VoidCallback onExpanded;
+  final ValueChanged<_RecipeTemplateDefinition> onTemplateSelected;
+  final ValueChanged<_RecipeBlockDefinition> onBlockSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _RecipeCompactTabButton(
+                tooltip: 'Templates',
+                icon: Icons.dashboard_customize_rounded,
+                selected: activeTab == _RecipeEditorTab.templates,
+                onPressed: () => onTabChanged(_RecipeEditorTab.templates),
+              ),
+              _RecipeCompactTabButton(
+                tooltip: 'Blocks',
+                icon: Icons.widgets_rounded,
+                selected: activeTab == _RecipeEditorTab.blocks,
+                onPressed: () => onTabChanged(_RecipeEditorTab.blocks),
+              ),
+              _RecipeCompactTabButton(
+                tooltip: 'Expand block palette',
+                icon: Icons.chevron_right_rounded,
+                selected: false,
+                onPressed: onExpanded,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+class _RecipeCompactTabButton extends StatelessWidget {
+  const _RecipeCompactTabButton({
+    required this.tooltip,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.22)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: SizedBox(
+            width: 32,
+            height: 34,
+            child: Icon(
+              icon,
+              size: 19,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
