@@ -2458,6 +2458,11 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
         final color = invalid
             ? Theme.of(context).colorScheme.error
             : palette.primaryButtons;
+        final lineAlpha = active
+            ? 0.95
+            : invalid
+            ? 0.5
+            : 0.0;
 
         if (widget.axis == _RecipeDropZoneAxis.horizontal) {
           return AnimatedContainer(
@@ -2471,7 +2476,7 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
             alignment: Alignment.center,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 170),
-              width: active || invalid ? 4 : 1,
+              width: active || invalid ? 4 : 0,
               height: active || invalid ? 62 : 24,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -2479,7 +2484,7 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
                   end: Alignment.bottomCenter,
                   colors: [
                     color.withValues(alpha: 0),
-                    color.withValues(alpha: active ? 0.95 : 0.5),
+                    color.withValues(alpha: lineAlpha),
                     color.withValues(alpha: 0),
                   ],
                 ),
@@ -2499,12 +2504,12 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 170),
             width: double.infinity,
-            height: active || invalid ? 4 : 1,
+            height: active || invalid ? 4 : 0,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
                   color.withValues(alpha: 0),
-                  color.withValues(alpha: active ? 0.95 : 0.5),
+                  color.withValues(alpha: lineAlpha),
                   color.withValues(alpha: 0),
                 ],
               ),
