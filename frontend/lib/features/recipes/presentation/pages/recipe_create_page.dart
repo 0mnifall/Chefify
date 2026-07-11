@@ -2200,34 +2200,22 @@ class _RecipeEditorCanvas extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var index = 0; index < blocks.length; index++) ...[
-                  LongPressDraggable<_RecipeBlockDragData>(
+                  _RecipeDraggableBlock(
                     data: _RecipeBlockDragData(
                       blockId: blocks[index].id,
                       sourceParentId: null,
                       sourceIndex: index,
                       sourceDepth: 0,
                     ),
-                    feedback: _RecipeBlockDragFeedback(block: blocks[index]),
-                    childWhenDragging: Opacity(
-                      opacity: 0.38,
-                      child: _RecipeEditorBlockCard(
-                        block: blocks[index],
-                        selectedBlockId: selectedBlockId,
-                        hoveredBlockId: hoveredBlockId,
-                        parentBlockId: null,
-                        depth: 0,
-                        onBlockSelected: onBlockSelected,
-                        onBlockTitleChanged: onBlockTitleChanged,
-                        onBlockBodyChanged: onBlockBodyChanged,
-                        onDeleteBlock: onDeleteBlock,
-                      ),
-                    ),
+                    block: blocks[index],
                     child: _RecipeEditorBlockCard(
                       block: blocks[index],
                       selectedBlockId: selectedBlockId,
                       hoveredBlockId: hoveredBlockId,
                       parentBlockId: null,
                       depth: 0,
+                      canMoveBlock: canMoveBlock,
+                      onMoveBlock: onMoveBlock,
                       onBlockSelected: onBlockSelected,
                       onBlockTitleChanged: onBlockTitleChanged,
                       onBlockBodyChanged: onBlockBodyChanged,
@@ -2524,6 +2512,28 @@ class _RecipeBlockDragFeedback extends StatelessWidget {
   }
 }
 
+class _RecipeDraggableBlock extends StatelessWidget {
+  const _RecipeDraggableBlock({
+    required this.data,
+    required this.block,
+    required this.child,
+  });
+
+  final _RecipeBlockDragData data;
+  final _RecipeEditorBlock block;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LongPressDraggable<_RecipeBlockDragData>(
+      data: data,
+      feedback: _RecipeBlockDragFeedback(block: block),
+      childWhenDragging: Opacity(opacity: 0.34, child: child),
+      child: child,
+    );
+  }
+}
+
 class _RecipeEditorBlockCard extends StatelessWidget {
   const _RecipeEditorBlockCard({
     required this.block,
@@ -2531,6 +2541,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    required this.canMoveBlock,
+    required this.onMoveBlock,
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
@@ -2542,6 +2554,10 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  canMoveBlock;
+  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  onMoveBlock;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
@@ -2578,6 +2594,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               hoveredBlockId: hoveredBlockId,
               parentBlockId: parentBlockId,
               depth: depth,
+              canMoveBlock: canMoveBlock,
+              onMoveBlock: onMoveBlock,
               onBlockSelected: onBlockSelected,
               onBlockTitleChanged: onBlockTitleChanged,
               onBlockBodyChanged: onBlockBodyChanged,
@@ -2597,6 +2615,8 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    required this.canMoveBlock,
+    required this.onMoveBlock,
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
@@ -2608,6 +2628,10 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  canMoveBlock;
+  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  onMoveBlock;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
@@ -2829,9 +2853,9 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     if (!horizontalLayout) {
       return Column(
         children: [
-          for (final child in block.children) ...[
-            _buildChildCard(child),
-            if (child != block.children.last) SizedBox(height: gap),
+          for (var index = 0; index < block.children.length; index++) ...[
+            _buildChildCard(block.children[index], index),
+            if (index < block.children.length - 1) SizedBox(height: gap),
           ],
         ],
       );
@@ -2843,9 +2867,9 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         if (compact) {
           return Column(
             children: [
-              for (final child in block.children) ...[
-                _buildChildCard(child),
-                if (child != block.children.last) SizedBox(height: gap),
+              for (var index = 0; index < block.children.length; index++) ...[
+                _buildChildCard(block.children[index], index),
+                if (index < block.children.length - 1) SizedBox(height: gap),
               ],
             ],
           );
@@ -2854,9 +2878,9 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final child in block.children) ...[
-              Expanded(child: _buildChildCard(child)),
-              if (child != block.children.last) SizedBox(width: gap),
+            for (var index = 0; index < block.children.length; index++) ...[
+              Expanded(child: _buildChildCard(block.children[index], index)),
+              if (index < block.children.length - 1) SizedBox(width: gap),
             ],
           ],
         );
@@ -2864,17 +2888,28 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     );
   }
 
-  Widget _buildChildCard(_RecipeEditorBlock child) {
-    return _RecipeEditorBlockCard(
+  Widget _buildChildCard(_RecipeEditorBlock child, int index) {
+    return _RecipeDraggableBlock(
+      data: _RecipeBlockDragData(
+        blockId: child.id,
+        sourceParentId: block.id,
+        sourceIndex: index,
+        sourceDepth: depth + 1,
+      ),
       block: child,
-      selectedBlockId: selectedBlockId,
-      hoveredBlockId: hoveredBlockId,
-      parentBlockId: block.id,
-      depth: depth + 1,
-      onBlockSelected: onBlockSelected,
-      onBlockTitleChanged: onBlockTitleChanged,
-      onBlockBodyChanged: onBlockBodyChanged,
-      onDeleteBlock: onDeleteBlock,
+      child: _RecipeEditorBlockCard(
+        block: child,
+        selectedBlockId: selectedBlockId,
+        hoveredBlockId: hoveredBlockId,
+        parentBlockId: block.id,
+        depth: depth + 1,
+        canMoveBlock: canMoveBlock,
+        onMoveBlock: onMoveBlock,
+        onBlockSelected: onBlockSelected,
+        onBlockTitleChanged: onBlockTitleChanged,
+        onBlockBodyChanged: onBlockBodyChanged,
+        onDeleteBlock: onDeleteBlock,
+      ),
     );
   }
 }
