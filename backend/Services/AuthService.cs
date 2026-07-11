@@ -28,7 +28,7 @@ public class AuthService(AppDbContext context, IConfiguration configuration)
         };
             
         context.Users.Add(user);
-
+        user.ProfilePictureRef = $"images/pfp/{user.Id}";
         await context.SaveChangesAsync();
     }
 

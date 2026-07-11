@@ -10,5 +10,5 @@ public class UserDto
     //
     //  Recipes
     //
-    //  public string ProfilePictureRef { get; set; }
+    public string? ProfilePictureRef { get; set; }
 }

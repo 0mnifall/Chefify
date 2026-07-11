@@ -26,7 +26,7 @@ public class UsersController(UserService service) : ControllerBase
             return NotFound();
         }
 
-        var userDto = service.ToDto(user);
+        var userDto = UserService.ToDto(user);
         
         return Ok(userDto);
     }
