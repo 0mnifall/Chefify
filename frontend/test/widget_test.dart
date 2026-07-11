@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/app/app.dart';
@@ -212,6 +214,38 @@ void main() {
     expect(find.text('Width'), findsOneWidget);
     expect(find.byTooltip('Collapse block settings'), findsOneWidget);
     expect(find.byTooltip('Expand block palette'), findsOneWidget);
+  });
+
+  testWidgets('shows compact template preview and one final insert zone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('24 recipes'), findsOneWidget);
+    expect(find.text('More recipes'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipe-block-insert-zone-1')),
+      findsOneWidget,
+    );
+    expect(find.text('Ingredients beside numbered steps.'), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(
+      tester.getCenter(
+        find.byKey(const ValueKey('compact-template-Classic method')),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Ingredients beside numbered steps.'), findsOneWidget);
   });
 
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {
