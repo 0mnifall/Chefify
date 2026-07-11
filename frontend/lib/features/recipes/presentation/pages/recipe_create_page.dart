@@ -933,7 +933,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   @override
   void dispose() {
     widget.scrollController.removeListener(_syncOverlayVisibility);
-    _overlayController.hide();
     super.dispose();
   }
 
