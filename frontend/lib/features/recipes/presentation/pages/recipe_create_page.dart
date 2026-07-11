@@ -1490,10 +1490,97 @@ class _RecipeCompactPalette extends StatelessWidget {
                     templates: templates,
                     onSelected: onTemplateSelected,
                   )
-                : const SizedBox.shrink(),
+                : _RecipeCompactBlockList(
+                    blocks: blocks,
+                    onSelected: onBlockSelected,
+                  ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RecipeCompactBlockList extends StatelessWidget {
+  const _RecipeCompactBlockList({
+    required this.blocks,
+    required this.onSelected,
+  });
+
+  final List<_RecipeBlockDefinition> blocks;
+  final ValueChanged<_RecipeBlockDefinition> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      children: [
+        for (final group in _RecipeBlockGroup.values) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: 6,
+            ),
+            child: Divider(
+              height: 1,
+              color: palette.borders.withValues(alpha: 0.72),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final block in blocks.where(
+                  (block) => block.kind.group == group,
+                ))
+                  _RecipeCompactBlockButton(
+                    block: block,
+                    onPressed: () => onSelected(block),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RecipeCompactBlockButton extends StatelessWidget {
+  const _RecipeCompactBlockButton({
+    required this.block,
+    required this.onPressed,
+  });
+
+  final _RecipeBlockDefinition block;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Tooltip(
+      message: block.kind.label,
+      child: Material(
+        color: palette.searchBarBackground.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: SizedBox(
+            width: 43,
+            height: 42,
+            child: Icon(
+              block.kind.icon,
+              size: 20,
+              color: palette.primaryButtons,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
