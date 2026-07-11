@@ -1416,6 +1416,7 @@ class _RecipePaletteDock extends StatelessWidget {
                       AppSpacing.sm,
                     ),
                     child: _RecipeEditorPalette(
+                      embedded: true,
                       activeTab: activeTab,
                       templates: templates,
                       blocks: blocks,
@@ -1749,6 +1750,7 @@ class _RecipeInspectorDock extends StatelessWidget {
                       AppSpacing.sm,
                     ),
                     child: _RecipeEditorInspector(
+                      embedded: true,
                       block: block,
                       onWidthChanged: onWidthChanged,
                       onAlignmentChanged: onAlignmentChanged,
@@ -2362,6 +2364,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
 
 class _RecipeEditorInspector extends StatelessWidget {
   const _RecipeEditorInspector({
+    this.embedded = false,
     required this.block,
     required this.onWidthChanged,
     required this.onAlignmentChanged,
@@ -2369,6 +2372,7 @@ class _RecipeEditorInspector extends StatelessWidget {
     required this.onVariantChanged,
   });
 
+  final bool embedded;
   final _RecipeEditorBlock? block;
   final ValueChanged<_RecipeBlockWidth> onWidthChanged;
   final ValueChanged<_RecipeBlockAlignment> onAlignmentChanged;
@@ -2382,11 +2386,17 @@ class _RecipeEditorInspector extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: embedded ? EdgeInsets.zero : const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: palette.cardsSurface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+        color: embedded
+            ? Colors.transparent
+            : palette.cardsSurface.withValues(alpha: 0.72),
+        borderRadius: embedded
+            ? BorderRadius.zero
+            : BorderRadius.circular(AppSpacing.radiusMd),
+        border: embedded
+            ? null
+            : Border.all(color: palette.borders.withValues(alpha: 0.72)),
       ),
       child: selectedBlock == null
           ? _RecipeInspectorEmptyState(palette: palette)
@@ -2607,6 +2617,7 @@ class _RecipePresetSelector<T extends Object> extends StatelessWidget {
 
 class _RecipeEditorPalette extends StatelessWidget {
   const _RecipeEditorPalette({
+    this.embedded = false,
     required this.activeTab,
     required this.templates,
     required this.blocks,
@@ -2615,6 +2626,7 @@ class _RecipeEditorPalette extends StatelessWidget {
     required this.onBlockSelected,
   });
 
+  final bool embedded;
   final _RecipeEditorTab activeTab;
   final List<_RecipeTemplateDefinition> templates;
   final List<_RecipeBlockDefinition> blocks;
@@ -2630,11 +2642,17 @@ class _RecipeEditorPalette extends StatelessWidget {
         : _buildBlockList(context);
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: embedded ? EdgeInsets.zero : const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: palette.cardsSurface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+        color: embedded
+            ? Colors.transparent
+            : palette.cardsSurface.withValues(alpha: 0.72),
+        borderRadius: embedded
+            ? BorderRadius.zero
+            : BorderRadius.circular(AppSpacing.radiusMd),
+        border: embedded
+            ? null
+            : Border.all(color: palette.borders.withValues(alpha: 0.72)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
