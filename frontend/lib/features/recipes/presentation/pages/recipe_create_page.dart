@@ -1975,60 +1975,146 @@ class _RecipeCanvasHint extends StatelessWidget {
   }
 }
 
-class _RecipeLockedAuthorBlock extends StatelessWidget {
+class _RecipeLockedAuthorBlock extends StatefulWidget {
   const _RecipeLockedAuthorBlock();
+
+  @override
+  State<_RecipeLockedAuthorBlock> createState() =>
+      _RecipeLockedAuthorBlockState();
+}
+
+class _RecipeLockedAuthorBlockState extends State<_RecipeLockedAuthorBlock> {
+  static const _avatarUrl =
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=320&q=82';
+
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Transform.translate(
-      offset: const Offset(0, -10),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        width: 224,
+        height: 224,
         decoration: BoxDecoration(
-          color: palette.searchBarBackground.withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: palette.borders.withValues(alpha: 0.74)),
+          color: palette.navbarBackground.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(
+            color: _hovered
+                ? palette.primaryButtons.withValues(alpha: 0.74)
+                : palette.borders.withValues(alpha: 0.74),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _hovered ? 0.3 : 0.2),
+              blurRadius: _hovered ? 28 : 20,
+              offset: Offset(0, _hovered ? 14 : 10),
+            ),
+          ],
         ),
-        child: Row(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: palette.primaryButtons.withValues(alpha: 0.2),
-              child: Text(
-                'CS',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: palette.primaryButtons,
-                  fontWeight: FontWeight.w900,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  children: [
+                    ClipOval(
+                      child: SizedBox.square(
+                        dimension: 78,
+                        child: Image.network(
+                          _avatarUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              ColoredBox(
+                                color: palette.primaryButtons.withValues(
+                                  alpha: 0.2,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'CS',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: palette.primaryButtons,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Chef Sofia',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: palette.mainText,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '24 recipes',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: palette.secondaryText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Chef Sofia',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: palette.mainText,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'Author block is locked and comes from the signed-in user.',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: palette.secondaryText,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.lock_rounded, color: palette.icons, size: 18),
+            const _RecipeAuthorMoreButton(),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeAuthorMoreButton extends StatefulWidget {
+  const _RecipeAuthorMoreButton();
+
+  @override
+  State<_RecipeAuthorMoreButton> createState() =>
+      _RecipeAuthorMoreButtonState();
+}
+
+class _RecipeAuthorMoreButtonState extends State<_RecipeAuthorMoreButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: double.infinity,
+        height: 46,
+        color: _hovered
+            ? palette.primaryButtons.withValues(alpha: 0.28)
+            : palette.searchBarBackground.withValues(alpha: 0.82),
+        alignment: Alignment.center,
+        child: Text(
+          'More recipes',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: _hovered ? palette.primaryButtons : palette.mainText,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
