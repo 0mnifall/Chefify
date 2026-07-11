@@ -1878,30 +1878,12 @@ class _RecipeEditorCanvas extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var index = 0; index <= blocks.length; index++) ...[
-                  _RecipeBlockInsertZone(
-                    index: index,
-                    onPressed: () => onInsertParagraphAt(index),
-                    onMoveBlock: onMoveBlock,
-                  ),
-                  if (index < blocks.length) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    LongPressDraggable<String>(
-                      data: blocks[index].id,
-                      feedback: _RecipeBlockDragFeedback(block: blocks[index]),
-                      childWhenDragging: Opacity(
-                        opacity: 0.38,
-                        child: _RecipeEditorBlockCard(
-                          block: blocks[index],
-                          selectedBlockId: selectedBlockId,
-                          depth: 0,
-                          onBlockSelected: onBlockSelected,
-                          onBlockTitleChanged: onBlockTitleChanged,
-                          onBlockBodyChanged: onBlockBodyChanged,
-                          onDuplicateBlock: onDuplicateBlock,
-                          onDeleteBlock: onDeleteBlock,
-                        ),
-                      ),
+                for (var index = 0; index < blocks.length; index++) ...[
+                  LongPressDraggable<String>(
+                    data: blocks[index].id,
+                    feedback: _RecipeBlockDragFeedback(block: blocks[index]),
+                    childWhenDragging: Opacity(
+                      opacity: 0.38,
                       child: _RecipeEditorBlockCard(
                         block: blocks[index],
                         selectedBlockId: selectedBlockId,
@@ -1913,9 +1895,24 @@ class _RecipeEditorCanvas extends StatelessWidget {
                         onDeleteBlock: onDeleteBlock,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                  ],
+                    child: _RecipeEditorBlockCard(
+                      block: blocks[index],
+                      selectedBlockId: selectedBlockId,
+                      depth: 0,
+                      onBlockSelected: onBlockSelected,
+                      onBlockTitleChanged: onBlockTitleChanged,
+                      onBlockBodyChanged: onBlockBodyChanged,
+                      onDuplicateBlock: onDuplicateBlock,
+                      onDeleteBlock: onDeleteBlock,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                 ],
+                _RecipeBlockInsertZone(
+                  index: blocks.length,
+                  onPressed: () => onInsertParagraphAt(blocks.length),
+                  onMoveBlock: onMoveBlock,
+                ),
               ],
             ),
           ),
@@ -2103,16 +2100,16 @@ class _RecipeBlockInsertZone extends StatelessWidget {
         return Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             onTap: onPressed,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              height: active ? 42 : 34,
+              height: active ? 96 : 84,
               decoration: BoxDecoration(
                 color: active
                     ? palette.primaryButtons.withValues(alpha: 0.16)
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 border: Border.all(
                   color: active
                       ? palette.primaryButtons
@@ -2124,7 +2121,7 @@ class _RecipeBlockInsertZone extends StatelessWidget {
                   active
                       ? Icons.vertical_align_center_rounded
                       : Icons.add_rounded,
-                  size: 20,
+                  size: active ? 34 : 32,
                   color: palette.primaryButtons,
                 ),
               ),
