@@ -558,7 +558,113 @@ class _RecipeCreateContent extends StatelessWidget {
           onPickImage: onPickImage,
         ),
         const SizedBox(height: AppSpacing.lg),
+        const _RecipeBodyEditor(),
       ],
+    );
+  }
+}
+
+class _RecipeBodyEditor extends StatefulWidget {
+  const _RecipeBodyEditor();
+
+  @override
+  State<_RecipeBodyEditor> createState() => _RecipeBodyEditorState();
+}
+
+class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
+  static const int _maxDepth = 4;
+
+  int _nextId = 0;
+  _RecipeEditorTab _activeTab = _RecipeEditorTab.templates;
+  String? _selectedBlockId;
+  late List<_RecipeEditorBlock> _blocks = _initialBlocks();
+
+  List<_RecipeEditorBlock> _initialBlocks() {
+    final sectionId = _newBlockId('section');
+    final ingredientsId = _newBlockId('ingredients');
+    final stepsId = _newBlockId('steps');
+
+    _selectedBlockId = sectionId;
+
+    return [
+      _RecipeEditorBlock(
+        id: sectionId,
+        kind: _RecipeBlockKind.section,
+        title: 'Cooking flow',
+        body: 'Build the main preparation story here.',
+        width: _RecipeBlockWidth.wide,
+        children: [
+          _RecipeEditorBlock(
+            id: ingredientsId,
+            kind: _RecipeBlockKind.ingredients,
+            title: 'Ingredients',
+            body: '2 cups flour\n1 tsp salt\n1 cup warm water',
+            variant: _RecipeBlockVariant.cards,
+          ),
+          _RecipeEditorBlock(
+            id: stepsId,
+            kind: _RecipeBlockKind.steps,
+            title: 'Steps',
+            body:
+                'Mix the dry ingredients.\nFold in the wet ingredients.\nBake until golden.',
+            variant: _RecipeBlockVariant.timeline,
+          ),
+        ],
+      ),
+    ];
+  }
+
+  String _newBlockId(String prefix) {
+    _nextId += 1;
+    return '$prefix-$_nextId';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      radius: AppSpacing.radiusLg,
+      backgroundColor: palette.navbarBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cooking page editor',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: palette.mainText,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Templates expand into editable blocks. Layout blocks control horizontal structure.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: palette.secondaryText),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: palette.cardsSurface.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: palette.borders.withValues(alpha: 0.72),
+              ),
+            ),
+            child: Text(
+              '${_blocks.length} root block ready',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
