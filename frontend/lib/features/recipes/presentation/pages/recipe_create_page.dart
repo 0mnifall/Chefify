@@ -875,8 +875,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 templates: _templateDefinitions,
                 blocks: _blockDefinitions,
                 onTabChanged: _setActiveTab,
-                onTemplateSelected: _previewTemplate,
-                onBlockSelected: _previewBlock,
+                onTemplateSelected: _insertTemplate,
+                onBlockSelected: _insertBlock,
               );
               final previewPanel = Container(
                 width: double.infinity,
@@ -928,9 +928,25 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
-  void _previewTemplate(_RecipeTemplateDefinition template) {}
+  void _insertTemplate(_RecipeTemplateDefinition template) {
+    final blocks = template.createBlocks(_newBlockId);
+    _insertRootBlocks(blocks);
+  }
 
-  void _previewBlock(_RecipeBlockDefinition block) {}
+  void _insertBlock(_RecipeBlockDefinition block) {
+    _insertRootBlocks([_createBlock(block.kind)]);
+  }
+
+  void _insertRootBlocks(List<_RecipeEditorBlock> blocks) {
+    if (blocks.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _blocks = [..._blocks, ...blocks];
+      _selectedBlockId = blocks.last.id;
+    });
+  }
 }
 
 class _RecipeEditorPalette extends StatelessWidget {
