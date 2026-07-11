@@ -2222,6 +2222,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       sourceDepth: 0,
                     ),
                     block: blocks[index],
+                    hoveredBlockId: hoveredBlockId,
                     child: _RecipeEditorBlockCard(
                       block: blocks[index],
                       selectedBlockId: selectedBlockId,
@@ -2617,17 +2618,25 @@ class _RecipeDraggableBlock extends StatelessWidget {
   const _RecipeDraggableBlock({
     required this.data,
     required this.block,
+    required this.hoveredBlockId,
     required this.child,
   });
 
   final _RecipeBlockDragData data;
   final _RecipeEditorBlock block;
+  final ValueNotifier<String?> hoveredBlockId;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return LongPressDraggable<_RecipeBlockDragData>(
       data: data,
+      delay: const Duration(milliseconds: 140),
+      hapticFeedbackOnStart: false,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      onDragStarted: () => hoveredBlockId.value = null,
+      onDragCompleted: () => hoveredBlockId.value = null,
+      onDraggableCanceled: (_, _) => hoveredBlockId.value = null,
       feedback: _RecipeBlockDragFeedback(block: block),
       childWhenDragging: Opacity(opacity: 0.34, child: child),
       child: child,
@@ -3013,6 +3022,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         sourceDepth: depth + 1,
       ),
       block: child,
+      hoveredBlockId: hoveredBlockId,
       child: _RecipeEditorBlockCard(
         block: child,
         selectedBlockId: selectedBlockId,
