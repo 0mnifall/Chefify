@@ -230,7 +230,7 @@ void main() {
     expect(find.text('24 recipes'), findsOneWidget);
     expect(find.text('More recipes'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('recipe-block-insert-zone-1')),
+      find.byKey(const ValueKey('recipe-block-insert-zone-root-1')),
       findsOneWidget,
     );
     expect(find.text('Ingredients beside numbered steps.'), findsNothing);
@@ -246,6 +246,88 @@ void main() {
     await tester.pump();
 
     expect(find.text('Ingredients beside numbered steps.'), findsOneWidget);
+  });
+
+  testWidgets('keeps nested block selection isolated from its parent', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Duplicate block'), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-editor-block-handle-ingredients-2')),
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-inspector-block-ingredients-2')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('moves recipe blocks between root and nested containers', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    Future<void> dragBlock({
+      required Finder handle,
+      required Finder target,
+      required bool escapeParent,
+    }) async {
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 180));
+      final targetRect = tester.getRect(target);
+      final targetOffset = Offset(
+        escapeParent ? targetRect.left + 12 : targetRect.center.dx,
+        targetRect.center.dy,
+      );
+      await gesture.moveTo(
+        targetOffset,
+        timeStamp: const Duration(milliseconds: 360),
+      );
+      await tester.pump(const Duration(milliseconds: 220));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await dragBlock(
+      handle: find.byKey(
+        const ValueKey('recipe-editor-block-handle-ingredients-2'),
+      ),
+      target: find.byKey(const ValueKey('recipe-block-insert-zone-root-1')),
+      escapeParent: true,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-block-insert-zone-root-2')),
+      findsOneWidget,
+    );
+
+    await dragBlock(
+      handle: find.byKey(
+        const ValueKey('recipe-editor-block-handle-ingredients-2'),
+      ),
+      target: find.byKey(const ValueKey('recipe-drop-zone-section-1-1')),
+      escapeParent: false,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-block-insert-zone-root-1')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {
