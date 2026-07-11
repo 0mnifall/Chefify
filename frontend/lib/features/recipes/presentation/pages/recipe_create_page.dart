@@ -869,7 +869,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
           const SizedBox(height: AppSpacing.lg),
           LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 920;
+              final compact = constraints.maxWidth < 1040;
               final palettePanel = _RecipeEditorPalette(
                 activeTab: _activeTab,
                 templates: _templateDefinitions,
@@ -889,6 +889,13 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 onDuplicateBlock: _duplicateBlock,
                 onDeleteBlock: _deleteBlock,
               );
+              final inspectorPanel = _RecipeEditorInspector(
+                block: _selectedBlock,
+                onWidthChanged: _updateSelectedBlockWidth,
+                onAlignmentChanged: _updateSelectedBlockAlignment,
+                onSpacingChanged: _updateSelectedBlockSpacing,
+                onVariantChanged: _updateSelectedBlockVariant,
+              );
 
               if (compact) {
                 return Column(
@@ -896,6 +903,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                     palettePanel,
                     const SizedBox(height: AppSpacing.md),
                     canvasPanel,
+                    const SizedBox(height: AppSpacing.md),
+                    inspectorPanel,
                   ],
                 );
               }
@@ -906,6 +915,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                   SizedBox(width: 280, child: palettePanel),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(child: canvasPanel),
+                  const SizedBox(width: AppSpacing.md),
+                  SizedBox(width: 280, child: inspectorPanel),
                 ],
               );
             },
@@ -913,6 +924,30 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         ],
       ),
     );
+  }
+
+  _RecipeEditorBlock? get _selectedBlock {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return null;
+    }
+    return _findBlock(_blocks, blockId);
+  }
+
+  _RecipeEditorBlock? _findBlock(
+    List<_RecipeEditorBlock> blocks,
+    String blockId,
+  ) {
+    for (final block in blocks) {
+      if (block.id == blockId) {
+        return block;
+      }
+      final child = _findBlock(block.children, blockId);
+      if (child != null) {
+        return child;
+      }
+    }
+    return null;
   }
 
   void _setActiveTab(_RecipeEditorTab tab) {
@@ -933,6 +968,38 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
 
   void _updateBlockBody(String blockId, String body) {
     _updateBlock(blockId, (block) => block.copyWith(body: body));
+  }
+
+  void _updateSelectedBlockWidth(_RecipeBlockWidth width) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(width: width));
+  }
+
+  void _updateSelectedBlockAlignment(_RecipeBlockAlignment alignment) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(alignment: alignment));
+  }
+
+  void _updateSelectedBlockSpacing(_RecipeBlockSpacing spacing) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(spacing: spacing));
+  }
+
+  void _updateSelectedBlockVariant(_RecipeBlockVariant variant) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(variant: variant));
   }
 
   void _updateBlock(
@@ -1472,6 +1539,251 @@ class _RecipeEditorBlockCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RecipeEditorInspector extends StatelessWidget {
+  const _RecipeEditorInspector({
+    required this.block,
+    required this.onWidthChanged,
+    required this.onAlignmentChanged,
+    required this.onSpacingChanged,
+    required this.onVariantChanged,
+  });
+
+  final _RecipeEditorBlock? block;
+  final ValueChanged<_RecipeBlockWidth> onWidthChanged;
+  final ValueChanged<_RecipeBlockAlignment> onAlignmentChanged;
+  final ValueChanged<_RecipeBlockSpacing> onSpacingChanged;
+  final ValueChanged<_RecipeBlockVariant> onVariantChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final selectedBlock = block;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.cardsSurface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
+      ),
+      child: selectedBlock == null
+          ? _RecipeInspectorEmptyState(palette: palette)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      selectedBlock.kind.icon,
+                      color: palette.primaryButtons,
+                      size: 20,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        selectedBlock.kind.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: palette.mainText,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _RecipePresetSelector<_RecipeBlockWidth>(
+                  label: 'Width',
+                  values: _RecipeBlockWidth.values,
+                  selected: selectedBlock.width,
+                  labelForValue: _widthLabel,
+                  onSelected: onWidthChanged,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _RecipePresetSelector<_RecipeBlockAlignment>(
+                  label: 'Alignment',
+                  values: _RecipeBlockAlignment.values,
+                  selected: selectedBlock.alignment,
+                  labelForValue: _alignmentLabel,
+                  onSelected: onAlignmentChanged,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _RecipePresetSelector<_RecipeBlockSpacing>(
+                  label: 'Spacing',
+                  values: _RecipeBlockSpacing.values,
+                  selected: selectedBlock.spacing,
+                  labelForValue: _spacingLabel,
+                  onSelected: onSpacingChanged,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _RecipePresetSelector<_RecipeBlockVariant>(
+                  label: 'Variant',
+                  values: _RecipeBlockVariant.values,
+                  selected: selectedBlock.variant,
+                  labelForValue: _variantLabel,
+                  onSelected: onVariantChanged,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _RecipeInspectorRuleNote(block: selectedBlock),
+              ],
+            ),
+    );
+  }
+
+  String _widthLabel(_RecipeBlockWidth width) {
+    return switch (width) {
+      _RecipeBlockWidth.narrow => 'Narrow',
+      _RecipeBlockWidth.normal => 'Normal',
+      _RecipeBlockWidth.wide => 'Wide',
+      _RecipeBlockWidth.full => 'Full',
+    };
+  }
+
+  String _alignmentLabel(_RecipeBlockAlignment alignment) {
+    return switch (alignment) {
+      _RecipeBlockAlignment.left => 'Left',
+      _RecipeBlockAlignment.center => 'Center',
+      _RecipeBlockAlignment.right => 'Right',
+    };
+  }
+
+  String _spacingLabel(_RecipeBlockSpacing spacing) {
+    return switch (spacing) {
+      _RecipeBlockSpacing.compact => 'Compact',
+      _RecipeBlockSpacing.normal => 'Normal',
+      _RecipeBlockSpacing.spacious => 'Spacious',
+    };
+  }
+
+  String _variantLabel(_RecipeBlockVariant variant) {
+    return switch (variant) {
+      _RecipeBlockVariant.simple => 'Simple',
+      _RecipeBlockVariant.cards => 'Cards',
+      _RecipeBlockVariant.timeline => 'Timeline',
+    };
+  }
+}
+
+class _RecipeInspectorEmptyState extends StatelessWidget {
+  const _RecipeInspectorEmptyState({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Select a block to edit presets.',
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: palette.secondaryText),
+    );
+  }
+}
+
+class _RecipeInspectorRuleNote extends StatelessWidget {
+  const _RecipeInspectorRuleNote({required this.block});
+
+  final _RecipeEditorBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final text = block.canContainChildren
+        ? 'This layout block can contain child blocks.'
+        : 'Content blocks cannot contain nested blocks.';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: palette.borders.withValues(alpha: 0.58)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: palette.icons),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: palette.secondaryText,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipePresetSelector<T extends Object> extends StatelessWidget {
+  const _RecipePresetSelector({
+    required this.label,
+    required this.values,
+    required this.selected,
+    required this.labelForValue,
+    required this.onSelected,
+  });
+
+  final String label;
+  final List<T> values;
+  final T selected;
+  final String Function(T value) labelForValue;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final value in values)
+              ChoiceChip(
+                label: Text(labelForValue(value)),
+                selected: value == selected,
+                onSelected: (_) => onSelected(value),
+                labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: value == selected
+                      ? palette.mainText
+                      : palette.secondaryText,
+                  fontWeight: FontWeight.w800,
+                ),
+                selectedColor: palette.primaryButtons.withValues(alpha: 0.24),
+                backgroundColor: palette.searchBarBackground.withValues(
+                  alpha: 0.62,
+                ),
+                side: BorderSide(
+                  color: value == selected
+                      ? palette.primaryButtons
+                      : palette.borders.withValues(alpha: 0.58),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
