@@ -2958,11 +2958,14 @@ class _RecipeEditorPalette extends StatelessWidget {
     return Column(
       children: [
         for (final template in templates) ...[
-          _RecipePaletteItem(
-            icon: template.icon,
-            title: template.title,
-            description: template.description,
-            onPressed: () => onTemplateSelected(template),
+          _RecipeTemplatePreviewTarget(
+            template: template,
+            child: _RecipePaletteItem(
+              icon: template.icon,
+              title: template.title,
+              description: template.description,
+              onPressed: () => onTemplateSelected(template),
+            ),
           ),
           if (template != templates.last) const SizedBox(height: AppSpacing.xs),
         ],
