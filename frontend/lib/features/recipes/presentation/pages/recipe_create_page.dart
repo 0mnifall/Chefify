@@ -2879,6 +2879,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     };
 
     return MouseRegion(
+      key: ValueKey('recipe-editor-block-${block.id}'),
       onEnter: (_) => _setHoveredBlock(block.id),
       onExit: (_) => _setHoveredBlock(parentBlockId),
       child: ValueListenableBuilder<String?>(
@@ -2936,6 +2937,9 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            key: ValueKey(
+                              'recipe-editor-block-handle-${block.id}',
+                            ),
                             children: [
                               Icon(
                                 block.kind.icon,
