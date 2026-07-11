@@ -14,7 +14,7 @@ public class UserService(AppDbContext context)
             {
                 Id = u.Id,
                 Username = u.Username,
-                //ProfilePictureRef = u.ProfilePictureRef,
+                ProfilePictureRef = u.ProfilePictureRef,
             })
             .ToListAsync();
         return users;
@@ -25,12 +25,12 @@ public class UserService(AppDbContext context)
         return await context.Users.FirstOrDefaultAsync(u => u.Id == id);
     }
 
-    public UserDto ToDto(User user)
+    public static UserDto ToDto(User user)
     {
         var userDto = new UserDto
         {
             Username = user.Username,
-            //ProfilePictureRef = user.ProfilePictureRef
+            ProfilePictureRef = user.ProfilePictureRef
         };
         
         return userDto;
