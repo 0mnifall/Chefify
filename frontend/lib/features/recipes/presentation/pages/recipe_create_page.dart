@@ -1187,6 +1187,11 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       return false;
     }
 
+    if (source.parentId == target.parentId &&
+        (target.index == source.index || target.index == source.index + 1)) {
+      return false;
+    }
+
     if (target.parentId == source.block.id ||
         _blockContains(source.block, target.parentId)) {
       return false;
@@ -2200,6 +2205,15 @@ class _RecipeEditorCanvas extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var index = 0; index < blocks.length; index++) ...[
+                  _RecipeBlockDropZone(
+                    target: _RecipeBlockDropTarget(
+                      parentId: null,
+                      index: index,
+                      depth: 0,
+                    ),
+                    canMoveBlock: canMoveBlock,
+                    onMoveBlock: onMoveBlock,
+                  ),
                   _RecipeDraggableBlock(
                     data: _RecipeBlockDragData(
                       blockId: blocks[index].id,
@@ -2222,7 +2236,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       onDeleteBlock: onDeleteBlock,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
                 ],
                 _RecipeBlockInsertZone(
                   target: _RecipeBlockDropTarget(
@@ -2393,6 +2406,94 @@ class _RecipeAuthorMoreButtonState extends State<_RecipeAuthorMoreButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+enum _RecipeDropZoneAxis { vertical, horizontal }
+
+class _RecipeBlockDropZone extends StatelessWidget {
+  const _RecipeBlockDropZone({
+    required this.target,
+    required this.canMoveBlock,
+    required this.onMoveBlock,
+    this.axis = _RecipeDropZoneAxis.vertical,
+  });
+
+  final _RecipeBlockDropTarget target;
+  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  canMoveBlock;
+  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  onMoveBlock;
+  final _RecipeDropZoneAxis axis;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return DragTarget<_RecipeBlockDragData>(
+      onWillAcceptWithDetails: (details) => canMoveBlock(details.data, target),
+      onAcceptWithDetails: (details) => onMoveBlock(details.data, target),
+      builder: (context, candidateData, rejectedData) {
+        final active = candidateData.isNotEmpty;
+        final invalid = !active && rejectedData.isNotEmpty;
+        final color = invalid
+            ? Theme.of(context).colorScheme.error
+            : palette.primaryButtons;
+
+        if (axis == _RecipeDropZoneAxis.horizontal) {
+          return AnimatedContainer(
+            key: ValueKey(
+              'recipe-drop-zone-${target.parentId ?? 'root'}-${target.index}',
+            ),
+            duration: const Duration(milliseconds: 170),
+            curve: Curves.easeOutCubic,
+            width: active || invalid ? 22 : 7,
+            height: 72,
+            alignment: Alignment.center,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 170),
+              width: active || invalid ? 4 : 1,
+              height: active || invalid ? 62 : 24,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    color.withValues(alpha: 0),
+                    color.withValues(alpha: active ? 0.95 : 0.5),
+                    color.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return AnimatedContainer(
+          key: ValueKey(
+            'recipe-drop-zone-${target.parentId ?? 'root'}-${target.index}',
+          ),
+          duration: const Duration(milliseconds: 170),
+          curve: Curves.easeOutCubic,
+          height: active || invalid ? 24 : 8,
+          alignment: Alignment.center,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 170),
+            width: double.infinity,
+            height: active || invalid ? 4 : 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withValues(alpha: 0),
+                  color.withValues(alpha: active ? 0.95 : 0.5),
+                  color.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2824,7 +2925,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                               ),
                             ),
                           ],
-                          if (block.children.isNotEmpty) ...[
+                          if (block.canContainChildren) ...[
                             SizedBox(height: gap),
                             _buildChildren(context, gap),
                           ],
@@ -2851,40 +2952,55 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         block.kind == _RecipeBlockKind.photoText;
 
     if (!horizontalLayout) {
-      return Column(
-        children: [
-          for (var index = 0; index < block.children.length; index++) ...[
-            _buildChildCard(block.children[index], index),
-            if (index < block.children.length - 1) SizedBox(height: gap),
-          ],
-        ],
-      );
+      return _buildVerticalChildren();
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 520;
         if (compact) {
-          return Column(
-            children: [
-              for (var index = 0; index < block.children.length; index++) ...[
-                _buildChildCard(block.children[index], index),
-                if (index < block.children.length - 1) SizedBox(height: gap),
-              ],
-            ],
-          );
+          return _buildVerticalChildren();
         }
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (var index = 0; index < block.children.length; index++) ...[
-              Expanded(child: _buildChildCard(block.children[index], index)),
-              if (index < block.children.length - 1) SizedBox(width: gap),
+            for (var index = 0; index <= block.children.length; index++) ...[
+              _buildChildDropZone(index, axis: _RecipeDropZoneAxis.horizontal),
+              if (index < block.children.length)
+                Expanded(child: _buildChildCard(block.children[index], index)),
             ],
           ],
         );
       },
+    );
+  }
+
+  Widget _buildVerticalChildren() {
+    return Column(
+      children: [
+        for (var index = 0; index <= block.children.length; index++) ...[
+          _buildChildDropZone(index),
+          if (index < block.children.length)
+            _buildChildCard(block.children[index], index),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildChildDropZone(
+    int index, {
+    _RecipeDropZoneAxis axis = _RecipeDropZoneAxis.vertical,
+  }) {
+    return _RecipeBlockDropZone(
+      target: _RecipeBlockDropTarget(
+        parentId: block.id,
+        index: index,
+        depth: depth + 1,
+      ),
+      canMoveBlock: canMoveBlock,
+      onMoveBlock: onMoveBlock,
+      axis: axis,
     );
   }
 
