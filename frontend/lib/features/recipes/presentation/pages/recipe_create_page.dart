@@ -1948,11 +1948,15 @@ class _RecipeInspectorDock extends StatelessWidget {
         builder: (context, constraints) {
           final showExpandedContent = expanded && constraints.maxWidth >= 270;
           if (!showExpandedContent) {
-            return Align(
-              alignment: Alignment.topCenter,
+            return Center(
               child: IconButton(
                 tooltip: 'Open block settings',
                 onPressed: () => onExpandedChanged(true),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 44,
+                  height: 44,
+                ),
                 icon: const Icon(Icons.tune_rounded),
               ),
             );
