@@ -886,6 +886,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 onBlockBodyChanged: _updateBlockBody,
                 onInsertParagraphAt: _insertParagraphAt,
                 onMoveBlock: _moveRootBlock,
+                onDuplicateBlock: _duplicateBlock,
+                onDeleteBlock: _deleteBlock,
               );
 
               if (compact) {
@@ -998,6 +1000,65 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
+  void _duplicateBlock(String blockId) {
+    setState(() {
+      _blocks = _duplicateBlockInList(_blocks, blockId);
+    });
+  }
+
+  void _deleteBlock(String blockId) {
+    setState(() {
+      _blocks = _removeBlockFromList(_blocks, blockId);
+      if (_selectedBlockId == blockId) {
+        _selectedBlockId = _blocks.isEmpty ? null : _blocks.first.id;
+      }
+    });
+  }
+
+  List<_RecipeEditorBlock> _duplicateBlockInList(
+    List<_RecipeEditorBlock> blocks,
+    String blockId,
+  ) {
+    final result = <_RecipeEditorBlock>[];
+    for (final block in blocks) {
+      if (block.id == blockId) {
+        final clone = _cloneBlock(block);
+        result
+          ..add(block)
+          ..add(clone);
+        _selectedBlockId = clone.id;
+        continue;
+      }
+
+      result.add(
+        block.copyWith(
+          children: _duplicateBlockInList(block.children, blockId),
+        ),
+      );
+    }
+    return result;
+  }
+
+  _RecipeEditorBlock _cloneBlock(_RecipeEditorBlock block) {
+    return block.copyWith(
+      id: _newBlockId(block.kind.name),
+      children: [for (final child in block.children) _cloneBlock(child)],
+    );
+  }
+
+  List<_RecipeEditorBlock> _removeBlockFromList(
+    List<_RecipeEditorBlock> blocks,
+    String blockId,
+  ) {
+    return [
+      for (final block in blocks)
+        if (block.id != blockId)
+          block.copyWith(
+            children: _removeBlockFromList(block.children, blockId),
+          ),
+    ];
+  }
+
   void _insertRootBlocks(List<_RecipeEditorBlock> blocks) {
     if (blocks.isEmpty) {
       return;
@@ -1019,6 +1080,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onInsertParagraphAt,
     required this.onMoveBlock,
+    required this.onDuplicateBlock,
+    required this.onDeleteBlock,
   });
 
   final List<_RecipeEditorBlock> blocks;
@@ -1028,6 +1091,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final ValueChanged<int> onInsertParagraphAt;
   final void Function(String blockId, int targetIndex) onMoveBlock;
+  final ValueChanged<String> onDuplicateBlock;
+  final ValueChanged<String> onDeleteBlock;
 
   @override
   Widget build(BuildContext context) {
@@ -1066,6 +1131,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
                     onBlockSelected: onBlockSelected,
                     onBlockTitleChanged: onBlockTitleChanged,
                     onBlockBodyChanged: onBlockBodyChanged,
+                    onDuplicateBlock: onDuplicateBlock,
+                    onDeleteBlock: onDeleteBlock,
                   ),
                 ),
                 child: _RecipeEditorBlockCard(
@@ -1075,6 +1142,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
                   onBlockSelected: onBlockSelected,
                   onBlockTitleChanged: onBlockTitleChanged,
                   onBlockBodyChanged: onBlockBodyChanged,
+                  onDuplicateBlock: onDuplicateBlock,
+                  onDeleteBlock: onDeleteBlock,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -1262,6 +1331,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
+    required this.onDuplicateBlock,
+    required this.onDeleteBlock,
   });
 
   final _RecipeEditorBlock block;
@@ -1270,6 +1341,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
+  final ValueChanged<String> onDuplicateBlock;
+  final ValueChanged<String> onDeleteBlock;
 
   @override
   Widget build(BuildContext context) {
@@ -1311,6 +1384,22 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Duplicate block',
+                    onPressed: () => onDuplicateBlock(block.id),
+                    icon: const Icon(Icons.copy_rounded),
+                    iconSize: 17,
+                    visualDensity: VisualDensity.compact,
+                    color: palette.icons,
+                  ),
+                  IconButton(
+                    tooltip: 'Delete block',
+                    onPressed: () => onDeleteBlock(block.id),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    color: palette.icons,
                   ),
                 ],
               ),
@@ -1372,6 +1461,8 @@ class _RecipeEditorBlockCard extends StatelessWidget {
                     onBlockSelected: onBlockSelected,
                     onBlockTitleChanged: onBlockTitleChanged,
                     onBlockBodyChanged: onBlockBodyChanged,
+                    onDuplicateBlock: onDuplicateBlock,
+                    onDeleteBlock: onDeleteBlock,
                   ),
                   if (child != block.children.last)
                     const SizedBox(height: AppSpacing.sm),
