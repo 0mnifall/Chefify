@@ -1714,13 +1714,17 @@ class _RecipeTemplatePreviewTargetState
   Widget build(BuildContext context) {
     return OverlayPortal(
       controller: _controller,
-      overlayChildBuilder: (context) => CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        targetAnchor: Alignment.centerRight,
-        followerAnchor: Alignment.centerLeft,
-        offset: const Offset(AppSpacing.sm, 0),
-        child: _RecipeTemplatePreview(template: widget.template),
+      overlayChildBuilder: (context) => Positioned(
+        top: 0,
+        left: 0,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.centerRight,
+          followerAnchor: Alignment.centerLeft,
+          offset: const Offset(AppSpacing.sm, 0),
+          child: _RecipeTemplatePreview(template: widget.template),
+        ),
       ),
       child: CompositedTransformTarget(
         link: _layerLink,
