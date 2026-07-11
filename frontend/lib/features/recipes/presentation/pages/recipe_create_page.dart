@@ -2541,7 +2541,8 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
       return false;
     }
     final localOffset = renderObject.globalToLocal(globalOffset);
-    final threshold = (38.0 + (levelsOut * 14)).clamp(38.0, 80.0);
+    final acceptedFraction = (0.68 - ((levelsOut - 1) * 0.1)).clamp(0.48, 0.68);
+    final threshold = renderObject.size.width * acceptedFraction;
     return localOffset.dx <= threshold;
   }
 
@@ -2652,7 +2653,8 @@ class _RecipeBlockInsertZoneState extends State<_RecipeBlockInsertZone> {
       return false;
     }
     final localOffset = renderObject.globalToLocal(globalOffset);
-    final threshold = (38.0 + (levelsOut * 14)).clamp(38.0, 80.0);
+    final acceptedFraction = (0.68 - ((levelsOut - 1) * 0.1)).clamp(0.48, 0.68);
+    final threshold = renderObject.size.width * acceptedFraction;
     return localOffset.dx <= threshold;
   }
 
