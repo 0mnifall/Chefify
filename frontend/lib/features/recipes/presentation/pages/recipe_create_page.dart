@@ -884,6 +884,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
                 onBlockSelected: _selectBlock,
                 onBlockTitleChanged: _updateBlockTitle,
                 onBlockBodyChanged: _updateBlockBody,
+                onInsertParagraphAt: _insertParagraphAt,
               );
 
               if (compact) {
@@ -963,6 +964,18 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     _insertRootBlocks([_createBlock(block.kind)]);
   }
 
+  void _insertParagraphAt(int index) {
+    _insertBlockAt(index, _createBlock(_RecipeBlockKind.paragraph));
+  }
+
+  void _insertBlockAt(int index, _RecipeEditorBlock block) {
+    setState(() {
+      final targetIndex = index.clamp(0, _blocks.length).toInt();
+      _blocks = [..._blocks]..insert(targetIndex, block);
+      _selectedBlockId = block.id;
+    });
+  }
+
   void _insertRootBlocks(List<_RecipeEditorBlock> blocks) {
     if (blocks.isEmpty) {
       return;
@@ -982,6 +995,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
+    required this.onInsertParagraphAt,
   });
 
   final List<_RecipeEditorBlock> blocks;
@@ -989,6 +1003,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
+  final ValueChanged<int> onInsertParagraphAt;
 
   @override
   Widget build(BuildContext context) {
@@ -1007,16 +1022,23 @@ class _RecipeEditorCanvas extends StatelessWidget {
         children: [
           const _RecipeLockedAuthorBlock(),
           const SizedBox(height: AppSpacing.lg),
-          for (final block in blocks) ...[
-            _RecipeEditorBlockCard(
-              block: block,
-              selectedBlockId: selectedBlockId,
-              depth: 0,
-              onBlockSelected: onBlockSelected,
-              onBlockTitleChanged: onBlockTitleChanged,
-              onBlockBodyChanged: onBlockBodyChanged,
+          for (var index = 0; index <= blocks.length; index++) ...[
+            _RecipeBlockInsertZone(
+              index: index,
+              onPressed: () => onInsertParagraphAt(index),
             ),
-            const SizedBox(height: AppSpacing.md),
+            if (index < blocks.length) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _RecipeEditorBlockCard(
+                block: blocks[index],
+                selectedBlockId: selectedBlockId,
+                depth: 0,
+                onBlockSelected: onBlockSelected,
+                onBlockTitleChanged: onBlockTitleChanged,
+                onBlockBodyChanged: onBlockBodyChanged,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+            ],
           ],
         ],
       ),
@@ -1078,6 +1100,40 @@ class _RecipeLockedAuthorBlock extends StatelessWidget {
             ),
             Icon(Icons.lock_rounded, color: palette.icons, size: 18),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeBlockInsertZone extends StatelessWidget {
+  const _RecipeBlockInsertZone({required this.index, required this.onPressed});
+
+  final int index;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onPressed,
+        child: Container(
+          height: 34,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: palette.borders.withValues(alpha: 0.58)),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.add_rounded,
+              size: 20,
+              color: palette.primaryButtons,
+            ),
+          ),
         ),
       ),
     );
