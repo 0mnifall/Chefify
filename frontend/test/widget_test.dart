@@ -161,8 +161,9 @@ void main() {
       find.byKey(const ValueKey('recipe-create-title-field')),
       findsOneWidget,
     );
-    expect(find.text('Cooking page editor'), findsOneWidget);
-    expect(find.text('Classic method'), findsOneWidget);
+    expect(find.text('Chef Sofia'), findsOneWidget);
+    expect(find.byTooltip('Templates'), findsOneWidget);
+    expect(find.byTooltip('Open block settings'), findsOneWidget);
   });
 
   testWidgets('adds recipe body blocks from create editor palette', (
@@ -176,9 +177,9 @@ void main() {
     await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Blocks'));
+    await tester.tap(find.byTooltip('Blocks'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Paragraph').first);
+    await tester.tap(find.byTooltip('Paragraph'));
     await tester.pumpAndSettle();
 
     expect(
