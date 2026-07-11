@@ -1872,59 +1872,80 @@ class _RecipeEditorCanvas extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: palette.cardsSurface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.only(top: 52),
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          const _RecipeLockedAuthorBlock(),
-          const SizedBox(height: AppSpacing.md),
-          _RecipeCanvasHint(text: insertionHint),
-          const SizedBox(height: AppSpacing.md),
-          for (var index = 0; index <= blocks.length; index++) ...[
-            _RecipeBlockInsertZone(
-              index: index,
-              onPressed: () => onInsertParagraphAt(index),
-              onMoveBlock: onMoveBlock,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              156,
+              AppSpacing.lg,
+              AppSpacing.lg,
             ),
-            if (index < blocks.length) ...[
-              const SizedBox(height: AppSpacing.xs),
-              LongPressDraggable<String>(
-                data: blocks[index].id,
-                feedback: _RecipeBlockDragFeedback(block: blocks[index]),
-                childWhenDragging: Opacity(
-                  opacity: 0.38,
-                  child: _RecipeEditorBlockCard(
-                    block: blocks[index],
-                    selectedBlockId: selectedBlockId,
-                    depth: 0,
-                    onBlockSelected: onBlockSelected,
-                    onBlockTitleChanged: onBlockTitleChanged,
-                    onBlockBodyChanged: onBlockBodyChanged,
-                    onDuplicateBlock: onDuplicateBlock,
-                    onDeleteBlock: onDeleteBlock,
-                  ),
-                ),
-                child: _RecipeEditorBlockCard(
-                  block: blocks[index],
-                  selectedBlockId: selectedBlockId,
-                  depth: 0,
-                  onBlockSelected: onBlockSelected,
-                  onBlockTitleChanged: onBlockTitleChanged,
-                  onBlockBodyChanged: onBlockBodyChanged,
-                  onDuplicateBlock: onDuplicateBlock,
-                  onDeleteBlock: onDeleteBlock,
-                ),
+            decoration: BoxDecoration(
+              color: palette.cardsSurface.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: palette.borders.withValues(alpha: 0.72),
               ),
-              const SizedBox(height: AppSpacing.xs),
-            ],
-          ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _RecipeCanvasHint(text: insertionHint),
+                const SizedBox(height: AppSpacing.md),
+                for (var index = 0; index <= blocks.length; index++) ...[
+                  _RecipeBlockInsertZone(
+                    index: index,
+                    onPressed: () => onInsertParagraphAt(index),
+                    onMoveBlock: onMoveBlock,
+                  ),
+                  if (index < blocks.length) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    LongPressDraggable<String>(
+                      data: blocks[index].id,
+                      feedback: _RecipeBlockDragFeedback(block: blocks[index]),
+                      childWhenDragging: Opacity(
+                        opacity: 0.38,
+                        child: _RecipeEditorBlockCard(
+                          block: blocks[index],
+                          selectedBlockId: selectedBlockId,
+                          depth: 0,
+                          onBlockSelected: onBlockSelected,
+                          onBlockTitleChanged: onBlockTitleChanged,
+                          onBlockBodyChanged: onBlockBodyChanged,
+                          onDuplicateBlock: onDuplicateBlock,
+                          onDeleteBlock: onDeleteBlock,
+                        ),
+                      ),
+                      child: _RecipeEditorBlockCard(
+                        block: blocks[index],
+                        selectedBlockId: selectedBlockId,
+                        depth: 0,
+                        onBlockSelected: onBlockSelected,
+                        onBlockTitleChanged: onBlockTitleChanged,
+                        onBlockBodyChanged: onBlockBodyChanged,
+                        onDuplicateBlock: onDuplicateBlock,
+                        onDeleteBlock: onDeleteBlock,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          Positioned(
+            top: -34,
+            left: -14,
+            child: Transform.rotate(
+              angle: -0.035,
+              child: const _RecipeLockedAuthorBlock(),
+            ),
+          ),
         ],
       ),
     );
