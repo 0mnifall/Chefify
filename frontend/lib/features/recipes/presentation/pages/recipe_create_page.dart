@@ -2083,10 +2083,10 @@ class _RecipeEditorCanvas extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: -34,
-            left: -14,
+            top: -58,
+            right: -14,
             child: Transform.rotate(
-              angle: -0.035,
+              angle: -0.075,
               child: const _RecipeLockedAuthorBlock(),
             ),
           ),
