@@ -1450,39 +1450,11 @@ class _RecipePaletteDock extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: expanded
-          ? Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    tooltip: 'Collapse block palette',
-                    onPressed: () => onExpandedChanged(false),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.sm,
-                      0,
-                      AppSpacing.sm,
-                      AppSpacing.sm,
-                    ),
-                    child: _RecipeEditorPalette(
-                      embedded: true,
-                      activeTab: activeTab,
-                      templates: templates,
-                      blocks: blocks,
-                      onTabChanged: onTabChanged,
-                      onTemplateSelected: onTemplateSelected,
-                      onBlockSelected: onBlockSelected,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : _RecipeCompactPalette(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showExpandedContent = expanded && constraints.maxWidth >= 270;
+          if (!showExpandedContent) {
+            return _RecipeCompactPalette(
               activeTab: activeTab,
               templates: templates,
               blocks: blocks,
@@ -1490,7 +1462,42 @@ class _RecipePaletteDock extends StatelessWidget {
               onExpanded: () => onExpandedChanged(true),
               onTemplateSelected: onTemplateSelected,
               onBlockSelected: onBlockSelected,
-            ),
+            );
+          }
+
+          return Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: 'Collapse block palette',
+                  onPressed: () => onExpandedChanged(false),
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.sm,
+                    0,
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                  ),
+                  child: _RecipeEditorPalette(
+                    embedded: true,
+                    activeTab: activeTab,
+                    templates: templates,
+                    blocks: blocks,
+                    onTabChanged: onTabChanged,
+                    onTemplateSelected: onTemplateSelected,
+                    onBlockSelected: onBlockSelected,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -1784,45 +1791,52 @@ class _RecipeInspectorDock extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: expanded
-          ? Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    tooltip: 'Collapse block settings',
-                    onPressed: () => onExpandedChanged(false),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.sm,
-                      0,
-                      AppSpacing.sm,
-                      AppSpacing.sm,
-                    ),
-                    child: _RecipeEditorInspector(
-                      embedded: true,
-                      block: block,
-                      onWidthChanged: onWidthChanged,
-                      onAlignmentChanged: onAlignmentChanged,
-                      onSpacingChanged: onSpacingChanged,
-                      onVariantChanged: onVariantChanged,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Align(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final showExpandedContent = expanded && constraints.maxWidth >= 270;
+          if (!showExpandedContent) {
+            return Align(
               alignment: Alignment.topCenter,
               child: IconButton(
                 tooltip: 'Open block settings',
                 onPressed: () => onExpandedChanged(true),
                 icon: const Icon(Icons.tune_rounded),
               ),
-            ),
+            );
+          }
+
+          return Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: 'Collapse block settings',
+                  onPressed: () => onExpandedChanged(false),
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.sm,
+                    0,
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                  ),
+                  child: _RecipeEditorInspector(
+                    embedded: true,
+                    block: block,
+                    onWidthChanged: onWidthChanged,
+                    onAlignmentChanged: onAlignmentChanged,
+                    onSpacingChanged: onSpacingChanged,
+                    onVariantChanged: onVariantChanged,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
