@@ -563,7 +563,7 @@ class _RecipeCreateContent extends StatelessWidget {
           onCancelTagInput: onCancelTagInput,
           onPickImage: onPickImage,
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xxl),
         _RecipeBodyEditor(scrollController: scrollController),
       ],
     );
