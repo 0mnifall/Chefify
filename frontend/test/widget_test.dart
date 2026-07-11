@@ -188,6 +188,32 @@ void main() {
     );
   });
 
+  testWidgets('expands recipe editor docks without resizing canvas', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Expand block palette'), findsOneWidget);
+    expect(find.byTooltip('Open block settings'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Expand block palette'));
+    await tester.pumpAndSettle();
+    expect(find.text('Classic method'), findsOneWidget);
+    expect(find.byTooltip('Collapse block palette'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Width'), findsOneWidget);
+    expect(find.byTooltip('Collapse block settings'), findsOneWidget);
+    expect(find.byTooltip('Expand block palette'), findsOneWidget);
+  });
+
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {
     tester.view.physicalSize = const Size(1440, 1000);
     tester.view.devicePixelRatio = 1;
