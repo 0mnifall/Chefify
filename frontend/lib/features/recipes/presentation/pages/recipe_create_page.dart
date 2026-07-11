@@ -966,7 +966,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       onBlockBodyChanged: _updateBlockBody,
       onInsertParagraphAt: _insertParagraphAt,
       onMoveBlock: _moveRootBlock,
-      onDuplicateBlock: _duplicateBlock,
       onDeleteBlock: _deleteBlock,
     );
 
@@ -1148,12 +1147,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
-  void _duplicateBlock(String blockId) {
-    setState(() {
-      _blocks = _duplicateBlockInList(_blocks, blockId);
-    });
-  }
-
   void _deleteBlock(String blockId) {
     setState(() {
       _blocks = _removeBlockFromList(_blocks, blockId);
@@ -1161,37 +1154,6 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         _selectedBlockId = _blocks.isEmpty ? null : _blocks.first.id;
       }
     });
-  }
-
-  List<_RecipeEditorBlock> _duplicateBlockInList(
-    List<_RecipeEditorBlock> blocks,
-    String blockId,
-  ) {
-    final result = <_RecipeEditorBlock>[];
-    for (final block in blocks) {
-      if (block.id == blockId) {
-        final clone = _cloneBlock(block);
-        result
-          ..add(block)
-          ..add(clone);
-        _selectedBlockId = clone.id;
-        continue;
-      }
-
-      result.add(
-        block.copyWith(
-          children: _duplicateBlockInList(block.children, blockId),
-        ),
-      );
-    }
-    return result;
-  }
-
-  _RecipeEditorBlock _cloneBlock(_RecipeEditorBlock block) {
-    return block.copyWith(
-      id: _newBlockId(block.kind.name),
-      children: [for (final child in block.children) _cloneBlock(child)],
-    );
   }
 
   List<_RecipeEditorBlock> _removeBlockFromList(
@@ -2007,7 +1969,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onInsertParagraphAt,
     required this.onMoveBlock,
-    required this.onDuplicateBlock,
     required this.onDeleteBlock,
   });
 
@@ -2018,7 +1979,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final ValueChanged<int> onInsertParagraphAt;
   final void Function(String blockId, int targetIndex) onMoveBlock;
-  final ValueChanged<String> onDuplicateBlock;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2061,7 +2021,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
                         onBlockSelected: onBlockSelected,
                         onBlockTitleChanged: onBlockTitleChanged,
                         onBlockBodyChanged: onBlockBodyChanged,
-                        onDuplicateBlock: onDuplicateBlock,
                         onDeleteBlock: onDeleteBlock,
                       ),
                     ),
@@ -2072,7 +2031,6 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       onBlockSelected: onBlockSelected,
                       onBlockTitleChanged: onBlockTitleChanged,
                       onBlockBodyChanged: onBlockBodyChanged,
-                      onDuplicateBlock: onDuplicateBlock,
                       onDeleteBlock: onDeleteBlock,
                     ),
                   ),
@@ -2363,7 +2321,6 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
-    required this.onDuplicateBlock,
     required this.onDeleteBlock,
   });
 
@@ -2373,7 +2330,6 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
-  final ValueChanged<String> onDuplicateBlock;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2408,7 +2364,6 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               onBlockSelected: onBlockSelected,
               onBlockTitleChanged: onBlockTitleChanged,
               onBlockBodyChanged: onBlockBodyChanged,
-              onDuplicateBlock: onDuplicateBlock,
               onDeleteBlock: onDeleteBlock,
             ),
           ),
@@ -2426,7 +2381,6 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
-    required this.onDuplicateBlock,
     required this.onDeleteBlock,
   });
 
@@ -2436,7 +2390,6 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
-  final ValueChanged<String> onDuplicateBlock;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2509,14 +2462,6 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Duplicate block',
-                    onPressed: () => onDuplicateBlock(block.id),
-                    icon: const Icon(Icons.copy_rounded),
-                    iconSize: 17,
-                    visualDensity: VisualDensity.compact,
-                    color: palette.icons,
                   ),
                   IconButton(
                     tooltip: 'Delete block',
@@ -2638,7 +2583,6 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
       onBlockSelected: onBlockSelected,
       onBlockTitleChanged: onBlockTitleChanged,
       onBlockBodyChanged: onBlockBodyChanged,
-      onDuplicateBlock: onDuplicateBlock,
       onDeleteBlock: onDeleteBlock,
     );
   }
