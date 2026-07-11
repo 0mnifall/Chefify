@@ -13,43 +13,35 @@ public class S3FileStorageService(IAmazonS3 s3, IOptions<S3Options> options)
         "image/webp"
     ];
 
-    private readonly S3Options options = options.Value;
+    private readonly S3Options _options = options.Value;
 
-    public async Task<FileUploadResultDto> UploadImageAsync(IFormFile file, int id, string type)
+    public async Task<FileUploadResultDto> UploadImageAsync(IFormFile file, string key)
     {
         ValidateImage(file);
-        string key;
-        if (type == "pfp")
-        {
-            key = CreatePfpImageKey(file.FileName, id);
-        }
-        else if (type == "hero" || type == "content")
-        {
-            key = CreateRecipeContentImageKey(file.FileName, id, type);
-        }
-        else
-        {
-            throw new ArgumentException("Invalid image type. Must be 'pfp' or 'recipe'.");
-        }
-
         await using var stream = file.OpenReadStream();
         await s3.PutObjectAsync(new PutObjectRequest
         {
-            BucketName = options.BucketName,
+            BucketName = _options.BucketName,
             Key = key,
             InputStream = stream,
             ContentType = file.ContentType
         });
-
-        return CreatePresignedResult(key);
+        
+        return await CreatePresignedResult(key);
     }
 
-    public FileUploadResultDto CreatePresignedResult(string key)
+    public async Task<FileUploadResultDto> CreatePresignedResult(string key)
     {
-        var expiresAt = DateTime.UtcNow.AddMinutes(options.PresignedUrlMinutes);
-        var url = s3.GetPreSignedURL(new GetPreSignedUrlRequest
+        await s3.GetObjectMetadataAsync(new GetObjectMetadataRequest
         {
-            BucketName = options.BucketName,
+            BucketName = _options.BucketName,
+            Key = key
+        });
+            
+        var expiresAt = DateTime.UtcNow.AddMinutes(_options.PresignedUrlMinutes);
+        var url = await s3.GetPreSignedURLAsync(new GetPreSignedUrlRequest
+        {
+            BucketName = _options.BucketName,
             Key = key,
             Expires = expiresAt,
             Verb = HttpVerb.GET
@@ -70,9 +62,9 @@ public class S3FileStorageService(IAmazonS3 s3, IOptions<S3Options> options)
             throw new ArgumentException("File is empty.");
         }
 
-        if (file.Length > options.MaxUploadBytes)
+        if (file.Length > _options.MaxUploadBytes)
         {
-            throw new ArgumentException($"File is too large. Max size is {options.MaxUploadBytes} bytes.");
+            throw new ArgumentException($"File is too large. Max size is {_options.MaxUploadBytes} bytes.");
         }
 
         if (!AllowedImageContentTypes.Contains(file.ContentType))
@@ -81,13 +73,13 @@ public class S3FileStorageService(IAmazonS3 s3, IOptions<S3Options> options)
         }
     }
 
-    private static string CreatePfpImageKey(string fileName, int userId)
+    public static string CreatePfpImageKey(string fileName, int userId)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        return $"images/pfp/{userId}/{Guid.NewGuid():N}{extension}";
+        return $"images/pfp/{userId}{extension}";
     }
 
-    private static string CreateRecipeContentImageKey(string fileName, int recipeId, string type)
+    public static string CreateRecipeImageKey(string fileName, int recipeId, string type)
     {
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
         return $"images/recipes/{recipeId}/{type}/{Guid.NewGuid():N}{extension}";
