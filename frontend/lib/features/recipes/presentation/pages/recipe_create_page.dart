@@ -1310,10 +1310,12 @@ class _RecipeEditorOverlay extends StatelessWidget {
 
     return Stack(
       children: [
-        Positioned(
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
           top: top,
           bottom: AppSpacing.sm,
-          left: AppSpacing.sm,
+          left: paletteExpanded ? AppSpacing.sm : 0,
           child: _RecipePaletteDock(
             expanded: paletteExpanded,
             activeTab: activeTab,
@@ -1325,10 +1327,12 @@ class _RecipeEditorOverlay extends StatelessWidget {
             onBlockSelected: onBlockSelected,
           ),
         ),
-        Positioned(
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
           top: top,
           bottom: AppSpacing.sm,
-          right: AppSpacing.sm,
+          right: inspectorExpanded ? AppSpacing.sm : 0,
           child: _RecipeInspectorDock(
             expanded: inspectorExpanded,
             block: selectedBlock,
@@ -1377,7 +1381,11 @@ class _RecipePaletteDock extends StatelessWidget {
         color: palette.navbarBackground.withValues(
           alpha: expanded ? 0.9 : 0.96,
         ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        borderRadius: expanded
+            ? BorderRadius.circular(AppSpacing.radiusMd)
+            : const BorderRadius.horizontal(
+                right: Radius.circular(AppSpacing.radiusMd),
+              ),
         border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
         boxShadow: [
           BoxShadow(
@@ -1706,7 +1714,11 @@ class _RecipeInspectorDock extends StatelessWidget {
         color: palette.navbarBackground.withValues(
           alpha: expanded ? 0.9 : 0.96,
         ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        borderRadius: expanded
+            ? BorderRadius.circular(AppSpacing.radiusMd)
+            : const BorderRadius.horizontal(
+                left: Radius.circular(AppSpacing.radiusMd),
+              ),
         border: Border.all(color: palette.borders.withValues(alpha: 0.72)),
         boxShadow: [
           BoxShadow(
