@@ -3224,6 +3224,7 @@ class _RecipeEditorInspector extends StatelessWidget {
     final selectedBlock = block;
 
     return Container(
+      key: ValueKey('recipe-inspector-block-${selectedBlock?.id ?? 'none'}'),
       width: double.infinity,
       padding: embedded ? EdgeInsets.zero : const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
