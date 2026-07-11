@@ -161,6 +161,30 @@ void main() {
       find.byKey(const ValueKey('recipe-create-title-field')),
       findsOneWidget,
     );
+    expect(find.text('Cooking page editor'), findsOneWidget);
+    expect(find.text('Classic method'), findsOneWidget);
+  });
+
+  testWidgets('adds recipe body blocks from create editor palette', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Paragraph').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Write the cooking detail directly in the page preview.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opens recipes page and filters recipe catalog', (tester) async {
