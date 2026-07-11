@@ -579,6 +579,187 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   String? _selectedBlockId;
   late List<_RecipeEditorBlock> _blocks = _initialBlocks();
 
+  late final List<_RecipeBlockDefinition> _blockDefinitions = [
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.heading,
+      description: 'Section title with strong hierarchy.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.paragraph,
+      description: 'Body copy for preparation details.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.quote,
+      description: 'Call out a chef note or personal tip.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.image,
+      description: 'Add a supporting process photo.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.video,
+      description: 'Embed a short cooking clip.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.note,
+      description: 'Highlight timing, texture, or storage advice.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.divider,
+      description: 'Separate two parts of the recipe.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.ingredients,
+      description: 'Structured ingredient checklist.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.steps,
+      description: 'Ordered cooking instructions.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.equipment,
+      description: 'Tools and cookware required.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.substitutions,
+      description: 'Alternative ingredients or swaps.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.nutrition,
+      description: 'Nutrition facts summary.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.timer,
+      description: 'Inline timer for a cooking step.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.servings,
+      description: 'Scale ingredient amounts by servings.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.checklist,
+      description: 'Track prep tasks before cooking.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.section,
+      description: 'Vertical container for related blocks.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.columns,
+      description: 'Two-column responsive layout.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.card,
+      description: 'Framed group for compact content.',
+    ),
+    const _RecipeBlockDefinition(
+      kind: _RecipeBlockKind.photoText,
+      description: 'Photo beside explanatory text.',
+    ),
+  ];
+
+  late final List<_RecipeTemplateDefinition> _templateDefinitions = [
+    _RecipeTemplateDefinition(
+      title: 'Classic method',
+      description: 'Ingredients beside numbered steps.',
+      icon: Icons.menu_book_rounded,
+      createBlocks: (id) => [
+        _RecipeEditorBlock(
+          id: id('section'),
+          kind: _RecipeBlockKind.section,
+          title: 'Method',
+          body: 'Keep the core flow compact and easy to scan.',
+          width: _RecipeBlockWidth.wide,
+          children: [
+            _RecipeEditorBlock(
+              id: id('ingredients'),
+              kind: _RecipeBlockKind.ingredients,
+              title: 'Ingredients',
+              body: '1 onion\n2 garlic cloves\n400 g tomatoes',
+              variant: _RecipeBlockVariant.cards,
+            ),
+            _RecipeEditorBlock(
+              id: id('steps'),
+              kind: _RecipeBlockKind.steps,
+              title: 'Steps',
+              body: 'Prep the ingredients.\nCook the base.\nFinish and serve.',
+              variant: _RecipeBlockVariant.timeline,
+            ),
+          ],
+        ),
+      ],
+    ),
+    _RecipeTemplateDefinition(
+      title: 'Story with photo',
+      description: 'Intro, image, and a chef note.',
+      icon: Icons.auto_stories_rounded,
+      createBlocks: (id) => [
+        _RecipeEditorBlock(
+          id: id('section'),
+          kind: _RecipeBlockKind.section,
+          title: 'Before you start',
+          body: 'Set context before the actual method.',
+          children: [
+            _RecipeEditorBlock(
+              id: id('paragraph'),
+              kind: _RecipeBlockKind.paragraph,
+              title: 'Why this works',
+              body:
+                  'Short, practical context that helps the cook understand the recipe.',
+            ),
+            _RecipeEditorBlock(
+              id: id('image'),
+              kind: _RecipeBlockKind.image,
+              title: 'Process photo',
+              body: 'Show the key texture or color.',
+              width: _RecipeBlockWidth.wide,
+            ),
+            _RecipeEditorBlock(
+              id: id('note'),
+              kind: _RecipeBlockKind.note,
+              title: 'Chef note',
+              body: 'A small adjustment that makes the result more reliable.',
+            ),
+          ],
+        ),
+      ],
+    ),
+    _RecipeTemplateDefinition(
+      title: 'Prep checklist',
+      description: 'Equipment, prep tasks, and timer.',
+      icon: Icons.task_alt_rounded,
+      createBlocks: (id) => [
+        _RecipeEditorBlock(
+          id: id('section'),
+          kind: _RecipeBlockKind.section,
+          title: 'Prep station',
+          body: 'Get everything ready before heat hits the pan.',
+          variant: _RecipeBlockVariant.cards,
+          children: [
+            _RecipeEditorBlock(
+              id: id('equipment'),
+              kind: _RecipeBlockKind.equipment,
+              title: 'Equipment',
+              body: 'Large skillet\nMixing bowl\nSharp knife',
+            ),
+            _RecipeEditorBlock(
+              id: id('checklist'),
+              kind: _RecipeBlockKind.checklist,
+              title: 'Prep checklist',
+              body: 'Wash produce\nMeasure spices\nPreheat oven',
+            ),
+            _RecipeEditorBlock(
+              id: id('timer'),
+              kind: _RecipeBlockKind.timer,
+              title: 'Resting timer',
+              body: '10 minutes',
+            ),
+          ],
+        ),
+      ],
+    ),
+  ];
+
   List<_RecipeEditorBlock> _initialBlocks() {
     final sectionId = _newBlockId('section');
     final ingredientsId = _newBlockId('ingredients');
@@ -617,6 +798,47 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   String _newBlockId(String prefix) {
     _nextId += 1;
     return '$prefix-$_nextId';
+  }
+
+  _RecipeEditorBlock _createBlock(_RecipeBlockKind kind) {
+    return _RecipeEditorBlock(
+      id: _newBlockId(kind.name),
+      kind: kind,
+      title: kind.label,
+      body: _defaultBodyForKind(kind),
+      width: kind.group == _RecipeBlockGroup.layout
+          ? _RecipeBlockWidth.wide
+          : _RecipeBlockWidth.normal,
+      variant: kind == _RecipeBlockKind.steps
+          ? _RecipeBlockVariant.timeline
+          : _RecipeBlockVariant.simple,
+    );
+  }
+
+  String _defaultBodyForKind(_RecipeBlockKind kind) {
+    return switch (kind) {
+      _RecipeBlockKind.heading => 'New section',
+      _RecipeBlockKind.paragraph =>
+        'Write the cooking detail directly in the page preview.',
+      _RecipeBlockKind.quote => 'A useful note from the cook.',
+      _RecipeBlockKind.image => 'Image placeholder',
+      _RecipeBlockKind.video => 'Video URL or embed placeholder',
+      _RecipeBlockKind.note => 'Keep this tip short and practical.',
+      _RecipeBlockKind.divider => '',
+      _RecipeBlockKind.ingredients => 'Ingredient one\nIngredient two',
+      _RecipeBlockKind.steps => 'First step\nSecond step',
+      _RecipeBlockKind.equipment => 'Skillet\nKnife\nMixing bowl',
+      _RecipeBlockKind.substitutions => 'Swap butter for olive oil.',
+      _RecipeBlockKind.nutrition => 'Calories, protein, carbs, and fat.',
+      _RecipeBlockKind.timer => '15 minutes',
+      _RecipeBlockKind.servings => 'Serves 4',
+      _RecipeBlockKind.checklist => 'Prep vegetables\nHeat pan',
+      _RecipeBlockKind.section => 'Group related content here.',
+      _RecipeBlockKind.columns => 'Responsive column group.',
+      _RecipeBlockKind.column => 'Column content.',
+      _RecipeBlockKind.card => 'Framed content group.',
+      _RecipeBlockKind.photoText => 'Pair a photo with a short instruction.',
+    };
   }
 
   @override
