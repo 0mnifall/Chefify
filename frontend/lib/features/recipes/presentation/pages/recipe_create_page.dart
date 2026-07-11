@@ -2421,111 +2421,111 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         onTap: () => onBlockSelected(block.id),
-        child: Container(
-          padding: EdgeInsets.all(padding),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: selected
-                  ? palette.primaryButtons
-                  : palette.borders.withValues(alpha: 0.72),
-            ),
-            boxShadow: block.variant == _RecipeBlockVariant.cards
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
+        hoverColor: Colors.transparent,
+        child: CustomPaint(
+          foregroundPainter: _RecipeBlockEdgeBorderPainter(
+            color: selected
+                ? palette.primaryButtons
+                : palette.borders.withValues(alpha: 0.72),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    block.kind.icon,
-                    size: 18,
-                    color: palette.primaryButtons,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      block.kind.label,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: palette.categoryTags,
-                        fontWeight: FontWeight.w900,
+          child: Container(
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  background.withValues(alpha: 0),
+                  background,
+                  background,
+                  background.withValues(alpha: 0),
+                ],
+                stops: const [0, 0.18, 0.82, 1],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      block.kind.icon,
+                      size: 18,
+                      color: palette.primaryButtons,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        block.kind.label,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: palette.categoryTags,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
+                    IconButton(
+                      tooltip: 'Delete block',
+                      onPressed: () => onDeleteBlock(block.id),
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      iconSize: 18,
+                      visualDensity: VisualDensity.compact,
+                      color: palette.icons,
+                    ),
+                  ],
+                ),
+                SizedBox(height: gap),
+                if (block.kind == _RecipeBlockKind.divider)
+                  Divider(color: palette.borders.withValues(alpha: 0.8))
+                else
+                  TextFormField(
+                    key: ValueKey('${block.id}-title'),
+                    initialValue: block.title,
+                    maxLines: 1,
+                    onTap: () => onBlockSelected(block.id),
+                    onChanged: (value) => onBlockTitleChanged(block.id, value),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: palette.mainText,
+                      fontWeight: FontWeight.w900,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Block title',
+                      hintStyle: TextStyle(
+                        color: palette.secondaryText.withValues(alpha: 0.66),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Delete block',
-                    onPressed: () => onDeleteBlock(block.id),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    iconSize: 18,
-                    visualDensity: VisualDensity.compact,
-                    color: palette.icons,
+                if (block.kind != _RecipeBlockKind.divider) ...[
+                  SizedBox(height: gap / 2),
+                  TextFormField(
+                    key: ValueKey('${block.id}-body'),
+                    initialValue: block.body,
+                    minLines: 1,
+                    maxLines: block.kind == _RecipeBlockKind.heading ? 1 : 4,
+                    onTap: () => onBlockSelected(block.id),
+                    onChanged: (value) => onBlockBodyChanged(block.id, value),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: palette.secondaryText,
+                      height: 1.35,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Write content',
+                      hintStyle: TextStyle(
+                        color: palette.secondaryText.withValues(alpha: 0.66),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
                 ],
-              ),
-              SizedBox(height: gap),
-              if (block.kind == _RecipeBlockKind.divider)
-                Divider(color: palette.borders.withValues(alpha: 0.8))
-              else
-                TextFormField(
-                  key: ValueKey('${block.id}-title'),
-                  initialValue: block.title,
-                  maxLines: 1,
-                  onTap: () => onBlockSelected(block.id),
-                  onChanged: (value) => onBlockTitleChanged(block.id, value),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: palette.mainText,
-                    fontWeight: FontWeight.w900,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Block title',
-                    hintStyle: TextStyle(
-                      color: palette.secondaryText.withValues(alpha: 0.66),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              if (block.kind != _RecipeBlockKind.divider) ...[
-                SizedBox(height: gap / 2),
-                TextFormField(
-                  key: ValueKey('${block.id}-body'),
-                  initialValue: block.body,
-                  minLines: 1,
-                  maxLines: block.kind == _RecipeBlockKind.heading ? 1 : 4,
-                  onTap: () => onBlockSelected(block.id),
-                  onChanged: (value) => onBlockBodyChanged(block.id, value),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: palette.secondaryText,
-                    height: 1.35,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Write content',
-                    hintStyle: TextStyle(
-                      color: palette.secondaryText.withValues(alpha: 0.66),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
+                if (block.children.isNotEmpty) ...[
+                  SizedBox(height: gap),
+                  _buildChildren(context, gap),
+                ],
               ],
-              if (block.children.isNotEmpty) ...[
-                SizedBox(height: gap),
-                _buildChildren(context, gap),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -2585,6 +2585,52 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
       onBlockBodyChanged: onBlockBodyChanged,
       onDeleteBlock: onDeleteBlock,
     );
+  }
+}
+
+class _RecipeBlockEdgeBorderPainter extends CustomPainter {
+  const _RecipeBlockEdgeBorderPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        colors: [
+          color.withValues(alpha: 0.18),
+          color,
+          color.withValues(alpha: 0.18),
+        ],
+      ).createShader(Offset.zero & size);
+    final halfWidth = size.width / 2;
+
+    final topPath = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, 0.55)
+      ..quadraticBezierTo(halfWidth, 3.1, 0, 0.55)
+      ..close();
+    final bottomPath = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width, size.height - 0.55)
+      ..quadraticBezierTo(halfWidth, size.height - 3.1, 0, size.height - 0.55)
+      ..close();
+
+    canvas
+      ..drawPath(topPath, paint)
+      ..drawPath(bottomPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RecipeBlockEdgeBorderPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
