@@ -249,6 +249,7 @@ class RecipeCreatePage extends StatefulWidget {
 }
 
 class _RecipeCreatePageState extends State<RecipeCreatePage> {
+  final ScrollController _scrollController = ScrollController();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
@@ -279,6 +280,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
     _descriptionController.dispose();
     _tagController.dispose();
     _tagFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -301,6 +303,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
         child: Stack(
           children: [
             CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
@@ -316,6 +319,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
                           maxWidth: AppSpacing.contentMaxWidth,
                         ),
                         child: _RecipeCreateContent(
+                          scrollController: _scrollController,
                           imageUrl: _imageUrl,
                           titleController: _titleController,
                           descriptionController: _descriptionController,
@@ -490,6 +494,7 @@ class _RecipeCreatePageState extends State<RecipeCreatePage> {
 
 class _RecipeCreateContent extends StatelessWidget {
   const _RecipeCreateContent({
+    required this.scrollController,
     required this.imageUrl,
     required this.titleController,
     required this.descriptionController,
@@ -511,6 +516,7 @@ class _RecipeCreateContent extends StatelessWidget {
     required this.onPickImage,
   });
 
+  final ScrollController scrollController;
   final String? imageUrl;
   final TextEditingController titleController;
   final TextEditingController descriptionController;
@@ -558,14 +564,16 @@ class _RecipeCreateContent extends StatelessWidget {
           onPickImage: onPickImage,
         ),
         const SizedBox(height: AppSpacing.lg),
-        const _RecipeBodyEditor(),
+        _RecipeBodyEditor(scrollController: scrollController),
       ],
     );
   }
 }
 
 class _RecipeBodyEditor extends StatefulWidget {
-  const _RecipeBodyEditor();
+  const _RecipeBodyEditor({required this.scrollController});
+
+  final ScrollController scrollController;
 
   @override
   State<_RecipeBodyEditor> createState() => _RecipeBodyEditorState();
@@ -899,17 +907,54 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   @override
   void initState() {
     super.initState();
+    widget.scrollController.addListener(_syncOverlayVisibility);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _overlayController.show();
+        _syncOverlayVisibility();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipeBodyEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController == widget.scrollController) {
+      return;
+    }
+    oldWidget.scrollController.removeListener(_syncOverlayVisibility);
+    widget.scrollController.addListener(_syncOverlayVisibility);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncOverlayVisibility();
       }
     });
   }
 
   @override
   void dispose() {
+    widget.scrollController.removeListener(_syncOverlayVisibility);
     _overlayController.hide();
     super.dispose();
+  }
+
+  void _syncOverlayVisibility() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return;
+    }
+
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
+    final top = renderObject.localToGlobal(Offset.zero).dy;
+    final bottom = top + renderObject.size.height;
+    final visible = bottom > headerHeight && top < viewportHeight - 80;
+
+    if (visible && !_overlayController.isShowing) {
+      _overlayController.show();
+    } else if (!visible && _overlayController.isShowing) {
+      _overlayController.hide();
+    }
   }
 
   @override
