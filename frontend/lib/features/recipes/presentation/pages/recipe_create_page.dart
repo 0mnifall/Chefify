@@ -1663,9 +1663,8 @@ class _RecipeCompactTemplateList extends StatelessWidget {
               horizontal: AppSpacing.xs,
               vertical: 4,
             ),
-            child: Tooltip(
-              message: template.title,
-              preferBelow: false,
+            child: _RecipeTemplatePreviewTarget(
+              template: template,
               child: Material(
                 color: palette.searchBarBackground.withValues(alpha: 0.62),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -1686,6 +1685,167 @@ class _RecipeCompactTemplateList extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _RecipeTemplatePreviewTarget extends StatefulWidget {
+  const _RecipeTemplatePreviewTarget({
+    required this.template,
+    required this.child,
+  });
+
+  final _RecipeTemplateDefinition template;
+  final Widget child;
+
+  @override
+  State<_RecipeTemplatePreviewTarget> createState() =>
+      _RecipeTemplatePreviewTargetState();
+}
+
+class _RecipeTemplatePreviewTargetState
+    extends State<_RecipeTemplatePreviewTarget> {
+  final LayerLink _layerLink = LayerLink();
+  final OverlayPortalController _controller = OverlayPortalController();
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: _controller,
+      overlayChildBuilder: (context) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.centerRight,
+        followerAnchor: Alignment.centerLeft,
+        offset: const Offset(AppSpacing.sm, 0),
+        child: _RecipeTemplatePreview(template: widget.template),
+      ),
+      child: CompositedTransformTarget(
+        link: _layerLink,
+        child: MouseRegion(
+          onEnter: (_) => _controller.show(),
+          onExit: (_) {
+            if (_controller.isShowing) {
+              _controller.hide();
+            }
+          },
+          child: Semantics(
+            label: '${widget.template.title} template',
+            button: true,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeTemplatePreview extends StatelessWidget {
+  const _RecipeTemplatePreview({required this.template});
+
+  final _RecipeTemplateDefinition template;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final previewBlocks = template.createBlocks((prefix) => 'preview-$prefix');
+
+    return IgnorePointer(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 286,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: palette.navbarBackground.withValues(alpha: 0.97),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: palette.primaryButtons.withValues(alpha: 0.5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.32),
+                blurRadius: 26,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(template.icon, size: 22, color: palette.primaryButtons),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      template.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: palette.mainText,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                template.description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: palette.secondaryText,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Divider(color: palette.borders.withValues(alpha: 0.7)),
+              const SizedBox(height: AppSpacing.xs),
+              for (final block in previewBlocks)
+                _RecipeTemplatePreviewBlock(block: block),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeTemplatePreviewBlock extends StatelessWidget {
+  const _RecipeTemplatePreviewBlock({required this.block, this.depth = 0});
+
+  final _RecipeEditorBlock block;
+  final int depth;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 14, bottom: AppSpacing.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(block.kind.icon, size: 16, color: palette.icons),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  block.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: palette.mainText,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          for (final child in block.children)
+            _RecipeTemplatePreviewBlock(block: child, depth: depth + 1),
+        ],
+      ),
     );
   }
 }
