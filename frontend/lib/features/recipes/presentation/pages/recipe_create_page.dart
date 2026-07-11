@@ -218,6 +218,57 @@ class _RecipeEditorBlock {
 }
 
 @immutable
+class _RecipeBlockDragData {
+  const _RecipeBlockDragData({
+    required this.blockId,
+    required this.sourceParentId,
+    required this.sourceIndex,
+    required this.sourceDepth,
+  });
+
+  final String blockId;
+  final String? sourceParentId;
+  final int sourceIndex;
+  final int sourceDepth;
+}
+
+@immutable
+class _RecipeBlockDropTarget {
+  const _RecipeBlockDropTarget({
+    required this.parentId,
+    required this.index,
+    required this.depth,
+  });
+
+  final String? parentId;
+  final int index;
+  final int depth;
+}
+
+@immutable
+class _RecipeBlockLocation {
+  const _RecipeBlockLocation({
+    required this.block,
+    required this.parentId,
+    required this.index,
+    required this.depth,
+  });
+
+  final _RecipeEditorBlock block;
+  final String? parentId;
+  final int index;
+  final int depth;
+}
+
+@immutable
+class _RecipeBlockExtraction {
+  const _RecipeBlockExtraction({required this.blocks, this.block});
+
+  final List<_RecipeEditorBlock> blocks;
+  final _RecipeEditorBlock? block;
+}
+
+@immutable
 class _RecipeBlockDefinition {
   const _RecipeBlockDefinition({required this.kind, required this.description});
 
@@ -968,7 +1019,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       onBlockTitleChanged: _updateBlockTitle,
       onBlockBodyChanged: _updateBlockBody,
       onInsertParagraphAt: _insertParagraphAt,
-      onMoveBlock: _moveRootBlock,
+      canMoveBlock: _canMoveBlock,
+      onMoveBlock: _moveBlock,
       onDeleteBlock: _deleteBlock,
     );
 
@@ -1129,25 +1181,155 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
-  void _moveRootBlock(String blockId, int targetIndex) {
-    final currentIndex = _blocks.indexWhere((block) => block.id == blockId);
-    if (currentIndex < 0) {
+  bool _canMoveBlock(_RecipeBlockDragData data, _RecipeBlockDropTarget target) {
+    final source = _findBlockLocation(_blocks, data.blockId);
+    if (source == null) {
+      return false;
+    }
+
+    if (target.parentId == source.block.id ||
+        _blockContains(source.block, target.parentId)) {
+      return false;
+    }
+
+    if (target.parentId != null) {
+      final parent = _findBlock(_blocks, target.parentId!);
+      if (parent == null || !parent.canContainChildren) {
+        return false;
+      }
+    }
+
+    final movedTreeHeight = _blockTreeHeight(source.block);
+    return target.depth + movedTreeHeight - 1 <= _maxDepth;
+  }
+
+  void _moveBlock(_RecipeBlockDragData data, _RecipeBlockDropTarget target) {
+    if (!_canMoveBlock(data, target)) {
       return;
     }
 
     setState(() {
-      final nextBlocks = [..._blocks];
-      final block = nextBlocks.removeAt(currentIndex);
-      final adjustedIndex = currentIndex < targetIndex
-          ? targetIndex - 1
-          : targetIndex;
-      nextBlocks.insert(
-        adjustedIndex.clamp(0, nextBlocks.length).toInt(),
-        block,
+      final source = _findBlockLocation(_blocks, data.blockId)!;
+      final extraction = _extractBlock(_blocks, data.blockId);
+      final movedBlock = extraction.block;
+      if (movedBlock == null) {
+        return;
+      }
+
+      var targetIndex = target.index;
+      if (source.parentId == target.parentId && source.index < targetIndex) {
+        targetIndex -= 1;
+      }
+
+      _blocks = _insertMovedBlock(
+        extraction.blocks,
+        target.parentId,
+        targetIndex,
+        movedBlock,
       );
-      _blocks = nextBlocks;
-      _selectedBlockId = block.id;
+      _selectedBlockId = movedBlock.id;
     });
+  }
+
+  _RecipeBlockLocation? _findBlockLocation(
+    List<_RecipeEditorBlock> blocks,
+    String blockId, {
+    String? parentId,
+    int depth = 0,
+  }) {
+    for (var index = 0; index < blocks.length; index++) {
+      final block = blocks[index];
+      if (block.id == blockId) {
+        return _RecipeBlockLocation(
+          block: block,
+          parentId: parentId,
+          index: index,
+          depth: depth,
+        );
+      }
+
+      final childLocation = _findBlockLocation(
+        block.children,
+        blockId,
+        parentId: block.id,
+        depth: depth + 1,
+      );
+      if (childLocation != null) {
+        return childLocation;
+      }
+    }
+    return null;
+  }
+
+  bool _blockContains(_RecipeEditorBlock block, String? blockId) {
+    if (blockId == null) {
+      return false;
+    }
+    for (final child in block.children) {
+      if (child.id == blockId || _blockContains(child, blockId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _RecipeBlockExtraction _extractBlock(
+    List<_RecipeEditorBlock> blocks,
+    String blockId,
+  ) {
+    for (var index = 0; index < blocks.length; index++) {
+      final block = blocks[index];
+      if (block.id == blockId) {
+        return _RecipeBlockExtraction(
+          blocks: [...blocks]..removeAt(index),
+          block: block,
+        );
+      }
+
+      final childExtraction = _extractBlock(block.children, blockId);
+      if (childExtraction.block != null) {
+        final nextBlocks = [...blocks];
+        nextBlocks[index] = block.copyWith(children: childExtraction.blocks);
+        return _RecipeBlockExtraction(
+          blocks: nextBlocks,
+          block: childExtraction.block,
+        );
+      }
+    }
+    return _RecipeBlockExtraction(blocks: blocks);
+  }
+
+  List<_RecipeEditorBlock> _insertMovedBlock(
+    List<_RecipeEditorBlock> blocks,
+    String? parentId,
+    int index,
+    _RecipeEditorBlock movedBlock,
+  ) {
+    if (parentId == null) {
+      final targetIndex = index.clamp(0, blocks.length).toInt();
+      return [...blocks]..insert(targetIndex, movedBlock);
+    }
+
+    return [
+      for (final block in blocks)
+        if (block.id == parentId)
+          block.copyWith(
+            children: [...block.children]
+              ..insert(
+                index.clamp(0, block.children.length).toInt(),
+                movedBlock,
+              ),
+          )
+        else
+          block.copyWith(
+            children: _insertMovedBlock(
+              block.children,
+              parentId,
+              index,
+              movedBlock,
+            ),
+          ),
+    ];
   }
 
   void _deleteBlock(String blockId) {
@@ -1972,6 +2154,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
     required this.onInsertParagraphAt,
+    required this.canMoveBlock,
     required this.onMoveBlock,
     required this.onDeleteBlock,
   });
@@ -1983,7 +2166,10 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
   final ValueChanged<int> onInsertParagraphAt;
-  final void Function(String blockId, int targetIndex) onMoveBlock;
+  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  canMoveBlock;
+  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  onMoveBlock;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2014,8 +2200,13 @@ class _RecipeEditorCanvas extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var index = 0; index < blocks.length; index++) ...[
-                  LongPressDraggable<String>(
-                    data: blocks[index].id,
+                  LongPressDraggable<_RecipeBlockDragData>(
+                    data: _RecipeBlockDragData(
+                      blockId: blocks[index].id,
+                      sourceParentId: null,
+                      sourceIndex: index,
+                      sourceDepth: 0,
+                    ),
                     feedback: _RecipeBlockDragFeedback(block: blocks[index]),
                     childWhenDragging: Opacity(
                       opacity: 0.38,
@@ -2046,8 +2237,13 @@ class _RecipeEditorCanvas extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                 ],
                 _RecipeBlockInsertZone(
-                  index: blocks.length,
+                  target: _RecipeBlockDropTarget(
+                    parentId: null,
+                    index: blocks.length,
+                    depth: 0,
+                  ),
                   onPressed: () => onInsertParagraphAt(blocks.length),
+                  canMoveBlock: canMoveBlock,
                   onMoveBlock: onMoveBlock,
                 ),
               ],
@@ -2215,27 +2411,33 @@ class _RecipeAuthorMoreButtonState extends State<_RecipeAuthorMoreButton> {
 
 class _RecipeBlockInsertZone extends StatelessWidget {
   const _RecipeBlockInsertZone({
-    required this.index,
+    required this.target,
     required this.onPressed,
+    required this.canMoveBlock,
     required this.onMoveBlock,
   });
 
-  final int index;
+  final _RecipeBlockDropTarget target;
   final VoidCallback onPressed;
-  final void Function(String blockId, int targetIndex) onMoveBlock;
+  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  canMoveBlock;
+  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
+  onMoveBlock;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
-      onAcceptWithDetails: (details) => onMoveBlock(details.data, index),
+    return DragTarget<_RecipeBlockDragData>(
+      onWillAcceptWithDetails: (details) => canMoveBlock(details.data, target),
+      onAcceptWithDetails: (details) => onMoveBlock(details.data, target),
       builder: (context, candidateData, rejectedData) {
         final active = candidateData.isNotEmpty;
 
         return Material(
-          key: ValueKey('recipe-block-insert-zone-$index'),
+          key: ValueKey(
+            'recipe-block-insert-zone-${target.parentId ?? 'root'}-${target.index}',
+          ),
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
