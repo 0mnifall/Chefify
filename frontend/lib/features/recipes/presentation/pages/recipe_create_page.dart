@@ -801,6 +801,58 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   }
 
   _RecipeEditorBlock _createBlock(_RecipeBlockKind kind) {
+    if (kind == _RecipeBlockKind.columns) {
+      return _RecipeEditorBlock(
+        id: _newBlockId(kind.name),
+        kind: kind,
+        title: kind.label,
+        body: _defaultBodyForKind(kind),
+        width: _RecipeBlockWidth.full,
+        children: [
+          _RecipeEditorBlock(
+            id: _newBlockId('column'),
+            kind: _RecipeBlockKind.column,
+            title: 'Column',
+            body: 'Drop blocks here.',
+            width: _RecipeBlockWidth.full,
+          ),
+          _RecipeEditorBlock(
+            id: _newBlockId('column'),
+            kind: _RecipeBlockKind.column,
+            title: 'Column',
+            body: 'Drop blocks here.',
+            width: _RecipeBlockWidth.full,
+          ),
+        ],
+      );
+    }
+
+    if (kind == _RecipeBlockKind.photoText) {
+      return _RecipeEditorBlock(
+        id: _newBlockId(kind.name),
+        kind: kind,
+        title: kind.label,
+        body: _defaultBodyForKind(kind),
+        width: _RecipeBlockWidth.full,
+        children: [
+          _RecipeEditorBlock(
+            id: _newBlockId('image'),
+            kind: _RecipeBlockKind.image,
+            title: 'Photo',
+            body: 'Process image placeholder',
+            width: _RecipeBlockWidth.full,
+          ),
+          _RecipeEditorBlock(
+            id: _newBlockId('paragraph'),
+            kind: _RecipeBlockKind.paragraph,
+            title: 'Caption',
+            body: 'Explain what the cook should look for here.',
+            width: _RecipeBlockWidth.full,
+          ),
+        ],
+      );
+    }
+
     return _RecipeEditorBlock(
       id: _newBlockId(kind.name),
       kind: kind,
@@ -1697,24 +1749,68 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
               ],
               if (block.children.isNotEmpty) ...[
                 SizedBox(height: gap),
-                for (final child in block.children) ...[
-                  _RecipeEditorBlockCard(
-                    block: child,
-                    selectedBlockId: selectedBlockId,
-                    depth: depth + 1,
-                    onBlockSelected: onBlockSelected,
-                    onBlockTitleChanged: onBlockTitleChanged,
-                    onBlockBodyChanged: onBlockBodyChanged,
-                    onDuplicateBlock: onDuplicateBlock,
-                    onDeleteBlock: onDeleteBlock,
-                  ),
-                  if (child != block.children.last) SizedBox(height: gap),
-                ],
+                _buildChildren(context, gap),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildChildren(BuildContext context, double gap) {
+    final horizontalLayout =
+        block.kind == _RecipeBlockKind.columns ||
+        block.kind == _RecipeBlockKind.photoText;
+
+    if (!horizontalLayout) {
+      return Column(
+        children: [
+          for (final child in block.children) ...[
+            _buildChildCard(child),
+            if (child != block.children.last) SizedBox(height: gap),
+          ],
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        if (compact) {
+          return Column(
+            children: [
+              for (final child in block.children) ...[
+                _buildChildCard(child),
+                if (child != block.children.last) SizedBox(height: gap),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final child in block.children) ...[
+              Expanded(child: _buildChildCard(child)),
+              if (child != block.children.last) SizedBox(width: gap),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildChildCard(_RecipeEditorBlock child) {
+    return _RecipeEditorBlockCard(
+      block: child,
+      selectedBlockId: selectedBlockId,
+      depth: depth + 1,
+      onBlockSelected: onBlockSelected,
+      onBlockTitleChanged: onBlockTitleChanged,
+      onBlockBodyChanged: onBlockBodyChanged,
+      onDuplicateBlock: onDuplicateBlock,
+      onDeleteBlock: onDeleteBlock,
     );
   }
 }
