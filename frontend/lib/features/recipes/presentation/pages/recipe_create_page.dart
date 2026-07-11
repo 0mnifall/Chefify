@@ -1027,11 +1027,11 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
 
   void _insertTemplate(_RecipeTemplateDefinition template) {
     final blocks = template.createBlocks(_newBlockId);
-    _insertRootBlocks(blocks);
+    _insertBlocksUsingSelection(blocks);
   }
 
   void _insertBlock(_RecipeBlockDefinition block) {
-    _insertRootBlocks([_createBlock(block.kind)]);
+    _insertBlocksUsingSelection([_createBlock(block.kind)]);
   }
 
   void _insertParagraphAt(int index) {
@@ -1135,6 +1135,93 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       _blocks = [..._blocks, ...blocks];
       _selectedBlockId = blocks.last.id;
     });
+  }
+
+  void _insertBlocksUsingSelection(List<_RecipeEditorBlock> blocks) {
+    if (blocks.isEmpty) {
+      return;
+    }
+
+    final selected = _selectedBlock;
+    final selectedId = selected?.id;
+    if (selected == null ||
+        selectedId == null ||
+        !_canInsertBlocksInto(selectedId, selected, blocks)) {
+      _insertRootBlocks(blocks);
+      return;
+    }
+
+    setState(() {
+      _blocks = _insertChildrenInto(_blocks, selectedId, blocks);
+      _selectedBlockId = blocks.last.id;
+    });
+  }
+
+  bool _canInsertBlocksInto(
+    String parentId,
+    _RecipeEditorBlock parent,
+    List<_RecipeEditorBlock> blocks,
+  ) {
+    if (!parent.canContainChildren) {
+      return false;
+    }
+
+    final parentDepth = _depthOfBlock(_blocks, parentId);
+    if (parentDepth == null) {
+      return false;
+    }
+
+    final insertedHeight = blocks.fold<int>(1, (height, block) {
+      final blockHeight = _blockTreeHeight(block);
+      return blockHeight > height ? blockHeight : height;
+    });
+
+    return parentDepth + insertedHeight <= _maxDepth;
+  }
+
+  int? _depthOfBlock(
+    List<_RecipeEditorBlock> blocks,
+    String blockId, [
+    int depth = 0,
+  ]) {
+    for (final block in blocks) {
+      if (block.id == blockId) {
+        return depth;
+      }
+      final childDepth = _depthOfBlock(block.children, blockId, depth + 1);
+      if (childDepth != null) {
+        return childDepth;
+      }
+    }
+    return null;
+  }
+
+  int _blockTreeHeight(_RecipeEditorBlock block) {
+    if (block.children.isEmpty) {
+      return 1;
+    }
+
+    return 1 +
+        block.children.fold<int>(0, (height, child) {
+          final childHeight = _blockTreeHeight(child);
+          return childHeight > height ? childHeight : height;
+        });
+  }
+
+  List<_RecipeEditorBlock> _insertChildrenInto(
+    List<_RecipeEditorBlock> blocks,
+    String parentId,
+    List<_RecipeEditorBlock> children,
+  ) {
+    return [
+      for (final block in blocks)
+        if (block.id == parentId)
+          block.copyWith(children: [...block.children, ...children])
+        else
+          block.copyWith(
+            children: _insertChildrenInto(block.children, parentId, children),
+          ),
+    ];
   }
 }
 
