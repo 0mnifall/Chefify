@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
@@ -8,6 +9,10 @@ import 'package:frontend/features/home/presentation/widgets/app_header.dart';
 import 'package:frontend/features/recipes/data/recipe_form_options.dart';
 import 'package:frontend/features/recipes/presentation/image_upload/recipe_image_picker.dart';
 import 'package:frontend/shared/models/home_models.dart';
+
+const double _recipeAuthorCardExtent = 224;
+const double _recipeAuthorCardOffset = -60;
+const double _recipeAuthorCardAngle = -0.2;
 
 @immutable
 class _RecipeDurationValue {
@@ -266,6 +271,37 @@ class _RecipeBlockExtraction {
 
   final List<_RecipeEditorBlock> blocks;
   final _RecipeEditorBlock? block;
+}
+
+class _RecipeBlockHoverController {
+  final Map<String, ValueNotifier<bool>> _blockStates = {};
+  String? _activeBlockId;
+
+  ValueNotifier<bool> listenableFor(String blockId) {
+    return _blockStates.putIfAbsent(blockId, () => ValueNotifier(false));
+  }
+
+  void activate(String? blockId) {
+    if (_activeBlockId == blockId) {
+      return;
+    }
+
+    final previousId = _activeBlockId;
+    _activeBlockId = blockId;
+    if (previousId != null) {
+      _blockStates[previousId]?.value = false;
+    }
+    if (blockId != null) {
+      listenableFor(blockId).value = true;
+    }
+  }
+
+  void dispose() {
+    for (final state in _blockStates.values) {
+      state.dispose();
+    }
+    _blockStates.clear();
+  }
 }
 
 @immutable
@@ -634,7 +670,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   static const int _maxDepth = 4;
 
   final OverlayPortalController _overlayController = OverlayPortalController();
-  final ValueNotifier<String?> _hoveredBlockId = ValueNotifier(null);
+  final _RecipeBlockHoverController _hoveredBlockId =
+      _RecipeBlockHoverController();
   int _nextId = 0;
   _RecipeEditorTab _activeTab = _RecipeEditorTab.templates;
   bool _paletteExpanded = false;
@@ -2166,7 +2203,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
 
   final List<_RecipeEditorBlock> blocks;
   final String? selectedBlockId;
-  final ValueNotifier<String?> hoveredBlockId;
+  final _RecipeBlockHoverController hoveredBlockId;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
@@ -2214,29 +2251,25 @@ class _RecipeEditorCanvas extends StatelessWidget {
                     canMoveBlock: canMoveBlock,
                     onMoveBlock: onMoveBlock,
                   ),
-                  _RecipeDraggableBlock(
-                    data: _RecipeBlockDragData(
+                  _RecipeEditorBlockCard(
+                    dragData: _RecipeBlockDragData(
                       blockId: blocks[index].id,
                       sourceParentId: null,
                       sourceIndex: index,
                       sourceDepth: 0,
                     ),
                     block: blocks[index],
+                    selectedBlockId: selectedBlockId,
                     hoveredBlockId: hoveredBlockId,
-                    child: _RecipeEditorBlockCard(
-                      block: blocks[index],
-                      selectedBlockId: selectedBlockId,
-                      hoveredBlockId: hoveredBlockId,
-                      parentBlockId: null,
-                      depth: 0,
-                      avoidAuthorOverlay: index == 0,
-                      canMoveBlock: canMoveBlock,
-                      onMoveBlock: onMoveBlock,
-                      onBlockSelected: onBlockSelected,
-                      onBlockTitleChanged: onBlockTitleChanged,
-                      onBlockBodyChanged: onBlockBodyChanged,
-                      onDeleteBlock: onDeleteBlock,
-                    ),
+                    parentBlockId: null,
+                    depth: 0,
+                    avoidAuthorOverlay: index == 0,
+                    canMoveBlock: canMoveBlock,
+                    onMoveBlock: onMoveBlock,
+                    onBlockSelected: onBlockSelected,
+                    onBlockTitleChanged: onBlockTitleChanged,
+                    onBlockBodyChanged: onBlockBodyChanged,
+                    onDeleteBlock: onDeleteBlock,
                   ),
                 ],
                 _RecipeBlockInsertZone(
@@ -2253,10 +2286,10 @@ class _RecipeEditorCanvas extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: -112,
-            right: -112,
+            top: _recipeAuthorCardOffset,
+            right: _recipeAuthorCardOffset,
             child: Transform.rotate(
-              angle: -0.075,
+              angle: _recipeAuthorCardAngle,
               child: const _RecipeLockedAuthorBlock(),
             ),
           ),
@@ -2290,8 +2323,8 @@ class _RecipeLockedAuthorBlockState extends State<_RecipeLockedAuthorBlock> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
-        width: 224,
-        height: 224,
+        width: _recipeAuthorCardExtent,
+        height: _recipeAuthorCardExtent,
         decoration: BoxDecoration(
           color: palette.navbarBackground.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -2718,8 +2751,8 @@ class _RecipeBlockDragFeedback extends StatelessWidget {
   }
 }
 
-class _RecipeDraggableBlock extends StatelessWidget {
-  const _RecipeDraggableBlock({
+class _RecipeBlockDragHandle extends StatelessWidget {
+  const _RecipeBlockDragHandle({
     required this.data,
     required this.block,
     required this.hoveredBlockId,
@@ -2728,28 +2761,33 @@ class _RecipeDraggableBlock extends StatelessWidget {
 
   final _RecipeBlockDragData data;
   final _RecipeEditorBlock block;
-  final ValueNotifier<String?> hoveredBlockId;
+  final _RecipeBlockHoverController hoveredBlockId;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return LongPressDraggable<_RecipeBlockDragData>(
-      data: data,
-      delay: const Duration(milliseconds: 140),
-      hapticFeedbackOnStart: false,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      onDragStarted: () => hoveredBlockId.value = null,
-      onDragCompleted: () => hoveredBlockId.value = null,
-      onDraggableCanceled: (_, _) => hoveredBlockId.value = null,
-      feedback: _RecipeBlockDragFeedback(block: block),
-      childWhenDragging: Opacity(opacity: 0.34, child: child),
-      child: child,
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: Draggable<_RecipeBlockDragData>(
+        data: data,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        rootOverlay: true,
+        onDragStarted: () => hoveredBlockId.activate(null),
+        onDragCompleted: () => hoveredBlockId.activate(null),
+        onDraggableCanceled: (_, _) => hoveredBlockId.activate(null),
+        feedback: RepaintBoundary(
+          child: _RecipeBlockDragFeedback(block: block),
+        ),
+        childWhenDragging: Opacity(opacity: 0.34, child: child),
+        child: child,
+      ),
     );
   }
 }
 
 class _RecipeEditorBlockCard extends StatelessWidget {
   const _RecipeEditorBlockCard({
+    required this.dragData,
     required this.block,
     required this.selectedBlockId,
     required this.hoveredBlockId,
@@ -2764,9 +2802,10 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.onDeleteBlock,
   });
 
+  final _RecipeBlockDragData dragData;
   final _RecipeEditorBlock block;
   final String? selectedBlockId;
-  final ValueNotifier<String?> hoveredBlockId;
+  final _RecipeBlockHoverController hoveredBlockId;
   final String? parentBlockId;
   final int depth;
   final bool avoidAuthorOverlay;
@@ -2793,6 +2832,29 @@ class _RecipeEditorBlockCard extends StatelessWidget {
             ? 1.0
             : widthFactor;
         final blockWidth = constraints.maxWidth * effectiveWidthFactor;
+        final blockLeft = switch (block.alignment) {
+          _RecipeBlockAlignment.left => 0.0,
+          _RecipeBlockAlignment.center =>
+            (constraints.maxWidth - blockWidth) / 2,
+          _RecipeBlockAlignment.right => constraints.maxWidth - blockWidth,
+        };
+        final blockRight = blockLeft + blockWidth;
+        final authorCenterX =
+            constraints.maxWidth -
+            _recipeAuthorCardOffset -
+            (_recipeAuthorCardExtent / 2);
+        final authorRotatedHalfWidth =
+            (_recipeAuthorCardExtent / 2) *
+            (math.cos(_recipeAuthorCardAngle).abs() +
+                math.sin(_recipeAuthorCardAngle).abs());
+        final authorLeft = authorCenterX - authorRotatedHalfWidth;
+        final overlapInset = blockRight - authorLeft + AppSpacing.sm;
+        final deleteButtonInset =
+            avoidAuthorOverlay &&
+                constraints.maxWidth >= 600 &&
+                overlapInset > 0
+            ? overlapInset.clamp(0.0, math.max(0.0, blockWidth - 80)).toDouble()
+            : 0.0;
         final alignment = switch (block.alignment) {
           _RecipeBlockAlignment.left => Alignment.centerLeft,
           _RecipeBlockAlignment.center => Alignment.center,
@@ -2804,12 +2866,13 @@ class _RecipeEditorBlockCard extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: blockWidth),
             child: _RecipeEditorBlockSurface(
+              dragData: dragData,
               block: block,
               selectedBlockId: selectedBlockId,
               hoveredBlockId: hoveredBlockId,
               parentBlockId: parentBlockId,
               depth: depth,
-              deleteButtonInset: avoidAuthorOverlay ? 88 : 0,
+              deleteButtonInset: deleteButtonInset,
               canMoveBlock: canMoveBlock,
               onMoveBlock: onMoveBlock,
               onBlockSelected: onBlockSelected,
@@ -2826,6 +2889,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
 
 class _RecipeEditorBlockSurface extends StatelessWidget {
   const _RecipeEditorBlockSurface({
+    required this.dragData,
     required this.block,
     required this.selectedBlockId,
     required this.hoveredBlockId,
@@ -2840,9 +2904,10 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.onDeleteBlock,
   });
 
+  final _RecipeBlockDragData dragData;
   final _RecipeEditorBlock block;
   final String? selectedBlockId;
-  final ValueNotifier<String?> hoveredBlockId;
+  final _RecipeBlockHoverController hoveredBlockId;
   final String? parentBlockId;
   final int depth;
   final double deleteButtonInset;
@@ -2885,11 +2950,9 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
       key: ValueKey('recipe-editor-block-${block.id}'),
       onEnter: (_) => _setHoveredBlock(block.id),
       onExit: (_) => _setHoveredBlock(parentBlockId),
-      child: ValueListenableBuilder<String?>(
-        valueListenable: hoveredBlockId,
-        builder: (context, hoveredId, child) {
-          final hovered = hoveredId == block.id;
-
+      child: ValueListenableBuilder<bool>(
+        valueListenable: hoveredBlockId.listenableFor(block.id),
+        builder: (context, hovered, child) {
           return TweenAnimationBuilder<double>(
             tween: Tween(end: hovered ? 1 : 0),
             duration: const Duration(milliseconds: 190),
@@ -2944,20 +3007,33 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                             'recipe-editor-block-handle-${block.id}',
                           ),
                           children: [
-                            Icon(
-                              block.kind.icon,
-                              size: 18,
-                              color: palette.primaryButtons,
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
                             Expanded(
-                              child: Text(
-                                block.kind.label,
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: palette.categoryTags,
-                                      fontWeight: FontWeight.w900,
+                              child: _RecipeBlockDragHandle(
+                                data: dragData,
+                                block: block,
+                                hoveredBlockId: hoveredBlockId,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      block.kind.icon,
+                                      size: 18,
+                                      color: palette.primaryButtons,
                                     ),
+                                    const SizedBox(width: AppSpacing.xs),
+                                    Expanded(
+                                      child: Text(
+                                        block.kind.label,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              color: palette.categoryTags,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             Padding(
@@ -3066,7 +3142,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   }
 
   void _setHoveredBlock(String? blockId) {
-    hoveredBlockId.value = blockId;
+    hoveredBlockId.activate(blockId);
   }
 
   Widget _buildChildren(BuildContext context, double gap) {
@@ -3128,29 +3204,25 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   }
 
   Widget _buildChildCard(_RecipeEditorBlock child, int index) {
-    return _RecipeDraggableBlock(
-      data: _RecipeBlockDragData(
+    return _RecipeEditorBlockCard(
+      dragData: _RecipeBlockDragData(
         blockId: child.id,
         sourceParentId: block.id,
         sourceIndex: index,
         sourceDepth: depth + 1,
       ),
       block: child,
+      selectedBlockId: selectedBlockId,
       hoveredBlockId: hoveredBlockId,
-      child: _RecipeEditorBlockCard(
-        block: child,
-        selectedBlockId: selectedBlockId,
-        hoveredBlockId: hoveredBlockId,
-        parentBlockId: block.id,
-        depth: depth + 1,
-        avoidAuthorOverlay: false,
-        canMoveBlock: canMoveBlock,
-        onMoveBlock: onMoveBlock,
-        onBlockSelected: onBlockSelected,
-        onBlockTitleChanged: onBlockTitleChanged,
-        onBlockBodyChanged: onBlockBodyChanged,
-        onDeleteBlock: onDeleteBlock,
-      ),
+      parentBlockId: block.id,
+      depth: depth + 1,
+      avoidAuthorOverlay: false,
+      canMoveBlock: canMoveBlock,
+      onMoveBlock: onMoveBlock,
+      onBlockSelected: onBlockSelected,
+      onBlockTitleChanged: onBlockTitleChanged,
+      onBlockBodyChanged: onBlockBodyChanged,
+      onDeleteBlock: onDeleteBlock,
     );
   }
 }
