@@ -339,6 +339,66 @@ void main() {
     expect(quoteBorder.right.width, 3);
   });
 
+  testWidgets('configures photo blocks as collage or autoplay slider', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Photo'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('recipe-editor-block-image-4')),
+        matching: find.byKey(const ValueKey('recipe-image-placeholder')),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Single photo'), findsOneWidget);
+    expect(find.text('Upload photo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipe-media-align-center')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-image-mode-single')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Collage').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-image-mode-collage')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-image-mode-collage')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Slider').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Autoplay'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-slider-pace-balanced')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('inserts a clicked palette block after the selected block', (
     tester,
   ) async {

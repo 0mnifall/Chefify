@@ -93,6 +93,14 @@ enum _RecipeInspectorTab { block, content }
 
 enum _RecipeQuoteLineSide { left, right }
 
+enum _RecipeImageMode { single, collage, slider }
+
+enum _RecipeMediaAlignment { left, center, right }
+
+enum _RecipeMediaSize { extraSmall, small, medium, large, extraLarge }
+
+enum _RecipeSliderPace { relaxed, balanced, quick }
+
 extension _RecipeBlockKindDetails on _RecipeBlockKind {
   String get label {
     return switch (this) {
@@ -205,6 +213,12 @@ class _RecipeEditorBlock {
     this.textSize = _RecipeTextSize.medium,
     this.quoteAuthor = '',
     this.quoteLineSide = _RecipeQuoteLineSide.left,
+    this.imageMode = _RecipeImageMode.single,
+    this.mediaAlignment = _RecipeMediaAlignment.center,
+    this.mediaSize = _RecipeMediaSize.medium,
+    this.imageUrls = const [],
+    this.sliderAutoplay = false,
+    this.sliderPace = _RecipeSliderPace.balanced,
     this.editorHeight,
     this.children = const [],
   });
@@ -221,6 +235,12 @@ class _RecipeEditorBlock {
   final _RecipeTextSize textSize;
   final String quoteAuthor;
   final _RecipeQuoteLineSide quoteLineSide;
+  final _RecipeImageMode imageMode;
+  final _RecipeMediaAlignment mediaAlignment;
+  final _RecipeMediaSize mediaSize;
+  final List<String> imageUrls;
+  final bool sliderAutoplay;
+  final _RecipeSliderPace sliderPace;
   final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
@@ -239,6 +259,12 @@ class _RecipeEditorBlock {
     _RecipeTextSize? textSize,
     String? quoteAuthor,
     _RecipeQuoteLineSide? quoteLineSide,
+    _RecipeImageMode? imageMode,
+    _RecipeMediaAlignment? mediaAlignment,
+    _RecipeMediaSize? mediaSize,
+    List<String>? imageUrls,
+    bool? sliderAutoplay,
+    _RecipeSliderPace? sliderPace,
     double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
@@ -255,6 +281,12 @@ class _RecipeEditorBlock {
       textSize: textSize ?? this.textSize,
       quoteAuthor: quoteAuthor ?? this.quoteAuthor,
       quoteLineSide: quoteLineSide ?? this.quoteLineSide,
+      imageMode: imageMode ?? this.imageMode,
+      mediaAlignment: mediaAlignment ?? this.mediaAlignment,
+      mediaSize: mediaSize ?? this.mediaSize,
+      imageUrls: imageUrls ?? this.imageUrls,
+      sliderAutoplay: sliderAutoplay ?? this.sliderAutoplay,
+      sliderPace: sliderPace ?? this.sliderPace,
       editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
@@ -1111,6 +1143,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       onBlockBodyChanged: _updateBlockBody,
       onBlockQuoteAuthorChanged: _updateBlockQuoteAuthor,
       onBlockHeightChanged: _updateBlockHeight,
+      onBlockChanged: _replaceBlock,
       onAppendBlockRequested: _prepareAppendBlock,
       canDropBlock: _canDropBlock,
       onDropBlock: _dropBlock,
@@ -2569,6 +2602,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onAppendBlockRequested,
     required this.canDropBlock,
     required this.onDropBlock,
@@ -2584,6 +2618,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final VoidCallback onAppendBlockRequested;
   final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
   canDropBlock;
@@ -2652,6 +2687,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       onBlockBodyChanged: onBlockBodyChanged,
                       onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
                       onBlockHeightChanged: onBlockHeightChanged,
+                      onBlockChanged: onBlockChanged,
                       onDeleteBlock: onDeleteBlock,
                     ),
                   ],
@@ -3322,6 +3358,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onDeleteBlock,
   });
 
@@ -3341,6 +3378,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -3405,6 +3443,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               onBlockBodyChanged: onBlockBodyChanged,
               onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
               onBlockHeightChanged: onBlockHeightChanged,
+              onBlockChanged: onBlockChanged,
               onDeleteBlock: onDeleteBlock,
             ),
           ),
@@ -3430,6 +3469,7 @@ class _RecipeEditorBlockSurface extends StatefulWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onDeleteBlock,
   });
 
@@ -3449,6 +3489,7 @@ class _RecipeEditorBlockSurface extends StatefulWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -3482,6 +3523,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       widget.onBlockQuoteAuthorChanged;
   void Function(String, double) get onBlockHeightChanged =>
       widget.onBlockHeightChanged;
+  ValueChanged<_RecipeEditorBlock> get onBlockChanged => widget.onBlockChanged;
   ValueChanged<String> get onDeleteBlock => widget.onDeleteBlock;
 
   @override
@@ -3674,6 +3716,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
 
   bool get _usesSecondaryBody {
     return block.kind != _RecipeBlockKind.divider &&
+        block.kind != _RecipeBlockKind.image &&
         !block.kind.supportsTextSettings;
   }
 
@@ -3705,6 +3748,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
         ),
       ),
       _RecipeBlockKind.quote => _buildQuoteContent(context, palette),
+      _RecipeBlockKind.image => _buildImageContent(context, palette),
       _ => _buildGenericTitle(context, palette),
     };
   }
@@ -3819,6 +3863,28 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
         ],
       ),
     );
+  }
+
+  Widget _buildImageContent(BuildContext context, AppPalette palette) {
+    return _RecipeImageBlockContent(
+      block: block,
+      onReplaceFirst: _pickOrReplaceFirstImage,
+    );
+  }
+
+  Future<void> _pickOrReplaceFirstImage() async {
+    final imageUrl = await pickRecipeHeroImageUrl();
+    if (!mounted || imageUrl == null) {
+      return;
+    }
+
+    final imageUrls = [...block.imageUrls];
+    if (imageUrls.isEmpty) {
+      imageUrls.add(imageUrl);
+    } else {
+      imageUrls[0] = imageUrl;
+    }
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
   }
 
   InputDecoration _textFieldDecoration(AppPalette palette, String hintText) {
@@ -3952,7 +4018,372 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       onBlockBodyChanged: onBlockBodyChanged,
       onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
       onBlockHeightChanged: onBlockHeightChanged,
+      onBlockChanged: onBlockChanged,
       onDeleteBlock: onDeleteBlock,
+    );
+  }
+}
+
+class _RecipeImageBlockContent extends StatelessWidget {
+  const _RecipeImageBlockContent({
+    required this.block,
+    required this.onReplaceFirst,
+  });
+
+  final _RecipeEditorBlock block;
+  final VoidCallback onReplaceFirst;
+
+  @override
+  Widget build(BuildContext context) {
+    final alignment = switch (block.mediaAlignment) {
+      _RecipeMediaAlignment.left => Alignment.centerLeft,
+      _RecipeMediaAlignment.center => Alignment.center,
+      _RecipeMediaAlignment.right => Alignment.centerRight,
+    };
+    final widthFactor = switch (block.mediaSize) {
+      _RecipeMediaSize.extraSmall => 0.32,
+      _RecipeMediaSize.small => 0.46,
+      _RecipeMediaSize.medium => 0.62,
+      _RecipeMediaSize.large => 0.8,
+      _RecipeMediaSize.extraLarge => 1.0,
+    };
+
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: block.imageUrls.isEmpty
+            ? _RecipeImagePlaceholder(onPressed: onReplaceFirst)
+            : switch (block.imageMode) {
+                _RecipeImageMode.single => _RecipeImagePreviewTile(
+                  imageUrl: block.imageUrls.first,
+                  onPressed: onReplaceFirst,
+                ),
+                _RecipeImageMode.collage => _RecipeCollagePreview(
+                  imageUrls: block.imageUrls,
+                  onPressed: onReplaceFirst,
+                ),
+                _RecipeImageMode.slider => _RecipeSliderPreview(
+                  imageUrls: block.imageUrls,
+                  autoplay: block.sliderAutoplay,
+                  pace: block.sliderPace,
+                  onPressed: onReplaceFirst,
+                ),
+              },
+      ),
+    );
+  }
+}
+
+class _RecipeImagePlaceholder extends StatefulWidget {
+  const _RecipeImagePlaceholder({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeImagePlaceholder> createState() =>
+      _RecipeImagePlaceholderState();
+}
+
+class _RecipeImagePlaceholderState extends State<_RecipeImagePlaceholder> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-image-placeholder'),
+        color: palette.searchBarBackground.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Column(
+                key: ValueKey(_hovered),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 38,
+                    color: palette.primaryButtons,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _hovered ? 'Choose photo' : 'Add photo',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: palette.mainText,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeImagePreviewTile extends StatefulWidget {
+  const _RecipeImagePreviewTile({
+    required this.imageUrl,
+    required this.onPressed,
+  });
+
+  final String imageUrl;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeImagePreviewTile> createState() =>
+      _RecipeImagePreviewTileState();
+}
+
+class _RecipeImagePreviewTileState extends State<_RecipeImagePreviewTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onPressed,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _RecipeNetworkImage(imageUrl: widget.imageUrl),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  color: Colors.black.withValues(alpha: _hovered ? 0.48 : 0),
+                  alignment: Alignment.center,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _hovered ? 1 : 0,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: palette.mainText,
+                          size: 28,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Replace photo',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: palette.mainText,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeCollagePreview extends StatelessWidget {
+  const _RecipeCollagePreview({
+    required this.imageUrls,
+    required this.onPressed,
+  });
+
+  final List<String> imageUrls;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleImages = imageUrls.take(5).toList(growable: false);
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppSpacing.xs),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: GridView.builder(
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: visibleImages.length == 1 ? 1 : 2,
+              crossAxisSpacing: 3,
+              mainAxisSpacing: 3,
+              childAspectRatio: visibleImages.length <= 2 ? 1.8 : 1.2,
+            ),
+            itemCount: visibleImages.length,
+            itemBuilder: (context, index) =>
+                _RecipeNetworkImage(imageUrl: visibleImages[index]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeSliderPreview extends StatefulWidget {
+  const _RecipeSliderPreview({
+    required this.imageUrls,
+    required this.autoplay,
+    required this.pace,
+    required this.onPressed,
+  });
+
+  final List<String> imageUrls;
+  final bool autoplay;
+  final _RecipeSliderPace pace;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeSliderPreview> createState() => _RecipeSliderPreviewState();
+}
+
+class _RecipeSliderPreviewState extends State<_RecipeSliderPreview> {
+  final PageController _pageController = PageController();
+  Timer? _autoplayTimer;
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncAutoplay();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipeSliderPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoplay != widget.autoplay ||
+        oldWidget.pace != widget.pace ||
+        oldWidget.imageUrls.length != widget.imageUrls.length) {
+      _page = _page.clamp(0, widget.imageUrls.length - 1);
+      _syncAutoplay();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoplayTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final imageUrls = widget.imageUrls.take(5).toList(growable: false);
+
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: imageUrls.length,
+                onPageChanged: (value) => setState(() => _page = value),
+                itemBuilder: (context, index) => InkWell(
+                  onTap: widget.onPressed,
+                  child: _RecipeNetworkImage(imageUrl: imageUrls[index]),
+                ),
+              ),
+            ),
+          ),
+          if (imageUrls.length > 1)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AppSpacing.xs,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var index = 0; index < imageUrls.length; index++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: index == _page ? 18 : 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: index == _page
+                            ? palette.primaryButtons
+                            : palette.mainText.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _syncAutoplay() {
+    _autoplayTimer?.cancel();
+    if (!widget.autoplay || widget.imageUrls.length < 2) {
+      return;
+    }
+    final interval = switch (widget.pace) {
+      _RecipeSliderPace.relaxed => const Duration(seconds: 8),
+      _RecipeSliderPace.balanced => const Duration(seconds: 5),
+      _RecipeSliderPace.quick => const Duration(seconds: 3),
+    };
+    _autoplayTimer = Timer.periodic(interval, (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      final nextPage = (_page + 1) % widget.imageUrls.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+}
+
+class _RecipeNetworkImage extends StatelessWidget {
+  const _RecipeNetworkImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => ColoredBox(
+        color: palette.searchBarBackground,
+        child: Icon(Icons.broken_image_outlined, color: palette.icons),
+      ),
     );
   }
 }
@@ -4345,6 +4776,12 @@ class _RecipeTextContentInspector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    if (block.kind == _RecipeBlockKind.image) {
+      return _RecipeImageContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
     if (!block.kind.supportsTextSettings) {
       return Text(
         'This block has no content presets yet.',
@@ -4466,6 +4903,392 @@ class _RecipeTextContentInspector extends StatelessWidget {
       _RecipeTextSize.large => 'Large',
       _RecipeTextSize.extraLarge => 'Extra large',
     };
+  }
+}
+
+class _RecipeImageContentInspector extends StatelessWidget {
+  const _RecipeImageContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final maxImages = block.imageMode == _RecipeImageMode.single ? 1 : 5;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeImageMode>(
+          controlKey: 'recipe-image-mode-${block.imageMode.name}',
+          label: 'Image mode',
+          value: block.imageMode,
+          values: _RecipeImageMode.values,
+          labelForValue: _imageModeLabel,
+          onChanged: (mode) {
+            final imageUrls =
+                mode == _RecipeImageMode.single && block.imageUrls.isNotEmpty
+                ? [block.imageUrls.first]
+                : block.imageUrls;
+            onBlockChanged(
+              block.copyWith(imageMode: mode, imageUrls: imageUrls),
+            );
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeMediaAlignmentSelector(
+          selected: block.mediaAlignment,
+          onChanged: (alignment) =>
+              onBlockChanged(block.copyWith(mediaAlignment: alignment)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeMediaSize>(
+          controlKey: 'recipe-media-size-${block.mediaSize.name}',
+          label: 'Media size',
+          value: block.mediaSize,
+          values: _RecipeMediaSize.values,
+          labelForValue: _mediaSizeLabel,
+          onChanged: (size) => onBlockChanged(block.copyWith(mediaSize: size)),
+        ),
+        if (block.imageMode == _RecipeImageMode.slider) ...[
+          const SizedBox(height: AppSpacing.md),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Autoplay',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.mainText,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              value: block.sliderAutoplay,
+              onChanged: (value) =>
+                  onBlockChanged(block.copyWith(sliderAutoplay: value)),
+            ),
+          ),
+          if (block.sliderAutoplay) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _RecipeInspectorDropdown<_RecipeSliderPace>(
+              controlKey: 'recipe-slider-pace-${block.sliderPace.name}',
+              label: 'Autoplay pace',
+              value: block.sliderPace,
+              values: _RecipeSliderPace.values,
+              labelForValue: _sliderPaceLabel,
+              onChanged: (pace) =>
+                  onBlockChanged(block.copyWith(sliderPace: pace)),
+            ),
+          ],
+        ],
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Photos',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        for (var index = 0; index < block.imageUrls.length; index++) ...[
+          _RecipeInspectorImageRow(
+            index: index,
+            imageUrl: block.imageUrls[index],
+            onReplace: () => _pickImage(replaceIndex: index),
+            onDelete: () => _deleteImage(index),
+          ),
+          if (index < block.imageUrls.length - 1)
+            const SizedBox(height: AppSpacing.xs),
+        ],
+        if (block.imageUrls.length < maxImages) ...[
+          if (block.imageUrls.isNotEmpty) const SizedBox(height: AppSpacing.xs),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('recipe-image-add-from-inspector'),
+              onPressed: _pickImage,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                block.imageUrls.isEmpty ? 'Upload photo' : 'Add photo',
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickImage({int? replaceIndex}) async {
+    final imageUrl = await pickRecipeHeroImageUrl();
+    if (imageUrl == null) {
+      return;
+    }
+    final imageUrls = [...block.imageUrls];
+    if (replaceIndex != null && replaceIndex < imageUrls.length) {
+      imageUrls[replaceIndex] = imageUrl;
+    } else if (imageUrls.length < 5) {
+      imageUrls.add(imageUrl);
+    }
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  void _deleteImage(int index) {
+    final imageUrls = [...block.imageUrls]..removeAt(index);
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  String _imageModeLabel(_RecipeImageMode mode) {
+    return switch (mode) {
+      _RecipeImageMode.single => 'Single photo',
+      _RecipeImageMode.collage => 'Collage',
+      _RecipeImageMode.slider => 'Slider',
+    };
+  }
+
+  String _mediaSizeLabel(_RecipeMediaSize size) {
+    return switch (size) {
+      _RecipeMediaSize.extraSmall => 'Extra small',
+      _RecipeMediaSize.small => 'Small',
+      _RecipeMediaSize.medium => 'Medium',
+      _RecipeMediaSize.large => 'Large',
+      _RecipeMediaSize.extraLarge => 'Extra large',
+    };
+  }
+
+  String _sliderPaceLabel(_RecipeSliderPace pace) {
+    return switch (pace) {
+      _RecipeSliderPace.relaxed => 'Relaxed',
+      _RecipeSliderPace.balanced => 'Balanced',
+      _RecipeSliderPace.quick => 'Quick',
+    };
+  }
+}
+
+class _RecipeInspectorImageRow extends StatelessWidget {
+  const _RecipeInspectorImageRow({
+    required this.index,
+    required this.imageUrl,
+    required this.onReplace,
+    required this.onDelete,
+  });
+
+  final int index;
+  final String imageUrl;
+  final VoidCallback onReplace;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.xxs),
+            child: SizedBox(
+              width: 44,
+              height: 36,
+              child: _RecipeNetworkImage(imageUrl: imageUrl),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'Photo ${index + 1}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Replace photo ${index + 1}',
+            onPressed: onReplace,
+            icon: const Icon(Icons.refresh_rounded),
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            tooltip: 'Delete photo ${index + 1}',
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeMediaAlignmentSelector extends StatelessWidget {
+  const _RecipeMediaAlignmentSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _RecipeMediaAlignment selected;
+  final ValueChanged<_RecipeMediaAlignment> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Alignment',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (final alignment in _RecipeMediaAlignment.values) ...[
+              Expanded(
+                child: _RecipeMediaAlignmentButton(
+                  alignment: alignment,
+                  selected: selected == alignment,
+                  onPressed: () => onChanged(alignment),
+                ),
+              ),
+              if (alignment != _RecipeMediaAlignment.values.last)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeMediaAlignmentButton extends StatelessWidget {
+  const _RecipeMediaAlignmentButton({
+    required this.alignment,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _RecipeMediaAlignment alignment;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final (icon, label) = switch (alignment) {
+      _RecipeMediaAlignment.left => (
+        Icons.align_horizontal_left_rounded,
+        'Left',
+      ),
+      _RecipeMediaAlignment.center => (
+        Icons.align_horizontal_center_rounded,
+        'Center',
+      ),
+      _RecipeMediaAlignment.right => (
+        Icons.align_horizontal_right_rounded,
+        'Right',
+      ),
+    };
+
+    return Tooltip(
+      message: label,
+      child: Material(
+        key: ValueKey('recipe-media-align-${alignment.name}'),
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.24)
+            : palette.searchBarBackground.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: SizedBox(
+            height: 40,
+            child: Icon(
+              icon,
+              size: 19,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeInspectorDropdown<T extends Object> extends StatelessWidget {
+  const _RecipeInspectorDropdown({
+    this.controlKey,
+    required this.label,
+    required this.value,
+    required this.values,
+    required this.labelForValue,
+    required this.onChanged,
+  });
+
+  final String? controlKey;
+  final String label;
+  final T value;
+  final List<T> values;
+  final String Function(T value) labelForValue;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        DropdownButtonFormField<T>(
+          key: ValueKey(
+            controlKey ?? 'recipe-dropdown-$label-${value.hashCode}',
+          ),
+          initialValue: value,
+          isExpanded: true,
+          dropdownColor: palette.navbarBackground,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: palette.searchBarBackground.withValues(alpha: 0.72),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+            ),
+          ),
+          items: [
+            for (final option in values)
+              DropdownMenuItem(
+                value: option,
+                child: Text(labelForValue(option)),
+              ),
+          ],
+          onChanged: (nextValue) {
+            if (nextValue != null) {
+              onChanged(nextValue);
+            }
+          },
+        ),
+      ],
+    );
   }
 }
 
