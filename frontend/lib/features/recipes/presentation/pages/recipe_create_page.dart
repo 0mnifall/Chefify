@@ -2229,6 +2229,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       hoveredBlockId: hoveredBlockId,
                       parentBlockId: null,
                       depth: 0,
+                      avoidAuthorOverlay: index == 0,
                       canMoveBlock: canMoveBlock,
                       onMoveBlock: onMoveBlock,
                       onBlockSelected: onBlockSelected,
@@ -2252,8 +2253,8 @@ class _RecipeEditorCanvas extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: -192,
-            right: -14,
+            top: -112,
+            right: -112,
             child: Transform.rotate(
               angle: -0.075,
               child: const _RecipeLockedAuthorBlock(),
@@ -2754,6 +2755,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    this.avoidAuthorOverlay = false,
     required this.canMoveBlock,
     required this.onMoveBlock,
     required this.onBlockSelected,
@@ -2767,6 +2769,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final bool avoidAuthorOverlay;
   final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
   canMoveBlock;
   final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
@@ -2806,6 +2809,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               hoveredBlockId: hoveredBlockId,
               parentBlockId: parentBlockId,
               depth: depth,
+              deleteButtonInset: avoidAuthorOverlay ? 88 : 0,
               canMoveBlock: canMoveBlock,
               onMoveBlock: onMoveBlock,
               onBlockSelected: onBlockSelected,
@@ -2827,6 +2831,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.hoveredBlockId,
     required this.parentBlockId,
     required this.depth,
+    required this.deleteButtonInset,
     required this.canMoveBlock,
     required this.onMoveBlock,
     required this.onBlockSelected,
@@ -2840,6 +2845,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   final ValueNotifier<String?> hoveredBlockId;
   final String? parentBlockId;
   final int depth;
+  final double deleteButtonInset;
   final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
   canMoveBlock;
   final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
@@ -2954,13 +2960,18 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
                                     ),
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Delete block',
-                              onPressed: () => onDeleteBlock(block.id),
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              iconSize: 18,
-                              visualDensity: VisualDensity.compact,
-                              color: palette.icons,
+                            Padding(
+                              padding: EdgeInsets.only(
+                                right: deleteButtonInset,
+                              ),
+                              child: IconButton(
+                                tooltip: 'Delete block',
+                                onPressed: () => onDeleteBlock(block.id),
+                                icon: const Icon(Icons.delete_outline_rounded),
+                                iconSize: 18,
+                                visualDensity: VisualDensity.compact,
+                                color: palette.icons,
+                              ),
                             ),
                           ],
                         ),
@@ -3132,6 +3143,7 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         hoveredBlockId: hoveredBlockId,
         parentBlockId: block.id,
         depth: depth + 1,
+        avoidAuthorOverlay: false,
         canMoveBlock: canMoveBlock,
         onMoveBlock: onMoveBlock,
         onBlockSelected: onBlockSelected,
