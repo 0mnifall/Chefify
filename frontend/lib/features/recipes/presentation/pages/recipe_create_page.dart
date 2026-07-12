@@ -15,6 +15,32 @@ const double _recipeAuthorCardExtent = 224;
 const double _recipeAuthorCardOffset = -60;
 const double _recipeAuthorCardAngle = -0.2;
 
+String? _youtubeVideoId(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return null;
+  }
+  final host = uri.host.toLowerCase().replaceFirst('www.', '');
+  if (host == 'youtu.be') {
+    return uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+  }
+  if (host != 'youtube.com' && host != 'm.youtube.com') {
+    return null;
+  }
+  final queryId = uri.queryParameters['v'];
+  if (queryId != null && queryId.isNotEmpty) {
+    return queryId;
+  }
+  if (uri.pathSegments.length >= 2 &&
+      (uri.pathSegments.first == 'embed' ||
+          uri.pathSegments.first == 'shorts')) {
+    return uri.pathSegments[1];
+  }
+  return null;
+}
+
+bool _isYoutubeUrl(String value) => _youtubeVideoId(value) != null;
+
 @immutable
 class _RecipeDurationValue {
   const _RecipeDurationValue({
@@ -219,6 +245,7 @@ class _RecipeEditorBlock {
     this.imageUrls = const [],
     this.sliderAutoplay = false,
     this.sliderPace = _RecipeSliderPace.balanced,
+    this.videoUrl = '',
     this.editorHeight,
     this.children = const [],
   });
@@ -241,6 +268,7 @@ class _RecipeEditorBlock {
   final List<String> imageUrls;
   final bool sliderAutoplay;
   final _RecipeSliderPace sliderPace;
+  final String videoUrl;
   final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
@@ -265,6 +293,7 @@ class _RecipeEditorBlock {
     List<String>? imageUrls,
     bool? sliderAutoplay,
     _RecipeSliderPace? sliderPace,
+    String? videoUrl,
     double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
@@ -287,6 +316,7 @@ class _RecipeEditorBlock {
       imageUrls: imageUrls ?? this.imageUrls,
       sliderAutoplay: sliderAutoplay ?? this.sliderAutoplay,
       sliderPace: sliderPace ?? this.sliderPace,
+      videoUrl: videoUrl ?? this.videoUrl,
       editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
@@ -3717,6 +3747,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
   bool get _usesSecondaryBody {
     return block.kind != _RecipeBlockKind.divider &&
         block.kind != _RecipeBlockKind.image &&
+        block.kind != _RecipeBlockKind.video &&
         !block.kind.supportsTextSettings;
   }
 
@@ -3749,6 +3780,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       ),
       _RecipeBlockKind.quote => _buildQuoteContent(context, palette),
       _RecipeBlockKind.image => _buildImageContent(context, palette),
+      _RecipeBlockKind.video => _buildVideoContent(context, palette),
       _ => _buildGenericTitle(context, palette),
     };
   }
@@ -3885,6 +3917,21 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       imageUrls[0] = imageUrl;
     }
     onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  Widget _buildVideoContent(BuildContext context, AppPalette palette) {
+    return _RecipeVideoBlockContent(block: block, onPressed: _editVideoUrl);
+  }
+
+  Future<void> _editVideoUrl() async {
+    final videoUrl = await showDialog<String>(
+      context: context,
+      builder: (context) => _RecipeYoutubeUrlDialog(initialUrl: block.videoUrl),
+    );
+    if (!mounted || videoUrl == null) {
+      return;
+    }
+    onBlockChanged(block.copyWith(videoUrl: videoUrl));
   }
 
   InputDecoration _textFieldDecoration(AppPalette palette, String hintText) {
@@ -4388,6 +4435,240 @@ class _RecipeNetworkImage extends StatelessWidget {
   }
 }
 
+class _RecipeVideoBlockContent extends StatelessWidget {
+  const _RecipeVideoBlockContent({
+    required this.block,
+    required this.onPressed,
+  });
+
+  final _RecipeEditorBlock block;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final alignment = switch (block.mediaAlignment) {
+      _RecipeMediaAlignment.left => Alignment.centerLeft,
+      _RecipeMediaAlignment.center => Alignment.center,
+      _RecipeMediaAlignment.right => Alignment.centerRight,
+    };
+    final widthFactor = switch (block.mediaSize) {
+      _RecipeMediaSize.extraSmall => 0.3,
+      _RecipeMediaSize.small => 0.44,
+      _RecipeMediaSize.medium => 0.6,
+      _RecipeMediaSize.large => 0.78,
+      _RecipeMediaSize.extraLarge => 1.0,
+    };
+
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: block.videoUrl.isEmpty
+            ? _RecipeVideoPlaceholder(onPressed: onPressed)
+            : _RecipeYoutubePreview(
+                videoUrl: block.videoUrl,
+                onPressed: onPressed,
+              ),
+      ),
+    );
+  }
+}
+
+class _RecipeVideoPlaceholder extends StatefulWidget {
+  const _RecipeVideoPlaceholder({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeVideoPlaceholder> createState() =>
+      _RecipeVideoPlaceholderState();
+}
+
+class _RecipeVideoPlaceholderState extends State<_RecipeVideoPlaceholder> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-video-placeholder'),
+        color: palette.searchBarBackground.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: _hovered ? 1.08 : 1,
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: 48,
+                    color: palette.primaryButtons,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  _hovered ? 'Add YouTube link' : 'Video',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: palette.mainText,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeYoutubePreview extends StatefulWidget {
+  const _RecipeYoutubePreview({
+    required this.videoUrl,
+    required this.onPressed,
+  });
+
+  final String videoUrl;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeYoutubePreview> createState() => _RecipeYoutubePreviewState();
+}
+
+class _RecipeYoutubePreviewState extends State<_RecipeYoutubePreview> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final videoId = _youtubeVideoId(widget.videoUrl);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-youtube-preview'),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onPressed,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (videoId != null)
+                  _RecipeNetworkImage(
+                    imageUrl:
+                        'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
+                  )
+                else
+                  ColoredBox(color: palette.searchBarBackground),
+                ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
+                Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: _hovered ? 62 : 56,
+                    height: _hovered ? 62 : 56,
+                    decoration: BoxDecoration(
+                      color: palette.primaryButtons,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _hovered ? Icons.edit_rounded : Icons.play_arrow_rounded,
+                      color: palette.mainText,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeYoutubeUrlDialog extends StatefulWidget {
+  const _RecipeYoutubeUrlDialog({required this.initialUrl});
+
+  final String initialUrl;
+
+  @override
+  State<_RecipeYoutubeUrlDialog> createState() =>
+      _RecipeYoutubeUrlDialogState();
+}
+
+class _RecipeYoutubeUrlDialogState extends State<_RecipeYoutubeUrlDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialUrl);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return AlertDialog(
+      key: const ValueKey('recipe-youtube-url-dialog'),
+      backgroundColor: palette.cardsSurface,
+      title: const Text('YouTube video'),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          key: const ValueKey('recipe-youtube-url-field'),
+          controller: _controller,
+          autofocus: true,
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            labelText: 'YouTube URL',
+            hintText: 'https://www.youtube.com/watch?v=...',
+            errorText: _errorText,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Apply')),
+      ],
+    );
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (!_isYoutubeUrl(value)) {
+      setState(() => _errorText = 'Enter a valid YouTube URL.');
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+}
+
 class _RecipeBlockResizeHandle extends StatefulWidget {
   const _RecipeBlockResizeHandle({
     required this.blockId,
@@ -4782,6 +5063,12 @@ class _RecipeTextContentInspector extends StatelessWidget {
         onBlockChanged: onBlockChanged,
       );
     }
+    if (block.kind == _RecipeBlockKind.video) {
+      return _RecipeVideoContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
     if (!block.kind.supportsTextSettings) {
       return Text(
         'This block has no content presets yet.',
@@ -4902,6 +5189,72 @@ class _RecipeTextContentInspector extends StatelessWidget {
       _RecipeTextSize.medium => 'Medium',
       _RecipeTextSize.large => 'Large',
       _RecipeTextSize.extraLarge => 'Extra large',
+    };
+  }
+}
+
+class _RecipeVideoContentInspector extends StatelessWidget {
+  const _RecipeVideoContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final invalidUrl =
+        block.videoUrl.isNotEmpty && !_isYoutubeUrl(block.videoUrl);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeMediaAlignmentSelector(
+          selected: block.mediaAlignment,
+          onChanged: (alignment) =>
+              onBlockChanged(block.copyWith(mediaAlignment: alignment)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeMediaSize>(
+          controlKey: 'recipe-video-size-${block.mediaSize.name}',
+          label: 'Video size',
+          value: block.mediaSize,
+          values: _RecipeMediaSize.values,
+          labelForValue: _mediaSizeLabel,
+          onChanged: (size) => onBlockChanged(block.copyWith(mediaSize: size)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'YouTube URL',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextFormField(
+          key: const ValueKey('recipe-video-url-inspector-field'),
+          initialValue: block.videoUrl,
+          onChanged: (value) =>
+              onBlockChanged(block.copyWith(videoUrl: value.trim())),
+          decoration: InputDecoration(
+            hintText: 'https://www.youtube.com/watch?v=...',
+            errorText: invalidUrl ? 'Use a valid YouTube link.' : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _mediaSizeLabel(_RecipeMediaSize size) {
+    return switch (size) {
+      _RecipeMediaSize.extraSmall => 'Extra small',
+      _RecipeMediaSize.small => 'Small',
+      _RecipeMediaSize.medium => 'Medium',
+      _RecipeMediaSize.large => 'Large',
+      _RecipeMediaSize.extraLarge => 'Extra large',
     };
   }
 }

@@ -399,6 +399,74 @@ void main() {
     );
   });
 
+  testWidgets('configures YouTube video blocks from block and inspector', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Video'));
+    await tester.pumpAndSettle();
+
+    final placeholder = find.byKey(const ValueKey('recipe-video-placeholder'));
+    expect(placeholder, findsOneWidget);
+    expect(
+      tester
+          .widget<AspectRatio>(
+            find.descendant(
+              of: placeholder,
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio,
+      1,
+    );
+
+    await tester.tap(placeholder);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-youtube-url-dialog')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('recipe-youtube-url-field')),
+      'https://example.com/video',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a valid YouTube URL.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipe-youtube-url-field')),
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-youtube-preview')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-video-url-inspector-field')),
+      findsOneWidget,
+    );
+    expect(find.text('Video size'), findsOneWidget);
+  });
+
   testWidgets('inserts a clicked palette block after the selected block', (
     tester,
   ) async {
