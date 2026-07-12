@@ -41,6 +41,14 @@ String? _youtubeVideoId(String value) {
 
 bool _isYoutubeUrl(String value) => _youtubeVideoId(value) != null;
 
+List<Color> _recipeDividerColors(AppPalette palette) => [
+  palette.primaryButtons,
+  palette.categoryTags,
+  palette.mainText,
+  palette.secondaryText,
+  const Color(0xFFD85A5A),
+];
+
 @immutable
 class _RecipeDurationValue {
   const _RecipeDurationValue({
@@ -126,6 +134,12 @@ enum _RecipeMediaAlignment { left, center, right }
 enum _RecipeMediaSize { extraSmall, small, medium, large, extraLarge }
 
 enum _RecipeSliderPace { relaxed, balanced, quick }
+
+enum _RecipeNoteTone { tip, info, warning, important }
+
+enum _RecipeDividerStyle { solid, dotted, dashed, dashDot, doubleLine }
+
+enum _RecipeDividerThickness { thin, regular, bold }
 
 extension _RecipeBlockKindDetails on _RecipeBlockKind {
   String get label {
@@ -246,6 +260,10 @@ class _RecipeEditorBlock {
     this.sliderAutoplay = false,
     this.sliderPace = _RecipeSliderPace.balanced,
     this.videoUrl = '',
+    this.noteTone = _RecipeNoteTone.tip,
+    this.dividerStyle = _RecipeDividerStyle.solid,
+    this.dividerThickness = _RecipeDividerThickness.regular,
+    this.dividerColorIndex = 0,
     this.editorHeight,
     this.children = const [],
   });
@@ -269,6 +287,10 @@ class _RecipeEditorBlock {
   final bool sliderAutoplay;
   final _RecipeSliderPace sliderPace;
   final String videoUrl;
+  final _RecipeNoteTone noteTone;
+  final _RecipeDividerStyle dividerStyle;
+  final _RecipeDividerThickness dividerThickness;
+  final int dividerColorIndex;
   final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
@@ -294,6 +316,10 @@ class _RecipeEditorBlock {
     bool? sliderAutoplay,
     _RecipeSliderPace? sliderPace,
     String? videoUrl,
+    _RecipeNoteTone? noteTone,
+    _RecipeDividerStyle? dividerStyle,
+    _RecipeDividerThickness? dividerThickness,
+    int? dividerColorIndex,
     double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
@@ -317,6 +343,10 @@ class _RecipeEditorBlock {
       sliderAutoplay: sliderAutoplay ?? this.sliderAutoplay,
       sliderPace: sliderPace ?? this.sliderPace,
       videoUrl: videoUrl ?? this.videoUrl,
+      noteTone: noteTone ?? this.noteTone,
+      dividerStyle: dividerStyle ?? this.dividerStyle,
+      dividerThickness: dividerThickness ?? this.dividerThickness,
+      dividerColorIndex: dividerColorIndex ?? this.dividerColorIndex,
       editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
@@ -3748,14 +3778,13 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
     return block.kind != _RecipeBlockKind.divider &&
         block.kind != _RecipeBlockKind.image &&
         block.kind != _RecipeBlockKind.video &&
+        block.kind != _RecipeBlockKind.note &&
         !block.kind.supportsTextSettings;
   }
 
   Widget _buildPrimaryContent(BuildContext context, AppPalette palette) {
     return switch (block.kind) {
-      _RecipeBlockKind.divider => Divider(
-        color: palette.borders.withValues(alpha: 0.8),
-      ),
+      _RecipeBlockKind.divider => _buildDividerContent(palette),
       _RecipeBlockKind.heading => _buildTextContentField(
         context,
         palette,
@@ -3781,6 +3810,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       _RecipeBlockKind.quote => _buildQuoteContent(context, palette),
       _RecipeBlockKind.image => _buildImageContent(context, palette),
       _RecipeBlockKind.video => _buildVideoContent(context, palette),
+      _RecipeBlockKind.note => _buildNoteContent(context, palette),
       _ => _buildGenericTitle(context, palette),
     };
   }
@@ -3932,6 +3962,64 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       return;
     }
     onBlockChanged(block.copyWith(videoUrl: videoUrl));
+  }
+
+  Widget _buildNoteContent(BuildContext context, AppPalette palette) {
+    final (color, icon) = switch (block.noteTone) {
+      _RecipeNoteTone.tip => (palette.categoryTags, Icons.lightbulb_outline),
+      _RecipeNoteTone.info => (palette.icons, Icons.info_outline_rounded),
+      _RecipeNoteTone.warning => (
+        palette.primaryButtons,
+        Icons.warning_amber_rounded,
+      ),
+      _RecipeNoteTone.important => (
+        Theme.of(context).colorScheme.error,
+        Icons.priority_high_rounded,
+      ),
+    };
+
+    return Container(
+      key: ValueKey('${block.id}-note-surface'),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: TextFormField(
+              key: ValueKey('${block.id}-body'),
+              initialValue: block.body,
+              minLines: 1,
+              maxLines: null,
+              textAlign: _textAlign,
+              onTap: () => onBlockSelected(block.id),
+              onChanged: (value) => onBlockBodyChanged(block.id, value),
+              style: TextStyle(
+                color: palette.mainText,
+                fontSize: _textFontSize,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: _textFieldDecoration(palette, 'Write a note'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDividerContent(AppPalette palette) {
+    final colors = _recipeDividerColors(palette);
+    return _RecipeDividerPreview(
+      style: block.dividerStyle,
+      thickness: block.dividerThickness,
+      color: colors[block.dividerColorIndex.clamp(0, colors.length - 1)],
+    );
   }
 
   InputDecoration _textFieldDecoration(AppPalette palette, String hintText) {
@@ -4669,6 +4757,122 @@ class _RecipeYoutubeUrlDialogState extends State<_RecipeYoutubeUrlDialog> {
   }
 }
 
+class _RecipeDividerPreview extends StatelessWidget {
+  const _RecipeDividerPreview({
+    required this.style,
+    required this.thickness,
+    required this.color,
+  });
+
+  final _RecipeDividerStyle style;
+  final _RecipeDividerThickness thickness;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('recipe-divider-preview'),
+      height: 28,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _RecipeDividerPainter(
+          style: style,
+          thickness: thickness,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeDividerPainter extends CustomPainter {
+  const _RecipeDividerPainter({
+    required this.style,
+    required this.thickness,
+    required this.color,
+  });
+
+  final _RecipeDividerStyle style;
+  final _RecipeDividerThickness thickness;
+  final Color color;
+
+  double get strokeWidth => switch (thickness) {
+    _RecipeDividerThickness.thin => 1,
+    _RecipeDividerThickness.regular => 2,
+    _RecipeDividerThickness.bold => 4,
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    switch (style) {
+      case _RecipeDividerStyle.solid:
+        canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint);
+        break;
+      case _RecipeDividerStyle.dotted:
+        final spacing = math.max(5.0, strokeWidth * 3);
+        for (var x = strokeWidth; x < size.width; x += spacing) {
+          canvas.drawCircle(Offset(x, centerY), strokeWidth / 1.5, paint);
+        }
+        break;
+      case _RecipeDividerStyle.dashed:
+        _drawPattern(canvas, size.width, centerY, paint, const [12, 7]);
+        break;
+      case _RecipeDividerStyle.dashDot:
+        _drawPattern(canvas, size.width, centerY, paint, const [14, 6, 2, 6]);
+        break;
+      case _RecipeDividerStyle.doubleLine:
+        final offset = strokeWidth + 2;
+        canvas
+          ..drawLine(
+            Offset(0, centerY - offset),
+            Offset(size.width, centerY - offset),
+            paint,
+          )
+          ..drawLine(
+            Offset(0, centerY + offset),
+            Offset(size.width, centerY + offset),
+            paint,
+          );
+        break;
+    }
+  }
+
+  void _drawPattern(
+    Canvas canvas,
+    double width,
+    double y,
+    Paint paint,
+    List<double> pattern,
+  ) {
+    var x = 0.0;
+    var patternIndex = 0;
+    var drawing = true;
+    while (x < width) {
+      final segment = pattern[patternIndex % pattern.length];
+      final end = math.min(width, x + segment);
+      if (drawing) {
+        canvas.drawLine(Offset(x, y), Offset(end, y), paint);
+      }
+      x = end;
+      patternIndex += 1;
+      drawing = !drawing;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RecipeDividerPainter oldDelegate) {
+    return oldDelegate.style != style ||
+        oldDelegate.thickness != thickness ||
+        oldDelegate.color != color;
+  }
+}
+
 class _RecipeBlockResizeHandle extends StatefulWidget {
   const _RecipeBlockResizeHandle({
     required this.blockId,
@@ -5069,6 +5273,18 @@ class _RecipeTextContentInspector extends StatelessWidget {
         onBlockChanged: onBlockChanged,
       );
     }
+    if (block.kind == _RecipeBlockKind.note) {
+      return _RecipeNoteContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
+    if (block.kind == _RecipeBlockKind.divider) {
+      return _RecipeDividerContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
     if (!block.kind.supportsTextSettings) {
       return Text(
         'This block has no content presets yet.',
@@ -5190,6 +5406,206 @@ class _RecipeTextContentInspector extends StatelessWidget {
       _RecipeTextSize.large => 'Large',
       _RecipeTextSize.extraLarge => 'Extra large',
     };
+  }
+}
+
+class _RecipeNoteContentInspector extends StatelessWidget {
+  const _RecipeNoteContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final alignments = _RecipeTextAlignment.values
+        .where((alignment) => alignment != _RecipeTextAlignment.justify)
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeNoteTone>(
+          controlKey: 'recipe-note-tone-${block.noteTone.name}',
+          label: 'Note style',
+          value: block.noteTone,
+          values: _RecipeNoteTone.values,
+          labelForValue: (tone) => switch (tone) {
+            _RecipeNoteTone.tip => 'Tip',
+            _RecipeNoteTone.info => 'Information',
+            _RecipeNoteTone.warning => 'Warning',
+            _RecipeNoteTone.important => 'Important',
+          },
+          onChanged: (tone) => onBlockChanged(block.copyWith(noteTone: tone)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Text alignment',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (var index = 0; index < alignments.length; index++) ...[
+              Expanded(
+                child: _RecipeTextAlignmentButton(
+                  alignment: alignments[index],
+                  selected: block.textAlignment == alignments[index],
+                  onPressed: () => onBlockChanged(
+                    block.copyWith(textAlignment: alignments[index]),
+                  ),
+                ),
+              ),
+              if (index < alignments.length - 1)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeTextSize>(
+          controlKey: 'recipe-note-size-${block.textSize.name}',
+          label: 'Text size',
+          value: block.textSize,
+          values: _RecipeTextSize.values,
+          labelForValue: (size) => switch (size) {
+            _RecipeTextSize.extraSmall => 'Extra small',
+            _RecipeTextSize.small => 'Small',
+            _RecipeTextSize.medium => 'Medium',
+            _RecipeTextSize.large => 'Large',
+            _RecipeTextSize.extraLarge => 'Extra large',
+          },
+          onChanged: (size) => onBlockChanged(block.copyWith(textSize: size)),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeDividerContentInspector extends StatelessWidget {
+  const _RecipeDividerContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final colors = _recipeDividerColors(palette);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeDividerStyle>(
+          controlKey: 'recipe-divider-style-${block.dividerStyle.name}',
+          label: 'Line style',
+          value: block.dividerStyle,
+          values: _RecipeDividerStyle.values,
+          labelForValue: (style) => switch (style) {
+            _RecipeDividerStyle.solid => 'Solid',
+            _RecipeDividerStyle.dotted => 'Dotted',
+            _RecipeDividerStyle.dashed => 'Dashed',
+            _RecipeDividerStyle.dashDot => 'Dash-dot',
+            _RecipeDividerStyle.doubleLine => 'Double solid',
+          },
+          onChanged: (style) =>
+              onBlockChanged(block.copyWith(dividerStyle: style)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeDividerThickness>(
+          controlKey: 'recipe-divider-thickness-${block.dividerThickness.name}',
+          label: 'Thickness',
+          value: block.dividerThickness,
+          values: _RecipeDividerThickness.values,
+          labelForValue: (thickness) => switch (thickness) {
+            _RecipeDividerThickness.thin => 'Thin',
+            _RecipeDividerThickness.regular => 'Regular',
+            _RecipeDividerThickness.bold => 'Bold',
+          },
+          onChanged: (thickness) =>
+              onBlockChanged(block.copyWith(dividerThickness: thickness)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Color',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (var index = 0; index < colors.length; index++) ...[
+              _RecipeDividerColorSwatch(
+                index: index,
+                color: colors[index],
+                selected: block.dividerColorIndex == index,
+                onPressed: () =>
+                    onBlockChanged(block.copyWith(dividerColorIndex: index)),
+              ),
+              if (index < colors.length - 1)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeDividerColorSwatch extends StatelessWidget {
+  const _RecipeDividerColorSwatch({
+    required this.index,
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final int index;
+  final Color color;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Tooltip(
+      message: 'Color ${index + 1}',
+      child: InkWell(
+        key: ValueKey('recipe-divider-color-$index'),
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(AppSpacing.xxs),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(AppSpacing.xxs),
+            border: Border.all(
+              color: selected ? palette.primaryButtons : palette.borders,
+              width: selected ? 3 : 1,
+            ),
+          ),
+          child: selected
+              ? Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: palette.pageBackground,
+                )
+              : null,
+        ),
+      ),
+    );
   }
 }
 

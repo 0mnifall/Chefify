@@ -467,6 +467,70 @@ void main() {
     expect(find.text('Video size'), findsOneWidget);
   });
 
+  testWidgets('configures note tone and divider line presets', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Note'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('note-4-note-surface')), findsOneWidget);
+    expect(find.byKey(const ValueKey('note-4-title')), findsNothing);
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-note-tone-tip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Warning').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-note-tone-warning')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Divider'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('recipe-editor-block-divider-5')),
+        matching: find.byKey(const ValueKey('recipe-divider-preview')),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-divider-style-solid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dash-dot').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-divider-thickness-regular')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bold').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-divider-color-4')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-divider-style-dashDot')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-divider-thickness-bold')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('inserts a clicked palette block after the selected block', (
     tester,
   ) async {
