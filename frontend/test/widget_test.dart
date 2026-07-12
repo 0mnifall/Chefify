@@ -385,6 +385,22 @@ void main() {
       find.byKey(const ValueKey('recipe-image-mode-collage')),
       findsOneWidget,
     );
+    expect(find.text('Add first photo'), findsOneWidget);
+    final collagePlaceholder = find.descendant(
+      of: find.byKey(const ValueKey('recipe-editor-block-image-4')),
+      matching: find.byKey(const ValueKey('recipe-image-placeholder')),
+    );
+    expect(
+      tester
+          .widget<AspectRatio>(
+            find.descendant(
+              of: collagePlaceholder,
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio,
+      2.4,
+    );
 
     await tester.tap(find.byKey(const ValueKey('recipe-image-mode-collage')));
     await tester.pumpAndSettle();

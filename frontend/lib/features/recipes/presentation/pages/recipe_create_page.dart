@@ -4188,7 +4188,18 @@ class _RecipeImageBlockContent extends StatelessWidget {
       child: FractionallySizedBox(
         widthFactor: widthFactor,
         child: block.imageUrls.isEmpty
-            ? _RecipeImagePlaceholder(onPressed: onReplaceFirst)
+            ? _RecipeImagePlaceholder(
+                onPressed: onReplaceFirst,
+                aspectRatio: block.imageMode == _RecipeImageMode.collage
+                    ? 2.4
+                    : 16 / 9,
+                label: block.imageMode == _RecipeImageMode.collage
+                    ? 'Add first photo'
+                    : 'Add photo',
+                hoverLabel: block.imageMode == _RecipeImageMode.collage
+                    ? 'Choose first photo'
+                    : 'Choose photo',
+              )
             : switch (block.imageMode) {
                 _RecipeImageMode.single => _RecipeImagePreviewTile(
                   imageUrl: block.imageUrls.first,
@@ -4211,9 +4222,17 @@ class _RecipeImageBlockContent extends StatelessWidget {
 }
 
 class _RecipeImagePlaceholder extends StatefulWidget {
-  const _RecipeImagePlaceholder({required this.onPressed});
+  const _RecipeImagePlaceholder({
+    required this.onPressed,
+    required this.aspectRatio,
+    required this.label,
+    required this.hoverLabel,
+  });
 
   final VoidCallback onPressed;
+  final double aspectRatio;
+  final String label;
+  final String hoverLabel;
 
   @override
   State<_RecipeImagePlaceholder> createState() =>
@@ -4238,7 +4257,7 @@ class _RecipeImagePlaceholderState extends State<_RecipeImagePlaceholder> {
           onTap: widget.onPressed,
           borderRadius: BorderRadius.circular(AppSpacing.xs),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
+            aspectRatio: widget.aspectRatio,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: Column(
@@ -4252,7 +4271,7 @@ class _RecipeImagePlaceholderState extends State<_RecipeImagePlaceholder> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    _hovered ? 'Choose photo' : 'Add photo',
+                    _hovered ? widget.hoverLabel : widget.label,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: palette.mainText,
                       fontWeight: FontWeight.w900,
@@ -4362,22 +4381,86 @@ class _RecipeCollagePreview extends StatelessWidget {
         onTap: onPressed,
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: GridView.builder(
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: visibleImages.length == 1 ? 1 : 2,
-              crossAxisSpacing: 3,
-              mainAxisSpacing: 3,
-              childAspectRatio: visibleImages.length <= 2 ? 1.8 : 1.2,
-            ),
-            itemCount: visibleImages.length,
-            itemBuilder: (context, index) =>
-                _RecipeNetworkImage(imageUrl: visibleImages[index]),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              final rects = _layoutRects(size, visibleImages.length);
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  for (var index = 0; index < visibleImages.length; index++)
+                    Positioned.fromRect(
+                      rect: rects[index],
+                      child: SizedBox(
+                        key: ValueKey('recipe-collage-image-$index'),
+                        child: _RecipeNetworkImage(
+                          imageUrl: visibleImages[index],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+
+  List<Rect> _layoutRects(Size size, int count) {
+    const gap = 3.0;
+    final width = size.width;
+    final height = size.height;
+
+    if (count <= 1) {
+      return [Rect.fromLTWH(0, 0, width, height)];
+    }
+    if (count == 2) {
+      final itemWidth = (width - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, itemWidth, height),
+        Rect.fromLTWH(itemWidth + gap, 0, itemWidth, height),
+      ];
+    }
+    if (count == 3) {
+      final mainWidth = (width - gap) * 0.62;
+      final sideWidth = width - gap - mainWidth;
+      final sideHeight = (height - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, mainWidth, height),
+        Rect.fromLTWH(mainWidth + gap, 0, sideWidth, sideHeight),
+        Rect.fromLTWH(mainWidth + gap, sideHeight + gap, sideWidth, sideHeight),
+      ];
+    }
+    if (count == 4) {
+      final itemWidth = (width - gap) / 2;
+      final itemHeight = (height - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, itemWidth, itemHeight),
+        Rect.fromLTWH(itemWidth + gap, 0, itemWidth, itemHeight),
+        Rect.fromLTWH(0, itemHeight + gap, itemWidth, itemHeight),
+        Rect.fromLTWH(itemWidth + gap, itemHeight + gap, itemWidth, itemHeight),
+      ];
+    }
+
+    final mainWidth = (width - gap) * 0.4;
+    final gridLeft = mainWidth + gap;
+    final gridWidth = width - gridLeft;
+    final itemWidth = (gridWidth - gap) / 2;
+    final itemHeight = (height - gap) / 2;
+    return [
+      Rect.fromLTWH(0, 0, mainWidth, height),
+      Rect.fromLTWH(gridLeft, 0, itemWidth, itemHeight),
+      Rect.fromLTWH(gridLeft + itemWidth + gap, 0, itemWidth, itemHeight),
+      Rect.fromLTWH(gridLeft, itemHeight + gap, itemWidth, itemHeight),
+      Rect.fromLTWH(
+        gridLeft + itemWidth + gap,
+        itemHeight + gap,
+        itemWidth,
+        itemHeight,
+      ),
+    ];
   }
 }
 
