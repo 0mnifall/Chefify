@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/constants/app_colors.dart';
 import 'package:frontend/core/constants/app_spacing.dart';
@@ -83,6 +84,12 @@ enum _RecipeBlockAlignment { left, center, right }
 enum _RecipeBlockSpacing { compact, normal, spacious }
 
 enum _RecipeBlockVariant { simple, cards, timeline }
+
+enum _RecipeTextAlignment { left, center, right, justify }
+
+enum _RecipeTextSize { extraSmall, small, medium, large, extraLarge }
+
+enum _RecipeInspectorTab { block, content }
 
 extension _RecipeBlockKindDetails on _RecipeBlockKind {
   String get label {
@@ -169,6 +176,16 @@ extension _RecipeBlockKindDetails on _RecipeBlockKind {
       _ => false,
     };
   }
+
+  bool get supportsTextSettings {
+    return this == _RecipeBlockKind.heading ||
+        this == _RecipeBlockKind.paragraph ||
+        this == _RecipeBlockKind.quote;
+  }
+
+  bool get supportsJustifiedText {
+    return this == _RecipeBlockKind.paragraph || this == _RecipeBlockKind.quote;
+  }
 }
 
 @immutable
@@ -182,6 +199,10 @@ class _RecipeEditorBlock {
     this.alignment = _RecipeBlockAlignment.left,
     this.spacing = _RecipeBlockSpacing.normal,
     this.variant = _RecipeBlockVariant.simple,
+    this.textAlignment = _RecipeTextAlignment.left,
+    this.textSize = _RecipeTextSize.medium,
+    this.quoteAuthor = '',
+    this.editorHeight,
     this.children = const [],
   });
 
@@ -193,6 +214,10 @@ class _RecipeEditorBlock {
   final _RecipeBlockAlignment alignment;
   final _RecipeBlockSpacing spacing;
   final _RecipeBlockVariant variant;
+  final _RecipeTextAlignment textAlignment;
+  final _RecipeTextSize textSize;
+  final String quoteAuthor;
+  final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
   bool get canContainChildren => kind.canContainChildren;
@@ -206,6 +231,10 @@ class _RecipeEditorBlock {
     _RecipeBlockAlignment? alignment,
     _RecipeBlockSpacing? spacing,
     _RecipeBlockVariant? variant,
+    _RecipeTextAlignment? textAlignment,
+    _RecipeTextSize? textSize,
+    String? quoteAuthor,
+    double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
     return _RecipeEditorBlock(
@@ -217,24 +246,40 @@ class _RecipeEditorBlock {
       alignment: alignment ?? this.alignment,
       spacing: spacing ?? this.spacing,
       variant: variant ?? this.variant,
+      textAlignment: textAlignment ?? this.textAlignment,
+      textSize: textSize ?? this.textSize,
+      quoteAuthor: quoteAuthor ?? this.quoteAuthor,
+      editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
   }
 }
 
 @immutable
-class _RecipeBlockDragData {
+abstract class _RecipeEditorDragData {
+  const _RecipeEditorDragData();
+}
+
+@immutable
+class _RecipeBlockDragData extends _RecipeEditorDragData {
   const _RecipeBlockDragData({
     required this.blockId,
     required this.sourceParentId,
     required this.sourceIndex,
     required this.sourceDepth,
-  });
+  }) : super();
 
   final String blockId;
   final String? sourceParentId;
   final int sourceIndex;
   final int sourceDepth;
+}
+
+@immutable
+class _RecipePaletteBlockDragData extends _RecipeEditorDragData {
+  const _RecipePaletteBlockDragData(this.block);
+
+  final _RecipeBlockDefinition block;
 }
 
 @immutable
@@ -650,7 +695,7 @@ class _RecipeCreateContent extends StatelessWidget {
           onCancelTagInput: onCancelTagInput,
           onPickImage: onPickImage,
         ),
-        const SizedBox(height: 160),
+        const SizedBox(height: AppSpacing.xl),
         _RecipeBodyEditor(scrollController: scrollController),
       ],
     );
@@ -676,6 +721,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   _RecipeEditorTab _activeTab = _RecipeEditorTab.templates;
   bool _paletteExpanded = false;
   bool _inspectorExpanded = false;
+  bool _appendNextBlock = false;
+  int _blockPaletteCue = 0;
   String? _selectedBlockId;
   late List<_RecipeEditorBlock> _blocks = _initialBlocks();
 
@@ -1053,11 +1100,14 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       selectedBlockId: _selectedBlockId,
       hoveredBlockId: _hoveredBlockId,
       onBlockSelected: _selectBlock,
+      onSelectionCleared: _clearBlockSelection,
       onBlockTitleChanged: _updateBlockTitle,
       onBlockBodyChanged: _updateBlockBody,
-      onInsertParagraphAt: _insertParagraphAt,
-      canMoveBlock: _canMoveBlock,
-      onMoveBlock: _moveBlock,
+      onBlockQuoteAuthorChanged: _updateBlockQuoteAuthor,
+      onBlockHeightChanged: _updateBlockHeight,
+      onAppendBlockRequested: _prepareAppendBlock,
+      canDropBlock: _canDropBlock,
+      onDropBlock: _dropBlock,
       onDeleteBlock: _deleteBlock,
     );
 
@@ -1067,6 +1117,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         activeTab: _activeTab,
         paletteExpanded: _paletteExpanded,
         inspectorExpanded: _inspectorExpanded,
+        blockPaletteCue: _blockPaletteCue,
         templates: _templateDefinitions,
         blocks: _blockDefinitions,
         selectedBlock: _selectedBlock,
@@ -1093,6 +1144,8 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         onAlignmentChanged: _updateSelectedBlockAlignment,
         onSpacingChanged: _updateSelectedBlockSpacing,
         onVariantChanged: _updateSelectedBlockVariant,
+        onTextAlignmentChanged: _updateSelectedBlockTextAlignment,
+        onTextSizeChanged: _updateSelectedBlockTextSize,
       ),
       child: canvasPanel,
     );
@@ -1134,12 +1187,29 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     });
   }
 
+  void _clearBlockSelection() {
+    if (_selectedBlockId == null) {
+      return;
+    }
+    setState(() {
+      _selectedBlockId = null;
+    });
+  }
+
   void _updateBlockTitle(String blockId, String title) {
     _updateBlock(blockId, (block) => block.copyWith(title: title));
   }
 
   void _updateBlockBody(String blockId, String body) {
     _updateBlock(blockId, (block) => block.copyWith(body: body));
+  }
+
+  void _updateBlockQuoteAuthor(String blockId, String author) {
+    _updateBlock(blockId, (block) => block.copyWith(quoteAuthor: author));
+  }
+
+  void _updateBlockHeight(String blockId, double height) {
+    _updateBlock(blockId, (block) => block.copyWith(editorHeight: height));
   }
 
   void _updateSelectedBlockWidth(_RecipeBlockWidth width) {
@@ -1174,6 +1244,22 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     _updateBlock(blockId, (block) => block.copyWith(variant: variant));
   }
 
+  void _updateSelectedBlockTextAlignment(_RecipeTextAlignment alignment) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(textAlignment: alignment));
+  }
+
+  void _updateSelectedBlockTextSize(_RecipeTextSize size) {
+    final blockId = _selectedBlockId;
+    if (blockId == null) {
+      return;
+    }
+    _updateBlock(blockId, (block) => block.copyWith(textSize: size));
+  }
+
   void _updateBlock(
     String blockId,
     _RecipeEditorBlock Function(_RecipeEditorBlock block) update,
@@ -1203,19 +1289,87 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
   }
 
   void _insertBlock(_RecipeBlockDefinition block) {
-    _insertBlocksUsingSelection([_createBlock(block.kind)]);
+    final target = _appendNextBlock
+        ? _RecipeBlockDropTarget(
+            parentId: null,
+            index: _blocks.length,
+            depth: 0,
+          )
+        : _insertionTargetAfterSelection(block.kind);
+    _insertPaletteBlock(block, target);
   }
 
-  void _insertParagraphAt(int index) {
-    _insertBlockAt(index, _createBlock(_RecipeBlockKind.paragraph));
-  }
-
-  void _insertBlockAt(int index, _RecipeEditorBlock block) {
+  void _prepareAppendBlock() {
     setState(() {
-      final targetIndex = index.clamp(0, _blocks.length).toInt();
-      _blocks = [..._blocks]..insert(targetIndex, block);
-      _selectedBlockId = block.id;
+      _activeTab = _RecipeEditorTab.blocks;
+      _appendNextBlock = true;
+      _blockPaletteCue += 1;
     });
+  }
+
+  _RecipeBlockDropTarget _insertionTargetAfterSelection(_RecipeBlockKind kind) {
+    var selectedId = _selectedBlockId;
+    while (selectedId != null) {
+      final location = _findBlockLocation(_blocks, selectedId);
+      if (location == null) {
+        break;
+      }
+
+      final target = _RecipeBlockDropTarget(
+        parentId: location.parentId,
+        index: location.index + 1,
+        depth: location.depth,
+      );
+      if (_canInsertPaletteBlock(kind, target)) {
+        return target;
+      }
+      selectedId = location.parentId;
+    }
+
+    return _RecipeBlockDropTarget(
+      parentId: null,
+      index: _blocks.length,
+      depth: 0,
+    );
+  }
+
+  void _insertPaletteBlock(
+    _RecipeBlockDefinition definition,
+    _RecipeBlockDropTarget target,
+  ) {
+    if (!_canInsertPaletteBlock(definition.kind, target)) {
+      return;
+    }
+
+    final block = _createBlock(definition.kind);
+    setState(() {
+      _blocks = _insertMovedBlock(
+        _blocks,
+        target.parentId,
+        target.index,
+        block,
+      );
+      _selectedBlockId = block.id;
+      _appendNextBlock = false;
+    });
+  }
+
+  bool _canInsertPaletteBlock(
+    _RecipeBlockKind kind,
+    _RecipeBlockDropTarget target,
+  ) {
+    if (target.parentId != null) {
+      final parent = _findBlock(_blocks, target.parentId!);
+      if (parent == null || !parent.canContainChildren) {
+        return false;
+      }
+    }
+
+    final insertedTreeHeight = switch (kind) {
+      _RecipeBlockKind.columns || _RecipeBlockKind.photoText => 2,
+      _ => 1,
+    };
+    return target.depth + insertedTreeHeight - 1 <= _maxDepth;
   }
 
   bool _canMoveBlock(_RecipeBlockDragData data, _RecipeBlockDropTarget target) {
@@ -1243,6 +1397,33 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
 
     final movedTreeHeight = _blockTreeHeight(source.block);
     return target.depth + movedTreeHeight - 1 <= _maxDepth;
+  }
+
+  bool _canDropBlock(
+    _RecipeEditorDragData data,
+    _RecipeBlockDropTarget target,
+  ) {
+    return switch (data) {
+      _RecipeBlockDragData() => _canMoveBlock(data, target),
+      _RecipePaletteBlockDragData() => _canInsertPaletteBlock(
+        data.block.kind,
+        target,
+      ),
+      _ => false,
+    };
+  }
+
+  void _dropBlock(_RecipeEditorDragData data, _RecipeBlockDropTarget target) {
+    switch (data) {
+      case _RecipeBlockDragData():
+        _moveBlock(data, target);
+        return;
+      case _RecipePaletteBlockDragData():
+        _insertPaletteBlock(data.block, target);
+        return;
+      default:
+        return;
+    }
   }
 
   void _moveBlock(_RecipeBlockDragData data, _RecipeBlockDropTarget target) {
@@ -1500,6 +1681,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
     required this.activeTab,
     required this.paletteExpanded,
     required this.inspectorExpanded,
+    required this.blockPaletteCue,
     required this.templates,
     required this.blocks,
     required this.selectedBlock,
@@ -1512,11 +1694,14 @@ class _RecipeEditorOverlay extends StatelessWidget {
     required this.onAlignmentChanged,
     required this.onSpacingChanged,
     required this.onVariantChanged,
+    required this.onTextAlignmentChanged,
+    required this.onTextSizeChanged,
   });
 
   final _RecipeEditorTab activeTab;
   final bool paletteExpanded;
   final bool inspectorExpanded;
+  final int blockPaletteCue;
   final List<_RecipeTemplateDefinition> templates;
   final List<_RecipeBlockDefinition> blocks;
   final _RecipeEditorBlock? selectedBlock;
@@ -1529,6 +1714,8 @@ class _RecipeEditorOverlay extends StatelessWidget {
   final ValueChanged<_RecipeBlockAlignment> onAlignmentChanged;
   final ValueChanged<_RecipeBlockSpacing> onSpacingChanged;
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
+  final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
+  final ValueChanged<_RecipeTextSize> onTextSizeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1547,6 +1734,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
           child: _RecipePaletteDock(
             expanded: paletteExpanded,
             activeTab: activeTab,
+            blockPaletteCue: blockPaletteCue,
             templates: templates,
             blocks: blocks,
             onExpandedChanged: onPaletteExpandedChanged,
@@ -1571,6 +1759,8 @@ class _RecipeEditorOverlay extends StatelessWidget {
             onAlignmentChanged: onAlignmentChanged,
             onSpacingChanged: onSpacingChanged,
             onVariantChanged: onVariantChanged,
+            onTextAlignmentChanged: onTextAlignmentChanged,
+            onTextSizeChanged: onTextSizeChanged,
           ),
         ),
       ],
@@ -1578,10 +1768,11 @@ class _RecipeEditorOverlay extends StatelessWidget {
   }
 }
 
-class _RecipePaletteDock extends StatelessWidget {
+class _RecipePaletteDock extends StatefulWidget {
   const _RecipePaletteDock({
     required this.expanded,
     required this.activeTab,
+    required this.blockPaletteCue,
     required this.templates,
     required this.blocks,
     required this.onExpandedChanged,
@@ -1592,12 +1783,75 @@ class _RecipePaletteDock extends StatelessWidget {
 
   final bool expanded;
   final _RecipeEditorTab activeTab;
+  final int blockPaletteCue;
   final List<_RecipeTemplateDefinition> templates;
   final List<_RecipeBlockDefinition> blocks;
   final ValueChanged<bool> onExpandedChanged;
   final ValueChanged<_RecipeEditorTab> onTabChanged;
   final ValueChanged<_RecipeTemplateDefinition> onTemplateSelected;
   final ValueChanged<_RecipeBlockDefinition> onBlockSelected;
+
+  @override
+  State<_RecipePaletteDock> createState() => _RecipePaletteDockState();
+}
+
+class _RecipePaletteDockState extends State<_RecipePaletteDock>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _cueController;
+  late final Animation<double> _blockCueAnimation;
+
+  bool get expanded => widget.expanded;
+  _RecipeEditorTab get activeTab => widget.activeTab;
+  List<_RecipeTemplateDefinition> get templates => widget.templates;
+  List<_RecipeBlockDefinition> get blocks => widget.blocks;
+  ValueChanged<bool> get onExpandedChanged => widget.onExpandedChanged;
+  ValueChanged<_RecipeEditorTab> get onTabChanged => widget.onTabChanged;
+  ValueChanged<_RecipeTemplateDefinition> get onTemplateSelected =>
+      widget.onTemplateSelected;
+  ValueChanged<_RecipeBlockDefinition> get onBlockSelected =>
+      widget.onBlockSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    _cueController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+      value: 1,
+    );
+    _blockCueAnimation = TweenSequence<double>([
+      for (var index = 0; index < 3; index++) ...[
+        TweenSequenceItem(
+          tween: Tween(
+            begin: 1.0,
+            end: 0.28,
+          ).chain(CurveTween(curve: Curves.easeOut)),
+          weight: 1,
+        ),
+        TweenSequenceItem(
+          tween: Tween(
+            begin: 0.28,
+            end: 1.0,
+          ).chain(CurveTween(curve: Curves.easeIn)),
+          weight: 1,
+        ),
+      ],
+    ]).animate(_cueController);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipePaletteDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.blockPaletteCue != widget.blockPaletteCue) {
+      _cueController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _cueController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1634,6 +1888,7 @@ class _RecipePaletteDock extends StatelessWidget {
               activeTab: activeTab,
               templates: templates,
               blocks: blocks,
+              blockCueAnimation: _blockCueAnimation,
               onTabChanged: onTabChanged,
               onExpanded: () => onExpandedChanged(true),
               onTemplateSelected: onTemplateSelected,
@@ -1664,6 +1919,7 @@ class _RecipePaletteDock extends StatelessWidget {
                     activeTab: activeTab,
                     templates: templates,
                     blocks: blocks,
+                    blockCueAnimation: _blockCueAnimation,
                     onTabChanged: onTabChanged,
                     onTemplateSelected: onTemplateSelected,
                     onBlockSelected: onBlockSelected,
@@ -1683,6 +1939,7 @@ class _RecipeCompactPalette extends StatelessWidget {
     required this.activeTab,
     required this.templates,
     required this.blocks,
+    required this.blockCueAnimation,
     required this.onTabChanged,
     required this.onExpanded,
     required this.onTemplateSelected,
@@ -1692,6 +1949,7 @@ class _RecipeCompactPalette extends StatelessWidget {
   final _RecipeEditorTab activeTab;
   final List<_RecipeTemplateDefinition> templates;
   final List<_RecipeBlockDefinition> blocks;
+  final Animation<double> blockCueAnimation;
   final ValueChanged<_RecipeEditorTab> onTabChanged;
   final VoidCallback onExpanded;
   final ValueChanged<_RecipeTemplateDefinition> onTemplateSelected;
@@ -1738,6 +1996,7 @@ class _RecipeCompactPalette extends StatelessWidget {
                   )
                 : _RecipeCompactBlockList(
                     blocks: blocks,
+                    cueAnimation: blockCueAnimation,
                     onSelected: onBlockSelected,
                   ),
           ),
@@ -1750,10 +2009,12 @@ class _RecipeCompactPalette extends StatelessWidget {
 class _RecipeCompactBlockList extends StatelessWidget {
   const _RecipeCompactBlockList({
     required this.blocks,
+    required this.cueAnimation,
     required this.onSelected,
   });
 
   final List<_RecipeBlockDefinition> blocks;
+  final Animation<double> cueAnimation;
   final ValueChanged<_RecipeBlockDefinition> onSelected;
 
   @override
@@ -1784,6 +2045,7 @@ class _RecipeCompactBlockList extends StatelessWidget {
                 ))
                   _RecipeCompactBlockButton(
                     block: block,
+                    cueAnimation: cueAnimation,
                     onPressed: () => onSelected(block),
                   ),
               ],
@@ -1798,10 +2060,12 @@ class _RecipeCompactBlockList extends StatelessWidget {
 class _RecipeCompactBlockButton extends StatelessWidget {
   const _RecipeCompactBlockButton({
     required this.block,
+    required this.cueAnimation,
     required this.onPressed,
   });
 
   final _RecipeBlockDefinition block;
+  final Animation<double> cueAnimation;
   final VoidCallback onPressed;
 
   @override
@@ -1810,21 +2074,105 @@ class _RecipeCompactBlockButton extends StatelessWidget {
 
     return Tooltip(
       message: block.kind.label,
-      child: Material(
-        color: palette.searchBarBackground.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: InkWell(
-          onTap: onPressed,
+      child: _RecipePaletteBlockDragSource(
+        block: block,
+        child: Material(
+          color: palette.searchBarBackground.withValues(alpha: 0.58),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          child: SizedBox(
-            width: 43,
-            height: 42,
-            child: Icon(
-              block.kind.icon,
-              size: 20,
-              color: palette.primaryButtons,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            child: SizedBox(
+              width: 43,
+              height: 42,
+              child: FadeTransition(
+                key: ValueKey('recipe-palette-cue-${block.kind.name}'),
+                opacity: cueAnimation,
+                child: Icon(
+                  block.kind.icon,
+                  size: 20,
+                  color: palette.primaryButtons,
+                ),
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipePaletteBlockDragSource extends StatelessWidget {
+  const _RecipePaletteBlockDragSource({
+    required this.block,
+    required this.child,
+  });
+
+  final _RecipeBlockDefinition block;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: Draggable<_RecipeEditorDragData>(
+        key: ValueKey('recipe-palette-drag-${block.kind.name}'),
+        data: _RecipePaletteBlockDragData(block),
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        rootOverlay: true,
+        feedback: _RecipePaletteBlockDragFeedback(block: block),
+        childWhenDragging: Opacity(opacity: 0.42, child: child),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _RecipePaletteBlockDragFeedback extends StatelessWidget {
+  const _RecipePaletteBlockDragFeedback({required this.block});
+
+  final _RecipeBlockDefinition block;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 236,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: palette.navbarBackground.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(color: palette.primaryButtons),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.26),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(block.kind.icon, size: 20, color: palette.primaryButtons),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                block.kind.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.mainText,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2096,6 +2444,8 @@ class _RecipeInspectorDock extends StatelessWidget {
     required this.onAlignmentChanged,
     required this.onSpacingChanged,
     required this.onVariantChanged,
+    required this.onTextAlignmentChanged,
+    required this.onTextSizeChanged,
   });
 
   final bool expanded;
@@ -2105,6 +2455,8 @@ class _RecipeInspectorDock extends StatelessWidget {
   final ValueChanged<_RecipeBlockAlignment> onAlignmentChanged;
   final ValueChanged<_RecipeBlockSpacing> onSpacingChanged;
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
+  final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
+  final ValueChanged<_RecipeTextSize> onTextSizeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2176,6 +2528,8 @@ class _RecipeInspectorDock extends StatelessWidget {
                     onAlignmentChanged: onAlignmentChanged,
                     onSpacingChanged: onSpacingChanged,
                     onVariantChanged: onVariantChanged,
+                    onTextAlignmentChanged: onTextAlignmentChanged,
+                    onTextSizeChanged: onTextSizeChanged,
                   ),
                 ),
               ),
@@ -2193,11 +2547,14 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.selectedBlockId,
     required this.hoveredBlockId,
     required this.onBlockSelected,
+    required this.onSelectionCleared,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
-    required this.onInsertParagraphAt,
-    required this.canMoveBlock,
-    required this.onMoveBlock,
+    required this.onBlockQuoteAuthorChanged,
+    required this.onBlockHeightChanged,
+    required this.onAppendBlockRequested,
+    required this.canDropBlock,
+    required this.onDropBlock,
     required this.onDeleteBlock,
   });
 
@@ -2205,13 +2562,16 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final String? selectedBlockId;
   final _RecipeBlockHoverController hoveredBlockId;
   final ValueChanged<String> onBlockSelected;
+  final VoidCallback onSelectionCleared;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
-  final ValueChanged<int> onInsertParagraphAt;
-  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  canMoveBlock;
-  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  onMoveBlock;
+  final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
+  final void Function(String blockId, double height) onBlockHeightChanged;
+  final VoidCallback onAppendBlockRequested;
+  final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  canDropBlock;
+  final void Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  onDropBlock;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2223,66 +2583,73 @@ class _RecipeEditorCanvas extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            decoration: BoxDecoration(
-              color: palette.cardsSurface.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(
-                color: palette.borders.withValues(alpha: 0.72),
+          GestureDetector(
+            key: const ValueKey('recipe-editor-canvas'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onSelectionCleared,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var index = 0; index < blocks.length; index++) ...[
-                  _RecipeBlockDropZone(
+              decoration: BoxDecoration(
+                color: palette.cardsSurface.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                  color: palette.borders.withValues(alpha: 0.72),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < blocks.length; index++) ...[
+                    _RecipeBlockDropZone(
+                      target: _RecipeBlockDropTarget(
+                        parentId: null,
+                        index: index,
+                        depth: 0,
+                      ),
+                      canDropBlock: canDropBlock,
+                      onDropBlock: onDropBlock,
+                    ),
+                    _RecipeEditorBlockCard(
+                      dragData: _RecipeBlockDragData(
+                        blockId: blocks[index].id,
+                        sourceParentId: null,
+                        sourceIndex: index,
+                        sourceDepth: 0,
+                      ),
+                      block: blocks[index],
+                      selectedBlockId: selectedBlockId,
+                      hoveredBlockId: hoveredBlockId,
+                      parentBlockId: null,
+                      depth: 0,
+                      avoidAuthorOverlay: index == 0,
+                      canDropBlock: canDropBlock,
+                      onDropBlock: onDropBlock,
+                      onBlockSelected: onBlockSelected,
+                      onBlockTitleChanged: onBlockTitleChanged,
+                      onBlockBodyChanged: onBlockBodyChanged,
+                      onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
+                      onBlockHeightChanged: onBlockHeightChanged,
+                      onDeleteBlock: onDeleteBlock,
+                    ),
+                  ],
+                  _RecipeBlockInsertZone(
                     target: _RecipeBlockDropTarget(
                       parentId: null,
-                      index: index,
+                      index: blocks.length,
                       depth: 0,
                     ),
-                    canMoveBlock: canMoveBlock,
-                    onMoveBlock: onMoveBlock,
-                  ),
-                  _RecipeEditorBlockCard(
-                    dragData: _RecipeBlockDragData(
-                      blockId: blocks[index].id,
-                      sourceParentId: null,
-                      sourceIndex: index,
-                      sourceDepth: 0,
-                    ),
-                    block: blocks[index],
-                    selectedBlockId: selectedBlockId,
-                    hoveredBlockId: hoveredBlockId,
-                    parentBlockId: null,
-                    depth: 0,
-                    avoidAuthorOverlay: index == 0,
-                    canMoveBlock: canMoveBlock,
-                    onMoveBlock: onMoveBlock,
-                    onBlockSelected: onBlockSelected,
-                    onBlockTitleChanged: onBlockTitleChanged,
-                    onBlockBodyChanged: onBlockBodyChanged,
-                    onDeleteBlock: onDeleteBlock,
+                    onPressed: onAppendBlockRequested,
+                    canDropBlock: canDropBlock,
+                    onDropBlock: onDropBlock,
                   ),
                 ],
-                _RecipeBlockInsertZone(
-                  target: _RecipeBlockDropTarget(
-                    parentId: null,
-                    index: blocks.length,
-                    depth: 0,
-                  ),
-                  onPressed: () => onInsertParagraphAt(blocks.length),
-                  canMoveBlock: canMoveBlock,
-                  onMoveBlock: onMoveBlock,
-                ),
-              ],
+              ),
             ),
           ),
           Positioned(
@@ -2450,16 +2817,16 @@ enum _RecipeDropZoneAxis { vertical, horizontal }
 class _RecipeBlockDropZone extends StatefulWidget {
   const _RecipeBlockDropZone({
     required this.target,
-    required this.canMoveBlock,
-    required this.onMoveBlock,
+    required this.canDropBlock,
+    required this.onDropBlock,
     this.axis = _RecipeDropZoneAxis.vertical,
   });
 
   final _RecipeBlockDropTarget target;
-  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  canMoveBlock;
-  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  onMoveBlock;
+  final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  canDropBlock;
+  final void Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  onDropBlock;
   final _RecipeDropZoneAxis axis;
 
   @override
@@ -2474,13 +2841,13 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
     final palette = context.palette;
     final target = widget.target;
 
-    return DragTarget<_RecipeBlockDragData>(
+    return DragTarget<_RecipeEditorDragData>(
       onWillAcceptWithDetails: _handleWillAccept,
       onMove: _handleMove,
       onLeave: (_) => _setEscapeReady(true),
       onAcceptWithDetails: (details) {
-        if (_escapeReady && widget.canMoveBlock(details.data, target)) {
-          widget.onMoveBlock(details.data, target);
+        if (_escapeReady && widget.canDropBlock(details.data, target)) {
+          widget.onDropBlock(details.data, target);
         }
       },
       builder: (context, candidateData, rejectedData) {
@@ -2554,17 +2921,20 @@ class _RecipeBlockDropZoneState extends State<_RecipeBlockDropZone> {
     );
   }
 
-  bool _handleWillAccept(DragTargetDetails<_RecipeBlockDragData> details) {
-    final valid = widget.canMoveBlock(details.data, widget.target);
+  bool _handleWillAccept(DragTargetDetails<_RecipeEditorDragData> details) {
+    final valid = widget.canDropBlock(details.data, widget.target);
     _setEscapeReady(valid && _isEscapeReady(details.data, details.offset));
     return valid;
   }
 
-  void _handleMove(DragTargetDetails<_RecipeBlockDragData> details) {
+  void _handleMove(DragTargetDetails<_RecipeEditorDragData> details) {
     _setEscapeReady(_isEscapeReady(details.data, details.offset));
   }
 
-  bool _isEscapeReady(_RecipeBlockDragData data, Offset globalOffset) {
+  bool _isEscapeReady(_RecipeEditorDragData data, Offset globalOffset) {
+    if (data is! _RecipeBlockDragData) {
+      return true;
+    }
     final levelsOut = data.sourceDepth - widget.target.depth;
     if (levelsOut <= 0) {
       return true;
@@ -2592,16 +2962,16 @@ class _RecipeBlockInsertZone extends StatefulWidget {
   const _RecipeBlockInsertZone({
     required this.target,
     required this.onPressed,
-    required this.canMoveBlock,
-    required this.onMoveBlock,
+    required this.canDropBlock,
+    required this.onDropBlock,
   });
 
   final _RecipeBlockDropTarget target;
   final VoidCallback onPressed;
-  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  canMoveBlock;
-  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  onMoveBlock;
+  final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  canDropBlock;
+  final void Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  onDropBlock;
 
   @override
   State<_RecipeBlockInsertZone> createState() => _RecipeBlockInsertZoneState();
@@ -2614,9 +2984,9 @@ class _RecipeBlockInsertZoneState extends State<_RecipeBlockInsertZone> {
   Widget build(BuildContext context) {
     final palette = context.palette;
 
-    return DragTarget<_RecipeBlockDragData>(
+    return DragTarget<_RecipeEditorDragData>(
       onWillAcceptWithDetails: (details) {
-        final valid = widget.canMoveBlock(details.data, widget.target);
+        final valid = widget.canDropBlock(details.data, widget.target);
         _setEscapeReady(valid && _isEscapeReady(details.data, details.offset));
         return valid;
       },
@@ -2624,8 +2994,8 @@ class _RecipeBlockInsertZoneState extends State<_RecipeBlockInsertZone> {
           _setEscapeReady(_isEscapeReady(details.data, details.offset)),
       onLeave: (_) => _setEscapeReady(true),
       onAcceptWithDetails: (details) {
-        if (_escapeReady && widget.canMoveBlock(details.data, widget.target)) {
-          widget.onMoveBlock(details.data, widget.target);
+        if (_escapeReady && widget.canDropBlock(details.data, widget.target)) {
+          widget.onDropBlock(details.data, widget.target);
         }
       },
       builder: (context, candidateData, rejectedData) {
@@ -2676,7 +3046,10 @@ class _RecipeBlockInsertZoneState extends State<_RecipeBlockInsertZone> {
     );
   }
 
-  bool _isEscapeReady(_RecipeBlockDragData data, Offset globalOffset) {
+  bool _isEscapeReady(_RecipeEditorDragData data, Offset globalOffset) {
+    if (data is! _RecipeBlockDragData) {
+      return true;
+    }
     final levelsOut = data.sourceDepth - widget.target.depth;
     if (levelsOut <= 0) {
       return true;
@@ -2785,6 +3158,137 @@ class _RecipeBlockDragHandle extends StatelessWidget {
   }
 }
 
+class _RecipeActiveBlockTabPortal extends StatefulWidget {
+  const _RecipeActiveBlockTabPortal({
+    required this.data,
+    required this.block,
+    required this.hoveredBlockId,
+    required this.offset,
+  });
+
+  final _RecipeBlockDragData data;
+  final _RecipeEditorBlock block;
+  final _RecipeBlockHoverController hoveredBlockId;
+  final Offset offset;
+
+  @override
+  State<_RecipeActiveBlockTabPortal> createState() =>
+      _RecipeActiveBlockTabPortalState();
+}
+
+class _RecipeActiveBlockTabPortalState
+    extends State<_RecipeActiveBlockTabPortal> {
+  final OverlayPortalController _controller = OverlayPortalController();
+  final LayerLink _link = LayerLink();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.show();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: _controller,
+      overlayChildBuilder: (context) {
+        final viewportWidth = MediaQuery.sizeOf(context).width;
+        final headerHeight = AppSpacing.headerHeightForViewport(viewportWidth);
+
+        return Positioned(
+          left: 0,
+          top: headerHeight,
+          right: 0,
+          bottom: 0,
+          child: ClipRect(
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: 220,
+                  height: 40,
+                  child: CompositedTransformFollower(
+                    link: _link,
+                    showWhenUnlinked: false,
+                    targetAnchor: Alignment.topLeft,
+                    followerAnchor: Alignment.bottomLeft,
+                    offset: widget.offset,
+                    child: _RecipeBlockDragHandle(
+                      data: widget.data,
+                      block: widget.block,
+                      hoveredBlockId: widget.hoveredBlockId,
+                      child: _RecipeActiveBlockTab(block: widget.block),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      child: CompositedTransformTarget(
+        link: _link,
+        child: const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class _RecipeActiveBlockTab extends StatelessWidget {
+  const _RecipeActiveBlockTab({required this.block});
+
+  final _RecipeEditorBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      key: ValueKey('recipe-editor-block-handle-${block.id}'),
+      constraints: const BoxConstraints(minWidth: 132, maxWidth: 220),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: palette.navbarBackground.withValues(alpha: 0.98),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(AppSpacing.radiusSm),
+          topRight: Radius.circular(AppSpacing.radiusSm),
+          bottomRight: Radius.circular(AppSpacing.xs),
+        ),
+        border: Border.all(
+          color: palette.primaryButtons.withValues(alpha: 0.54),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(block.kind.icon, size: 17, color: palette.primaryButtons),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              block.kind.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: palette.categoryTags,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RecipeEditorBlockCard extends StatelessWidget {
   const _RecipeEditorBlockCard({
     required this.dragData,
@@ -2794,11 +3298,13 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.parentBlockId,
     required this.depth,
     this.avoidAuthorOverlay = false,
-    required this.canMoveBlock,
-    required this.onMoveBlock,
+    required this.canDropBlock,
+    required this.onDropBlock,
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
+    required this.onBlockQuoteAuthorChanged,
+    required this.onBlockHeightChanged,
     required this.onDeleteBlock,
   });
 
@@ -2809,13 +3315,15 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final String? parentBlockId;
   final int depth;
   final bool avoidAuthorOverlay;
-  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  canMoveBlock;
-  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  onMoveBlock;
+  final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  canDropBlock;
+  final void Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  onDropBlock;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
+  final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
+  final void Function(String blockId, double height) onBlockHeightChanged;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -2873,11 +3381,13 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               parentBlockId: parentBlockId,
               depth: depth,
               deleteButtonInset: deleteButtonInset,
-              canMoveBlock: canMoveBlock,
-              onMoveBlock: onMoveBlock,
+              canDropBlock: canDropBlock,
+              onDropBlock: onDropBlock,
               onBlockSelected: onBlockSelected,
               onBlockTitleChanged: onBlockTitleChanged,
               onBlockBodyChanged: onBlockBodyChanged,
+              onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
+              onBlockHeightChanged: onBlockHeightChanged,
               onDeleteBlock: onDeleteBlock,
             ),
           ),
@@ -2887,7 +3397,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   }
 }
 
-class _RecipeEditorBlockSurface extends StatelessWidget {
+class _RecipeEditorBlockSurface extends StatefulWidget {
   const _RecipeEditorBlockSurface({
     required this.dragData,
     required this.block,
@@ -2896,11 +3406,13 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
     required this.parentBlockId,
     required this.depth,
     required this.deleteButtonInset,
-    required this.canMoveBlock,
-    required this.onMoveBlock,
+    required this.canDropBlock,
+    required this.onDropBlock,
     required this.onBlockSelected,
     required this.onBlockTitleChanged,
     required this.onBlockBodyChanged,
+    required this.onBlockQuoteAuthorChanged,
+    required this.onBlockHeightChanged,
     required this.onDeleteBlock,
   });
 
@@ -2911,14 +3423,49 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
   final String? parentBlockId;
   final int depth;
   final double deleteButtonInset;
-  final bool Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  canMoveBlock;
-  final void Function(_RecipeBlockDragData data, _RecipeBlockDropTarget target)
-  onMoveBlock;
+  final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  canDropBlock;
+  final void Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
+  onDropBlock;
   final ValueChanged<String> onBlockSelected;
   final void Function(String blockId, String title) onBlockTitleChanged;
   final void Function(String blockId, String body) onBlockBodyChanged;
+  final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
+  final void Function(String blockId, double height) onBlockHeightChanged;
   final ValueChanged<String> onDeleteBlock;
+
+  @override
+  State<_RecipeEditorBlockSurface> createState() =>
+      _RecipeEditorBlockSurfaceState();
+}
+
+class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
+  static const double _minimumEditorHeight = 72;
+
+  final GlobalKey _surfaceKey = GlobalKey();
+  double? _dragHeight;
+
+  _RecipeBlockDragData get dragData => widget.dragData;
+  _RecipeEditorBlock get block => widget.block;
+  String? get selectedBlockId => widget.selectedBlockId;
+  _RecipeBlockHoverController get hoveredBlockId => widget.hoveredBlockId;
+  String? get parentBlockId => widget.parentBlockId;
+  int get depth => widget.depth;
+  double get deleteButtonInset => widget.deleteButtonInset;
+  bool Function(_RecipeEditorDragData, _RecipeBlockDropTarget)
+  get canDropBlock => widget.canDropBlock;
+  void Function(_RecipeEditorDragData, _RecipeBlockDropTarget)
+  get onDropBlock => widget.onDropBlock;
+  ValueChanged<String> get onBlockSelected => widget.onBlockSelected;
+  void Function(String, String) get onBlockTitleChanged =>
+      widget.onBlockTitleChanged;
+  void Function(String, String) get onBlockBodyChanged =>
+      widget.onBlockBodyChanged;
+  void Function(String, String) get onBlockQuoteAuthorChanged =>
+      widget.onBlockQuoteAuthorChanged;
+  void Function(String, double) get onBlockHeightChanged =>
+      widget.onBlockHeightChanged;
+  ValueChanged<String> get onDeleteBlock => widget.onDeleteBlock;
 
   @override
   Widget build(BuildContext context) {
@@ -2946,199 +3493,353 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
       ),
     };
 
-    return MouseRegion(
-      key: ValueKey('recipe-editor-block-${block.id}'),
-      onEnter: (_) => _setHoveredBlock(block.id),
-      onExit: (_) => _setHoveredBlock(parentBlockId),
-      child: ValueListenableBuilder<bool>(
-        valueListenable: hoveredBlockId.listenableFor(block.id),
-        builder: (context, hovered, child) {
-          return TweenAnimationBuilder<double>(
-            tween: Tween(end: hovered ? 1 : 0),
-            duration: const Duration(milliseconds: 190),
-            curve: Curves.easeOutCubic,
-            builder: (context, hoverProgress, child) {
-              final hoverBackground = Color.alphaBlend(
-                palette.primaryButtons.withValues(alpha: 0.04),
-                background,
-              );
-              final animatedBackground = Color.lerp(
-                background,
-                hoverBackground,
-                hoverProgress,
-              )!;
-              final restingBorder = selected
-                  ? palette.primaryButtons
-                  : palette.borders.withValues(alpha: 0.72);
-              final hoverBorder = selected
-                  ? palette.primaryButtons
-                  : palette.primaryButtons.withValues(alpha: 0.48);
-              final animatedBorder = Color.lerp(
-                restingBorder,
-                hoverBorder,
-                hoverProgress,
-              )!;
+    return ConstrainedBox(
+      key: _surfaceKey,
+      constraints: BoxConstraints(minHeight: block.editorHeight ?? 0),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          MouseRegion(
+            key: ValueKey('recipe-editor-block-${block.id}'),
+            onEnter: (_) => _setHoveredBlock(block.id),
+            onExit: (_) => _setHoveredBlock(parentBlockId),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: hoveredBlockId.listenableFor(block.id),
+              builder: (context, hovered, child) {
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(end: hovered ? 1 : 0),
+                  duration: const Duration(milliseconds: 190),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, hoverProgress, child) {
+                    final hoverBackground = Color.alphaBlend(
+                      palette.primaryButtons.withValues(alpha: 0.04),
+                      background,
+                    );
+                    final animatedBackground = Color.lerp(
+                      background,
+                      hoverBackground,
+                      hoverProgress,
+                    )!;
+                    final restingBorder = selected
+                        ? palette.primaryButtons
+                        : palette.borders.withValues(alpha: 0.72);
+                    final hoverBorder = selected
+                        ? palette.primaryButtons
+                        : palette.primaryButtons.withValues(alpha: 0.48);
+                    final animatedBorder = Color.lerp(
+                      restingBorder,
+                      hoverBorder,
+                      hoverProgress,
+                    )!;
 
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onBlockSelected(block.id),
-                child: CustomPaint(
-                  foregroundPainter: _RecipeBlockEdgeBorderPainter(
-                    color: animatedBorder,
-                  ),
-                  child: Container(
-                    padding: EdgeInsets.all(padding),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          animatedBackground.withValues(alpha: 0),
-                          animatedBackground,
-                          animatedBackground,
-                          animatedBackground.withValues(alpha: 0),
-                        ],
-                        stops: const [0, 0.18, 0.82, 1],
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          key: ValueKey(
-                            'recipe-editor-block-handle-${block.id}',
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onBlockSelected(block.id),
+                      child: CustomPaint(
+                        foregroundPainter: _RecipeBlockEdgeBorderPainter(
+                          color: animatedBorder,
+                        ),
+                        child: Container(
+                          padding: EdgeInsets.all(padding),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                animatedBackground.withValues(alpha: 0),
+                                animatedBackground,
+                                animatedBackground,
+                                animatedBackground.withValues(alpha: 0),
+                              ],
+                              stops: const [0, 0.18, 0.82, 1],
+                            ),
                           ),
-                          children: [
-                            Expanded(
-                              child: _RecipeBlockDragHandle(
-                                data: dragData,
-                                block: block,
-                                hoveredBlockId: hoveredBlockId,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      block.kind.icon,
-                                      size: 18,
-                                      color: palette.primaryButtons,
-                                    ),
-                                    const SizedBox(width: AppSpacing.xs),
-                                    Expanded(
-                                      child: Text(
-                                        block.kind.label,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelLarge
-                                            ?.copyWith(
-                                              color: palette.categoryTags,
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: _buildPrimaryContent(
+                                          context,
+                                          palette,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          right: deleteButtonInset,
+                                        ),
+                                        child: IconButton(
+                                          tooltip: 'Delete block',
+                                          onPressed: () =>
+                                              onDeleteBlock(block.id),
+                                          icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                          ),
+                                          iconSize: 18,
+                                          visualDensity: VisualDensity.compact,
+                                          color: palette.icons,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (selected)
+                                    _RecipeActiveBlockTabPortal(
+                                      data: dragData,
+                                      block: block,
+                                      hoveredBlockId: hoveredBlockId,
+                                      offset: Offset(
+                                        -padding + AppSpacing.sm,
+                                        6,
                                       ),
                                     ),
-                                  ],
-                                ),
+                                ],
                               ),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(
-                                right: deleteButtonInset,
-                              ),
-                              child: IconButton(
-                                tooltip: 'Delete block',
-                                onPressed: () => onDeleteBlock(block.id),
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                iconSize: 18,
-                                visualDensity: VisualDensity.compact,
-                                color: palette.icons,
-                              ),
-                            ),
-                          ],
+                              if (_usesSecondaryBody) ...[
+                                SizedBox(height: gap / 2),
+                                _buildGenericBody(context, palette),
+                              ],
+                              if (block.canContainChildren) ...[
+                                SizedBox(height: gap),
+                                _buildChildren(context, gap),
+                              ],
+                            ],
+                          ),
                         ),
-                        SizedBox(height: gap),
-                        if (block.kind == _RecipeBlockKind.divider)
-                          Divider(color: palette.borders.withValues(alpha: 0.8))
-                        else
-                          TextFormField(
-                            key: ValueKey('${block.id}-title'),
-                            initialValue: block.title,
-                            maxLines: 1,
-                            onTap: () => onBlockSelected(block.id),
-                            onChanged: (value) =>
-                                onBlockTitleChanged(block.id, value),
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: palette.mainText,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                            decoration: InputDecoration(
-                              isCollapsed: true,
-                              filled: false,
-                              fillColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hintText:
-                                  'Add ${block.kind.label.toLowerCase()} title',
-                              hintStyle: TextStyle(
-                                color: palette.secondaryText.withValues(
-                                  alpha: 0.66,
-                                ),
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        if (block.kind != _RecipeBlockKind.divider) ...[
-                          SizedBox(height: gap / 2),
-                          TextFormField(
-                            key: ValueKey('${block.id}-body'),
-                            initialValue: block.body,
-                            minLines: 1,
-                            maxLines: block.kind == _RecipeBlockKind.heading
-                                ? 1
-                                : 4,
-                            onTap: () => onBlockSelected(block.id),
-                            onChanged: (value) =>
-                                onBlockBodyChanged(block.id, value),
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: palette.secondaryText,
-                                  height: 1.35,
-                                ),
-                            decoration: InputDecoration(
-                              isCollapsed: true,
-                              filled: false,
-                              fillColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              hintText:
-                                  'Write ${block.kind.label.toLowerCase()} content',
-                              hintStyle: TextStyle(
-                                color: palette.secondaryText.withValues(
-                                  alpha: 0.66,
-                                ),
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ],
-                        if (block.canContainChildren) ...[
-                          SizedBox(height: gap),
-                          _buildChildren(context, gap),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          if (selected)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 12,
+              child: _RecipeBlockResizeHandle(
+                blockId: block.id,
+                onResizeStart: _startResize,
+                onResize: _resizeBy,
+                onResizeEnd: _endResize,
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  void _startResize() {
+    final renderObject = _surfaceKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      _dragHeight = renderObject.size.height;
+    }
+  }
+
+  void _resizeBy(double delta) {
+    final currentHeight = _dragHeight;
+    if (currentHeight == null) {
+      return;
+    }
+    final nextHeight = math.max(_minimumEditorHeight, currentHeight + delta);
+    _dragHeight = nextHeight;
+    onBlockHeightChanged(block.id, nextHeight);
+  }
+
+  void _endResize() {
+    _dragHeight = null;
+  }
+
+  bool get _usesSecondaryBody {
+    return block.kind != _RecipeBlockKind.divider &&
+        !block.kind.supportsTextSettings;
+  }
+
+  Widget _buildPrimaryContent(BuildContext context, AppPalette palette) {
+    return switch (block.kind) {
+      _RecipeBlockKind.divider => Divider(
+        color: palette.borders.withValues(alpha: 0.8),
+      ),
+      _RecipeBlockKind.heading => _buildTextContentField(
+        context,
+        palette,
+        hintText: 'Write a heading',
+        style: TextStyle(
+          color: palette.mainText,
+          fontSize: _textFontSize,
+          fontWeight: FontWeight.w900,
+          height: 1.12,
+        ),
+      ),
+      _RecipeBlockKind.paragraph => _buildTextContentField(
+        context,
+        palette,
+        hintText: 'Write a paragraph',
+        style: TextStyle(
+          color: palette.mainText.withValues(alpha: 0.9),
+          fontSize: _textFontSize,
+          fontWeight: FontWeight.w400,
+          height: 1.55,
+        ),
+      ),
+      _RecipeBlockKind.quote => _buildQuoteContent(context, palette),
+      _ => _buildGenericTitle(context, palette),
+    };
+  }
+
+  Widget _buildGenericTitle(BuildContext context, AppPalette palette) {
+    return TextFormField(
+      key: ValueKey('${block.id}-title'),
+      initialValue: block.title,
+      maxLines: 1,
+      onTap: () => onBlockSelected(block.id),
+      onChanged: (value) => onBlockTitleChanged(block.id, value),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        color: palette.mainText,
+        fontWeight: FontWeight.w900,
+      ),
+      decoration: _textFieldDecoration(
+        palette,
+        'Add ${block.kind.label.toLowerCase()} title',
+      ),
+    );
+  }
+
+  Widget _buildGenericBody(BuildContext context, AppPalette palette) {
+    return TextFormField(
+      key: ValueKey('${block.id}-body'),
+      initialValue: block.body,
+      minLines: 1,
+      maxLines: 4,
+      onTap: () => onBlockSelected(block.id),
+      onChanged: (value) => onBlockBodyChanged(block.id, value),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: palette.secondaryText,
+        height: 1.35,
+      ),
+      decoration: _textFieldDecoration(
+        palette,
+        'Write ${block.kind.label.toLowerCase()} content',
+      ),
+    );
+  }
+
+  Widget _buildTextContentField(
+    BuildContext context,
+    AppPalette palette, {
+    required String hintText,
+    required TextStyle style,
+  }) {
+    return TextFormField(
+      key: ValueKey('${block.id}-body'),
+      initialValue: block.body,
+      minLines: 1,
+      maxLines: null,
+      textAlign: _textAlign,
+      onTap: () => onBlockSelected(block.id),
+      onChanged: (value) => onBlockBodyChanged(block.id, value),
+      style: style,
+      decoration: _textFieldDecoration(palette, hintText),
+    );
+  }
+
+  Widget _buildQuoteContent(BuildContext context, AppPalette palette) {
+    return Container(
+      padding: const EdgeInsets.only(left: AppSpacing.md),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: palette.primaryButtons, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTextContentField(
+            context,
+            palette,
+            hintText: 'Write a quote',
+            style: TextStyle(
+              color: palette.mainText,
+              fontSize: _textFontSize,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          TextFormField(
+            key: ValueKey('${block.id}-quote-author'),
+            initialValue: block.quoteAuthor,
+            maxLines: 1,
+            textAlign: TextAlign.right,
+            onTap: () => onBlockSelected(block.id),
+            onChanged: (value) => onBlockQuoteAuthorChanged(block.id, value),
+            style: TextStyle(
+              color: palette.secondaryText,
+              fontSize: math.max(12, _textFontSize * 0.72),
+              fontWeight: FontWeight.w700,
+            ),
+            decoration: _textFieldDecoration(
+              palette,
+              'Quote author (optional)',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _textFieldDecoration(AppPalette palette, String hintText) {
+    return InputDecoration(
+      isCollapsed: true,
+      filled: false,
+      fillColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: palette.secondaryText.withValues(alpha: 0.66),
+      ),
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  TextAlign get _textAlign {
+    return switch (block.textAlignment) {
+      _RecipeTextAlignment.left => TextAlign.left,
+      _RecipeTextAlignment.center => TextAlign.center,
+      _RecipeTextAlignment.right => TextAlign.right,
+      _RecipeTextAlignment.justify => TextAlign.justify,
+    };
+  }
+
+  double get _textFontSize {
+    if (block.kind == _RecipeBlockKind.heading) {
+      return switch (block.textSize) {
+        _RecipeTextSize.extraSmall => 18,
+        _RecipeTextSize.small => 23,
+        _RecipeTextSize.medium => 30,
+        _RecipeTextSize.large => 38,
+        _RecipeTextSize.extraLarge => 48,
+      };
+    }
+
+    return switch (block.textSize) {
+      _RecipeTextSize.extraSmall => 12,
+      _RecipeTextSize.small => 14,
+      _RecipeTextSize.medium => 16,
+      _RecipeTextSize.large => 19,
+      _RecipeTextSize.extraLarge => 23,
+    };
   }
 
   void _setHoveredBlock(String? blockId) {
@@ -3197,8 +3898,8 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
         index: index,
         depth: depth + 1,
       ),
-      canMoveBlock: canMoveBlock,
-      onMoveBlock: onMoveBlock,
+      canDropBlock: canDropBlock,
+      onDropBlock: onDropBlock,
       axis: axis,
     );
   }
@@ -3217,13 +3918,79 @@ class _RecipeEditorBlockSurface extends StatelessWidget {
       parentBlockId: block.id,
       depth: depth + 1,
       avoidAuthorOverlay: false,
-      canMoveBlock: canMoveBlock,
-      onMoveBlock: onMoveBlock,
+      canDropBlock: canDropBlock,
+      onDropBlock: onDropBlock,
       onBlockSelected: onBlockSelected,
       onBlockTitleChanged: onBlockTitleChanged,
       onBlockBodyChanged: onBlockBodyChanged,
+      onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
+      onBlockHeightChanged: onBlockHeightChanged,
       onDeleteBlock: onDeleteBlock,
     );
+  }
+}
+
+class _RecipeBlockResizeHandle extends StatefulWidget {
+  const _RecipeBlockResizeHandle({
+    required this.blockId,
+    required this.onResizeStart,
+    required this.onResize,
+    required this.onResizeEnd,
+  });
+
+  final String blockId;
+  final VoidCallback onResizeStart;
+  final ValueChanged<double> onResize;
+  final VoidCallback onResizeEnd;
+
+  @override
+  State<_RecipeBlockResizeHandle> createState() =>
+      _RecipeBlockResizeHandleState();
+}
+
+class _RecipeBlockResizeHandleState extends State<_RecipeBlockResizeHandle> {
+  bool _hovered = false;
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final active = _hovered || _dragging;
+
+    return MouseRegion(
+      key: ValueKey('recipe-editor-block-resize-${widget.blockId}'),
+      cursor: SystemMouseCursors.resizeUpDown,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        dragStartBehavior: DragStartBehavior.down,
+        onVerticalDragStart: (_) {
+          setState(() => _dragging = true);
+          widget.onResizeStart();
+        },
+        onVerticalDragUpdate: (details) => widget.onResize(details.delta.dy),
+        onVerticalDragEnd: (_) => _finishDrag(),
+        onVerticalDragCancel: _finishDrag,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            width: active ? 72 : 42,
+            height: 2,
+            color: palette.primaryButtons.withValues(alpha: active ? 0.72 : 0),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _finishDrag() {
+    if (_dragging) {
+      setState(() => _dragging = false);
+    }
+    widget.onResizeEnd();
   }
 }
 
@@ -3273,7 +4040,7 @@ class _RecipeBlockEdgeBorderPainter extends CustomPainter {
   }
 }
 
-class _RecipeEditorInspector extends StatelessWidget {
+class _RecipeEditorInspector extends StatefulWidget {
   const _RecipeEditorInspector({
     this.embedded = false,
     required this.block,
@@ -3281,6 +4048,8 @@ class _RecipeEditorInspector extends StatelessWidget {
     required this.onAlignmentChanged,
     required this.onSpacingChanged,
     required this.onVariantChanged,
+    required this.onTextAlignmentChanged,
+    required this.onTextSizeChanged,
   });
 
   final bool embedded;
@@ -3289,6 +4058,29 @@ class _RecipeEditorInspector extends StatelessWidget {
   final ValueChanged<_RecipeBlockAlignment> onAlignmentChanged;
   final ValueChanged<_RecipeBlockSpacing> onSpacingChanged;
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
+  final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
+  final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+
+  @override
+  State<_RecipeEditorInspector> createState() => _RecipeEditorInspectorState();
+}
+
+class _RecipeEditorInspectorState extends State<_RecipeEditorInspector> {
+  _RecipeInspectorTab _activeTab = _RecipeInspectorTab.block;
+
+  bool get embedded => widget.embedded;
+  _RecipeEditorBlock? get block => widget.block;
+  ValueChanged<_RecipeBlockWidth> get onWidthChanged => widget.onWidthChanged;
+  ValueChanged<_RecipeBlockAlignment> get onAlignmentChanged =>
+      widget.onAlignmentChanged;
+  ValueChanged<_RecipeBlockSpacing> get onSpacingChanged =>
+      widget.onSpacingChanged;
+  ValueChanged<_RecipeBlockVariant> get onVariantChanged =>
+      widget.onVariantChanged;
+  ValueChanged<_RecipeTextAlignment> get onTextAlignmentChanged =>
+      widget.onTextAlignmentChanged;
+  ValueChanged<_RecipeTextSize> get onTextSizeChanged =>
+      widget.onTextSizeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -3334,40 +4126,52 @@ class _RecipeEditorInspector extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                _RecipePresetSelector<_RecipeBlockWidth>(
-                  label: 'Width',
-                  values: _RecipeBlockWidth.values,
-                  selected: selectedBlock.width,
-                  labelForValue: _widthLabel,
-                  onSelected: onWidthChanged,
-                ),
                 const SizedBox(height: AppSpacing.sm),
-                _RecipePresetSelector<_RecipeBlockAlignment>(
-                  label: 'Alignment',
-                  values: _RecipeBlockAlignment.values,
-                  selected: selectedBlock.alignment,
-                  labelForValue: _alignmentLabel,
-                  onSelected: onAlignmentChanged,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _RecipePresetSelector<_RecipeBlockSpacing>(
-                  label: 'Spacing',
-                  values: _RecipeBlockSpacing.values,
-                  selected: selectedBlock.spacing,
-                  labelForValue: _spacingLabel,
-                  onSelected: onSpacingChanged,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _RecipePresetSelector<_RecipeBlockVariant>(
-                  label: 'Variant',
-                  values: _RecipeBlockVariant.values,
-                  selected: selectedBlock.variant,
-                  labelForValue: _variantLabel,
-                  onSelected: onVariantChanged,
+                _RecipeInspectorTabs(
+                  selected: _activeTab,
+                  onSelected: (tab) => setState(() => _activeTab = tab),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _RecipeInspectorRuleNote(block: selectedBlock),
+                if (_activeTab == _RecipeInspectorTab.block) ...[
+                  _RecipePresetSelector<_RecipeBlockWidth>(
+                    label: 'Width',
+                    values: _RecipeBlockWidth.values,
+                    selected: selectedBlock.width,
+                    labelForValue: _widthLabel,
+                    onSelected: onWidthChanged,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _RecipePresetSelector<_RecipeBlockAlignment>(
+                    label: 'Alignment',
+                    values: _RecipeBlockAlignment.values,
+                    selected: selectedBlock.alignment,
+                    labelForValue: _alignmentLabel,
+                    onSelected: onAlignmentChanged,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _RecipePresetSelector<_RecipeBlockSpacing>(
+                    label: 'Spacing',
+                    values: _RecipeBlockSpacing.values,
+                    selected: selectedBlock.spacing,
+                    labelForValue: _spacingLabel,
+                    onSelected: onSpacingChanged,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _RecipePresetSelector<_RecipeBlockVariant>(
+                    label: 'Variant',
+                    values: _RecipeBlockVariant.values,
+                    selected: selectedBlock.variant,
+                    labelForValue: _variantLabel,
+                    onSelected: onVariantChanged,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _RecipeInspectorRuleNote(block: selectedBlock),
+                ] else
+                  _RecipeTextContentInspector(
+                    block: selectedBlock,
+                    onAlignmentChanged: onTextAlignmentChanged,
+                    onSizeChanged: onTextSizeChanged,
+                  ),
               ],
             ),
     );
@@ -3404,6 +4208,256 @@ class _RecipeEditorInspector extends StatelessWidget {
       _RecipeBlockVariant.cards => 'Cards',
       _RecipeBlockVariant.timeline => 'Timeline',
     };
+  }
+}
+
+class _RecipeInspectorTabs extends StatelessWidget {
+  const _RecipeInspectorTabs({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _RecipeInspectorTab selected;
+  final ValueChanged<_RecipeInspectorTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _RecipeInspectorTabButton(
+            label: 'Block',
+            icon: Icons.crop_free_rounded,
+            selected: selected == _RecipeInspectorTab.block,
+            onPressed: () => onSelected(_RecipeInspectorTab.block),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: _RecipeInspectorTabButton(
+            label: 'Content',
+            icon: Icons.text_fields_rounded,
+            selected: selected == _RecipeInspectorTab.content,
+            onPressed: () => onSelected(_RecipeInspectorTab.content),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeInspectorTabButton extends StatelessWidget {
+  const _RecipeInspectorTabButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Material(
+      key: ValueKey('recipe-inspector-tab-${label.toLowerCase()}'),
+      color: selected
+          ? palette.primaryButtons.withValues(alpha: 0.22)
+          : palette.searchBarBackground.withValues(alpha: 0.62),
+      borderRadius: BorderRadius.circular(AppSpacing.xs),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? palette.primaryButtons : palette.icons,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: selected ? palette.mainText : palette.secondaryText,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeTextContentInspector extends StatelessWidget {
+  const _RecipeTextContentInspector({
+    required this.block,
+    required this.onAlignmentChanged,
+    required this.onSizeChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeTextAlignment> onAlignmentChanged;
+  final ValueChanged<_RecipeTextSize> onSizeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    if (!block.kind.supportsTextSettings) {
+      return Text(
+        'This block has no content presets yet.',
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: palette.secondaryText),
+      );
+    }
+
+    final alignments = block.kind.supportsJustifiedText
+        ? _RecipeTextAlignment.values
+        : _RecipeTextAlignment.values
+              .where((value) => value != _RecipeTextAlignment.justify)
+              .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Text alignment',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (var index = 0; index < alignments.length; index++) ...[
+              Expanded(
+                child: _RecipeTextAlignmentButton(
+                  alignment: alignments[index],
+                  selected: block.textAlignment == alignments[index],
+                  onPressed: () => onAlignmentChanged(alignments[index]),
+                ),
+              ),
+              if (index < alignments.length - 1)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Text size',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        DropdownButtonFormField<_RecipeTextSize>(
+          key: ValueKey('recipe-text-size-${block.id}-${block.textSize.name}'),
+          initialValue: block.textSize,
+          isExpanded: true,
+          dropdownColor: palette.navbarBackground,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: palette.searchBarBackground.withValues(alpha: 0.72),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+              borderSide: BorderSide(
+                color: palette.borders.withValues(alpha: 0.72),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+              borderSide: BorderSide(
+                color: palette.borders.withValues(alpha: 0.72),
+              ),
+            ),
+          ),
+          items: [
+            for (final size in _RecipeTextSize.values)
+              DropdownMenuItem(value: size, child: Text(_textSizeLabel(size))),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              onSizeChanged(value);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  String _textSizeLabel(_RecipeTextSize size) {
+    return switch (size) {
+      _RecipeTextSize.extraSmall => 'Extra small',
+      _RecipeTextSize.small => 'Small',
+      _RecipeTextSize.medium => 'Medium',
+      _RecipeTextSize.large => 'Large',
+      _RecipeTextSize.extraLarge => 'Extra large',
+    };
+  }
+}
+
+class _RecipeTextAlignmentButton extends StatelessWidget {
+  const _RecipeTextAlignmentButton({
+    required this.alignment,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _RecipeTextAlignment alignment;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final (icon, tooltip) = switch (alignment) {
+      _RecipeTextAlignment.left => (Icons.format_align_left_rounded, 'Left'),
+      _RecipeTextAlignment.center => (
+        Icons.format_align_center_rounded,
+        'Center',
+      ),
+      _RecipeTextAlignment.right => (Icons.format_align_right_rounded, 'Right'),
+      _RecipeTextAlignment.justify => (
+        Icons.format_align_justify_rounded,
+        'Justify',
+      ),
+    };
+
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        key: ValueKey('recipe-text-align-${alignment.name}'),
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.24)
+            : palette.searchBarBackground.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: SizedBox(
+            height: 40,
+            child: Icon(
+              icon,
+              size: 19,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -3533,6 +4587,7 @@ class _RecipeEditorPalette extends StatelessWidget {
     required this.activeTab,
     required this.templates,
     required this.blocks,
+    required this.blockCueAnimation,
     required this.onTabChanged,
     required this.onTemplateSelected,
     required this.onBlockSelected,
@@ -3542,6 +4597,7 @@ class _RecipeEditorPalette extends StatelessWidget {
   final _RecipeEditorTab activeTab;
   final List<_RecipeTemplateDefinition> templates;
   final List<_RecipeBlockDefinition> blocks;
+  final Animation<double> blockCueAnimation;
   final ValueChanged<_RecipeEditorTab> onTabChanged;
   final ValueChanged<_RecipeTemplateDefinition> onTemplateSelected;
   final ValueChanged<_RecipeBlockDefinition> onBlockSelected;
@@ -3629,11 +4685,15 @@ class _RecipeEditorPalette extends StatelessWidget {
           ))
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: _RecipePaletteItem(
-                icon: block.kind.icon,
-                title: block.kind.label,
-                description: block.description,
-                onPressed: () => onBlockSelected(block),
+              child: _RecipePaletteBlockDragSource(
+                block: block,
+                child: _RecipePaletteItem(
+                  icon: block.kind.icon,
+                  title: block.kind.label,
+                  description: block.description,
+                  iconOpacity: blockCueAnimation,
+                  onPressed: () => onBlockSelected(block),
+                ),
               ),
             ),
           if (group != groups.last) const SizedBox(height: AppSpacing.sm),
@@ -3717,12 +4777,14 @@ class _RecipePaletteItem extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onPressed,
+    this.iconOpacity,
   });
 
   final IconData icon;
   final String title;
   final String description;
   final VoidCallback onPressed;
+  final Animation<double>? iconOpacity;
 
   @override
   Widget build(BuildContext context) {
@@ -3739,7 +4801,13 @@ class _RecipePaletteItem extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: palette.primaryButtons, size: 20),
+              if (iconOpacity case final animation?)
+                FadeTransition(
+                  opacity: animation,
+                  child: Icon(icon, color: palette.primaryButtons, size: 20),
+                )
+              else
+                Icon(icon, color: palette.primaryButtons, size: 20),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
