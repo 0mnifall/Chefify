@@ -91,6 +91,8 @@ enum _RecipeTextSize { extraSmall, small, medium, large, extraLarge }
 
 enum _RecipeInspectorTab { block, content }
 
+enum _RecipeQuoteLineSide { left, right }
+
 extension _RecipeBlockKindDetails on _RecipeBlockKind {
   String get label {
     return switch (this) {
@@ -202,6 +204,7 @@ class _RecipeEditorBlock {
     this.textAlignment = _RecipeTextAlignment.left,
     this.textSize = _RecipeTextSize.medium,
     this.quoteAuthor = '',
+    this.quoteLineSide = _RecipeQuoteLineSide.left,
     this.editorHeight,
     this.children = const [],
   });
@@ -217,6 +220,7 @@ class _RecipeEditorBlock {
   final _RecipeTextAlignment textAlignment;
   final _RecipeTextSize textSize;
   final String quoteAuthor;
+  final _RecipeQuoteLineSide quoteLineSide;
   final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
@@ -234,6 +238,7 @@ class _RecipeEditorBlock {
     _RecipeTextAlignment? textAlignment,
     _RecipeTextSize? textSize,
     String? quoteAuthor,
+    _RecipeQuoteLineSide? quoteLineSide,
     double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
@@ -249,6 +254,7 @@ class _RecipeEditorBlock {
       textAlignment: textAlignment ?? this.textAlignment,
       textSize: textSize ?? this.textSize,
       quoteAuthor: quoteAuthor ?? this.quoteAuthor,
+      quoteLineSide: quoteLineSide ?? this.quoteLineSide,
       editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
@@ -1146,6 +1152,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         onVariantChanged: _updateSelectedBlockVariant,
         onTextAlignmentChanged: _updateSelectedBlockTextAlignment,
         onTextSizeChanged: _updateSelectedBlockTextSize,
+        onBlockChanged: _replaceBlock,
       ),
       child: canvasPanel,
     );
@@ -1267,6 +1274,10 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     setState(() {
       _blocks = _mapBlocks(_blocks, blockId, update);
     });
+  }
+
+  void _replaceBlock(_RecipeEditorBlock block) {
+    _updateBlock(block.id, (_) => block);
   }
 
   List<_RecipeEditorBlock> _mapBlocks(
@@ -1696,6 +1707,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final _RecipeEditorTab activeTab;
@@ -1716,6 +1728,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1761,6 +1774,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
             onVariantChanged: onVariantChanged,
             onTextAlignmentChanged: onTextAlignmentChanged,
             onTextSizeChanged: onTextSizeChanged,
+            onBlockChanged: onBlockChanged,
           ),
         ),
       ],
@@ -2446,6 +2460,7 @@ class _RecipeInspectorDock extends StatelessWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final bool expanded;
@@ -2457,6 +2472,7 @@ class _RecipeInspectorDock extends StatelessWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2530,6 +2546,7 @@ class _RecipeInspectorDock extends StatelessWidget {
                     onVariantChanged: onVariantChanged,
                     onTextAlignmentChanged: onTextAlignmentChanged,
                     onTextSizeChanged: onTextSizeChanged,
+                    onBlockChanged: onBlockChanged,
                   ),
                 ),
               ),
@@ -3749,11 +3766,21 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
   }
 
   Widget _buildQuoteContent(BuildContext context, AppPalette palette) {
+    final lineOnLeft = block.quoteLineSide == _RecipeQuoteLineSide.left;
     return Container(
-      padding: const EdgeInsets.only(left: AppSpacing.md),
+      key: ValueKey('${block.id}-quote-surface'),
+      padding: EdgeInsets.only(
+        left: lineOnLeft ? AppSpacing.md : 0,
+        right: lineOnLeft ? 0 : AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         border: Border(
-          left: BorderSide(color: palette.primaryButtons, width: 3),
+          left: lineOnLeft
+              ? BorderSide(color: palette.primaryButtons, width: 3)
+              : BorderSide.none,
+          right: lineOnLeft
+              ? BorderSide.none
+              : BorderSide(color: palette.primaryButtons, width: 3),
         ),
       ),
       child: Column(
@@ -4050,6 +4077,7 @@ class _RecipeEditorInspector extends StatefulWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final bool embedded;
@@ -4060,6 +4088,7 @@ class _RecipeEditorInspector extends StatefulWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   State<_RecipeEditorInspector> createState() => _RecipeEditorInspectorState();
@@ -4081,6 +4110,7 @@ class _RecipeEditorInspectorState extends State<_RecipeEditorInspector> {
       widget.onTextAlignmentChanged;
   ValueChanged<_RecipeTextSize> get onTextSizeChanged =>
       widget.onTextSizeChanged;
+  ValueChanged<_RecipeEditorBlock> get onBlockChanged => widget.onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -4171,6 +4201,7 @@ class _RecipeEditorInspectorState extends State<_RecipeEditorInspector> {
                     block: selectedBlock,
                     onAlignmentChanged: onTextAlignmentChanged,
                     onSizeChanged: onTextSizeChanged,
+                    onBlockChanged: onBlockChanged,
                   ),
               ],
             ),
@@ -4303,11 +4334,13 @@ class _RecipeTextContentInspector extends StatelessWidget {
     required this.block,
     required this.onAlignmentChanged,
     required this.onSizeChanged,
+    required this.onBlockChanged,
   });
 
   final _RecipeEditorBlock block;
   final ValueChanged<_RecipeTextAlignment> onAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -4353,6 +4386,33 @@ class _RecipeTextContentInspector extends StatelessWidget {
             ],
           ],
         ),
+        if (block.kind == _RecipeBlockKind.quote) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Quote line',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: palette.categoryTags,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              for (final side in _RecipeQuoteLineSide.values) ...[
+                Expanded(
+                  child: _RecipeQuoteLineSideButton(
+                    side: side,
+                    selected: block.quoteLineSide == side,
+                    onPressed: () =>
+                        onBlockChanged(block.copyWith(quoteLineSide: side)),
+                  ),
+                ),
+                if (side != _RecipeQuoteLineSide.values.last)
+                  const SizedBox(width: AppSpacing.xs),
+              ],
+            ],
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text(
           'Text size',
@@ -4406,6 +4466,47 @@ class _RecipeTextContentInspector extends StatelessWidget {
       _RecipeTextSize.large => 'Large',
       _RecipeTextSize.extraLarge => 'Extra large',
     };
+  }
+}
+
+class _RecipeQuoteLineSideButton extends StatelessWidget {
+  const _RecipeQuoteLineSideButton({
+    required this.side,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _RecipeQuoteLineSide side;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final left = side == _RecipeQuoteLineSide.left;
+
+    return Tooltip(
+      message: left ? 'Line on left' : 'Line on right',
+      child: Material(
+        key: ValueKey('recipe-quote-line-${side.name}'),
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.24)
+            : palette.searchBarBackground.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: SizedBox(
+            height: 40,
+            child: Icon(
+              left ? Icons.border_left_rounded : Icons.border_right_rounded,
+              size: 20,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

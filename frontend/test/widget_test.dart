@@ -320,6 +320,23 @@ void main() {
           .text,
       'Chef Sofia',
     );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-quote-line-right')));
+    await tester.pumpAndSettle();
+
+    final quoteSurface = tester.widget<Container>(
+      find.byKey(const ValueKey('quote-4-quote-surface')),
+    );
+    final quoteBorder =
+        (quoteSurface.decoration! as BoxDecoration).border! as Border;
+    expect(quoteBorder.left.style, BorderStyle.none);
+    expect(quoteBorder.right.width, 3);
   });
 
   testWidgets('inserts a clicked palette block after the selected block', (
