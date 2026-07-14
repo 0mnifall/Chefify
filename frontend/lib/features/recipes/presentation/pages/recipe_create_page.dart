@@ -15,6 +15,40 @@ const double _recipeAuthorCardExtent = 224;
 const double _recipeAuthorCardOffset = -60;
 const double _recipeAuthorCardAngle = -0.2;
 
+String? _youtubeVideoId(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return null;
+  }
+  final host = uri.host.toLowerCase().replaceFirst('www.', '');
+  if (host == 'youtu.be') {
+    return uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+  }
+  if (host != 'youtube.com' && host != 'm.youtube.com') {
+    return null;
+  }
+  final queryId = uri.queryParameters['v'];
+  if (queryId != null && queryId.isNotEmpty) {
+    return queryId;
+  }
+  if (uri.pathSegments.length >= 2 &&
+      (uri.pathSegments.first == 'embed' ||
+          uri.pathSegments.first == 'shorts')) {
+    return uri.pathSegments[1];
+  }
+  return null;
+}
+
+bool _isYoutubeUrl(String value) => _youtubeVideoId(value) != null;
+
+List<Color> _recipeDividerColors(AppPalette palette) => [
+  palette.primaryButtons,
+  palette.categoryTags,
+  palette.mainText,
+  palette.secondaryText,
+  const Color(0xFFD85A5A),
+];
+
 @immutable
 class _RecipeDurationValue {
   const _RecipeDurationValue({
@@ -90,6 +124,22 @@ enum _RecipeTextAlignment { left, center, right, justify }
 enum _RecipeTextSize { extraSmall, small, medium, large, extraLarge }
 
 enum _RecipeInspectorTab { block, content }
+
+enum _RecipeQuoteLineSide { left, right }
+
+enum _RecipeImageMode { single, collage, slider }
+
+enum _RecipeMediaAlignment { left, center, right }
+
+enum _RecipeMediaSize { extraSmall, small, medium, large, extraLarge }
+
+enum _RecipeSliderPace { relaxed, balanced, quick }
+
+enum _RecipeNoteTone { tip, info, warning, important }
+
+enum _RecipeDividerStyle { solid, dotted, dashed, dashDot, doubleLine }
+
+enum _RecipeDividerThickness { thin, regular, bold }
 
 extension _RecipeBlockKindDetails on _RecipeBlockKind {
   String get label {
@@ -202,6 +252,18 @@ class _RecipeEditorBlock {
     this.textAlignment = _RecipeTextAlignment.left,
     this.textSize = _RecipeTextSize.medium,
     this.quoteAuthor = '',
+    this.quoteLineSide = _RecipeQuoteLineSide.left,
+    this.imageMode = _RecipeImageMode.single,
+    this.mediaAlignment = _RecipeMediaAlignment.center,
+    this.mediaSize = _RecipeMediaSize.medium,
+    this.imageUrls = const [],
+    this.sliderAutoplay = false,
+    this.sliderPace = _RecipeSliderPace.balanced,
+    this.videoUrl = '',
+    this.noteTone = _RecipeNoteTone.tip,
+    this.dividerStyle = _RecipeDividerStyle.solid,
+    this.dividerThickness = _RecipeDividerThickness.regular,
+    this.dividerColorIndex = 0,
     this.editorHeight,
     this.children = const [],
   });
@@ -217,6 +279,18 @@ class _RecipeEditorBlock {
   final _RecipeTextAlignment textAlignment;
   final _RecipeTextSize textSize;
   final String quoteAuthor;
+  final _RecipeQuoteLineSide quoteLineSide;
+  final _RecipeImageMode imageMode;
+  final _RecipeMediaAlignment mediaAlignment;
+  final _RecipeMediaSize mediaSize;
+  final List<String> imageUrls;
+  final bool sliderAutoplay;
+  final _RecipeSliderPace sliderPace;
+  final String videoUrl;
+  final _RecipeNoteTone noteTone;
+  final _RecipeDividerStyle dividerStyle;
+  final _RecipeDividerThickness dividerThickness;
+  final int dividerColorIndex;
   final double? editorHeight;
   final List<_RecipeEditorBlock> children;
 
@@ -234,6 +308,18 @@ class _RecipeEditorBlock {
     _RecipeTextAlignment? textAlignment,
     _RecipeTextSize? textSize,
     String? quoteAuthor,
+    _RecipeQuoteLineSide? quoteLineSide,
+    _RecipeImageMode? imageMode,
+    _RecipeMediaAlignment? mediaAlignment,
+    _RecipeMediaSize? mediaSize,
+    List<String>? imageUrls,
+    bool? sliderAutoplay,
+    _RecipeSliderPace? sliderPace,
+    String? videoUrl,
+    _RecipeNoteTone? noteTone,
+    _RecipeDividerStyle? dividerStyle,
+    _RecipeDividerThickness? dividerThickness,
+    int? dividerColorIndex,
     double? editorHeight,
     List<_RecipeEditorBlock>? children,
   }) {
@@ -249,6 +335,18 @@ class _RecipeEditorBlock {
       textAlignment: textAlignment ?? this.textAlignment,
       textSize: textSize ?? this.textSize,
       quoteAuthor: quoteAuthor ?? this.quoteAuthor,
+      quoteLineSide: quoteLineSide ?? this.quoteLineSide,
+      imageMode: imageMode ?? this.imageMode,
+      mediaAlignment: mediaAlignment ?? this.mediaAlignment,
+      mediaSize: mediaSize ?? this.mediaSize,
+      imageUrls: imageUrls ?? this.imageUrls,
+      sliderAutoplay: sliderAutoplay ?? this.sliderAutoplay,
+      sliderPace: sliderPace ?? this.sliderPace,
+      videoUrl: videoUrl ?? this.videoUrl,
+      noteTone: noteTone ?? this.noteTone,
+      dividerStyle: dividerStyle ?? this.dividerStyle,
+      dividerThickness: dividerThickness ?? this.dividerThickness,
+      dividerColorIndex: dividerColorIndex ?? this.dividerColorIndex,
       editorHeight: editorHeight ?? this.editorHeight,
       children: children ?? this.children,
     );
@@ -1105,6 +1203,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
       onBlockBodyChanged: _updateBlockBody,
       onBlockQuoteAuthorChanged: _updateBlockQuoteAuthor,
       onBlockHeightChanged: _updateBlockHeight,
+      onBlockChanged: _replaceBlock,
       onAppendBlockRequested: _prepareAppendBlock,
       canDropBlock: _canDropBlock,
       onDropBlock: _dropBlock,
@@ -1146,6 +1245,7 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
         onVariantChanged: _updateSelectedBlockVariant,
         onTextAlignmentChanged: _updateSelectedBlockTextAlignment,
         onTextSizeChanged: _updateSelectedBlockTextSize,
+        onBlockChanged: _replaceBlock,
       ),
       child: canvasPanel,
     );
@@ -1267,6 +1367,10 @@ class _RecipeBodyEditorState extends State<_RecipeBodyEditor> {
     setState(() {
       _blocks = _mapBlocks(_blocks, blockId, update);
     });
+  }
+
+  void _replaceBlock(_RecipeEditorBlock block) {
+    _updateBlock(block.id, (_) => block);
   }
 
   List<_RecipeEditorBlock> _mapBlocks(
@@ -1696,6 +1800,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final _RecipeEditorTab activeTab;
@@ -1716,6 +1821,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1761,6 +1867,7 @@ class _RecipeEditorOverlay extends StatelessWidget {
             onVariantChanged: onVariantChanged,
             onTextAlignmentChanged: onTextAlignmentChanged,
             onTextSizeChanged: onTextSizeChanged,
+            onBlockChanged: onBlockChanged,
           ),
         ),
       ],
@@ -2446,6 +2553,7 @@ class _RecipeInspectorDock extends StatelessWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final bool expanded;
@@ -2457,6 +2565,7 @@ class _RecipeInspectorDock extends StatelessWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2530,6 +2639,7 @@ class _RecipeInspectorDock extends StatelessWidget {
                     onVariantChanged: onVariantChanged,
                     onTextAlignmentChanged: onTextAlignmentChanged,
                     onTextSizeChanged: onTextSizeChanged,
+                    onBlockChanged: onBlockChanged,
                   ),
                 ),
               ),
@@ -2552,6 +2662,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onAppendBlockRequested,
     required this.canDropBlock,
     required this.onDropBlock,
@@ -2567,6 +2678,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final VoidCallback onAppendBlockRequested;
   final bool Function(_RecipeEditorDragData data, _RecipeBlockDropTarget target)
   canDropBlock;
@@ -2635,6 +2747,7 @@ class _RecipeEditorCanvas extends StatelessWidget {
                       onBlockBodyChanged: onBlockBodyChanged,
                       onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
                       onBlockHeightChanged: onBlockHeightChanged,
+                      onBlockChanged: onBlockChanged,
                       onDeleteBlock: onDeleteBlock,
                     ),
                   ],
@@ -3305,6 +3418,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onDeleteBlock,
   });
 
@@ -3324,6 +3438,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -3388,6 +3503,7 @@ class _RecipeEditorBlockCard extends StatelessWidget {
               onBlockBodyChanged: onBlockBodyChanged,
               onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
               onBlockHeightChanged: onBlockHeightChanged,
+              onBlockChanged: onBlockChanged,
               onDeleteBlock: onDeleteBlock,
             ),
           ),
@@ -3413,6 +3529,7 @@ class _RecipeEditorBlockSurface extends StatefulWidget {
     required this.onBlockBodyChanged,
     required this.onBlockQuoteAuthorChanged,
     required this.onBlockHeightChanged,
+    required this.onBlockChanged,
     required this.onDeleteBlock,
   });
 
@@ -3432,6 +3549,7 @@ class _RecipeEditorBlockSurface extends StatefulWidget {
   final void Function(String blockId, String body) onBlockBodyChanged;
   final void Function(String blockId, String author) onBlockQuoteAuthorChanged;
   final void Function(String blockId, double height) onBlockHeightChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
   final ValueChanged<String> onDeleteBlock;
 
   @override
@@ -3465,6 +3583,7 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       widget.onBlockQuoteAuthorChanged;
   void Function(String, double) get onBlockHeightChanged =>
       widget.onBlockHeightChanged;
+  ValueChanged<_RecipeEditorBlock> get onBlockChanged => widget.onBlockChanged;
   ValueChanged<String> get onDeleteBlock => widget.onDeleteBlock;
 
   @override
@@ -3657,14 +3776,15 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
 
   bool get _usesSecondaryBody {
     return block.kind != _RecipeBlockKind.divider &&
+        block.kind != _RecipeBlockKind.image &&
+        block.kind != _RecipeBlockKind.video &&
+        block.kind != _RecipeBlockKind.note &&
         !block.kind.supportsTextSettings;
   }
 
   Widget _buildPrimaryContent(BuildContext context, AppPalette palette) {
     return switch (block.kind) {
-      _RecipeBlockKind.divider => Divider(
-        color: palette.borders.withValues(alpha: 0.8),
-      ),
+      _RecipeBlockKind.divider => _buildDividerContent(palette),
       _RecipeBlockKind.heading => _buildTextContentField(
         context,
         palette,
@@ -3688,6 +3808,9 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
         ),
       ),
       _RecipeBlockKind.quote => _buildQuoteContent(context, palette),
+      _RecipeBlockKind.image => _buildImageContent(context, palette),
+      _RecipeBlockKind.video => _buildVideoContent(context, palette),
+      _RecipeBlockKind.note => _buildNoteContent(context, palette),
       _ => _buildGenericTitle(context, palette),
     };
   }
@@ -3749,11 +3872,21 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
   }
 
   Widget _buildQuoteContent(BuildContext context, AppPalette palette) {
+    final lineOnLeft = block.quoteLineSide == _RecipeQuoteLineSide.left;
     return Container(
-      padding: const EdgeInsets.only(left: AppSpacing.md),
+      key: ValueKey('${block.id}-quote-surface'),
+      padding: EdgeInsets.only(
+        left: lineOnLeft ? AppSpacing.md : 0,
+        right: lineOnLeft ? 0 : AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         border: Border(
-          left: BorderSide(color: palette.primaryButtons, width: 3),
+          left: lineOnLeft
+              ? BorderSide(color: palette.primaryButtons, width: 3)
+              : BorderSide.none,
+          right: lineOnLeft
+              ? BorderSide.none
+              : BorderSide(color: palette.primaryButtons, width: 3),
         ),
       ),
       child: Column(
@@ -3791,6 +3924,101 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildImageContent(BuildContext context, AppPalette palette) {
+    return _RecipeImageBlockContent(
+      block: block,
+      onReplaceFirst: _pickOrReplaceFirstImage,
+    );
+  }
+
+  Future<void> _pickOrReplaceFirstImage() async {
+    final imageUrl = await pickRecipeHeroImageUrl();
+    if (!mounted || imageUrl == null) {
+      return;
+    }
+
+    final imageUrls = [...block.imageUrls];
+    if (imageUrls.isEmpty) {
+      imageUrls.add(imageUrl);
+    } else {
+      imageUrls[0] = imageUrl;
+    }
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  Widget _buildVideoContent(BuildContext context, AppPalette palette) {
+    return _RecipeVideoBlockContent(block: block, onPressed: _editVideoUrl);
+  }
+
+  Future<void> _editVideoUrl() async {
+    final videoUrl = await showDialog<String>(
+      context: context,
+      builder: (context) => _RecipeYoutubeUrlDialog(initialUrl: block.videoUrl),
+    );
+    if (!mounted || videoUrl == null) {
+      return;
+    }
+    onBlockChanged(block.copyWith(videoUrl: videoUrl));
+  }
+
+  Widget _buildNoteContent(BuildContext context, AppPalette palette) {
+    final (color, icon) = switch (block.noteTone) {
+      _RecipeNoteTone.tip => (palette.categoryTags, Icons.lightbulb_outline),
+      _RecipeNoteTone.info => (palette.icons, Icons.info_outline_rounded),
+      _RecipeNoteTone.warning => (
+        palette.primaryButtons,
+        Icons.warning_amber_rounded,
+      ),
+      _RecipeNoteTone.important => (
+        Theme.of(context).colorScheme.error,
+        Icons.priority_high_rounded,
+      ),
+    };
+
+    return Container(
+      key: ValueKey('${block.id}-note-surface'),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 22, color: color),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: TextFormField(
+              key: ValueKey('${block.id}-body'),
+              initialValue: block.body,
+              minLines: 1,
+              maxLines: null,
+              textAlign: _textAlign,
+              onTap: () => onBlockSelected(block.id),
+              onChanged: (value) => onBlockBodyChanged(block.id, value),
+              style: TextStyle(
+                color: palette.mainText,
+                fontSize: _textFontSize,
+                height: 1.45,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: _textFieldDecoration(palette, 'Write a note'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDividerContent(AppPalette palette) {
+    final colors = _recipeDividerColors(palette);
+    return _RecipeDividerPreview(
+      style: block.dividerStyle,
+      thickness: block.dividerThickness,
+      color: colors[block.dividerColorIndex.clamp(0, colors.length - 1)],
     );
   }
 
@@ -3925,8 +4153,806 @@ class _RecipeEditorBlockSurfaceState extends State<_RecipeEditorBlockSurface> {
       onBlockBodyChanged: onBlockBodyChanged,
       onBlockQuoteAuthorChanged: onBlockQuoteAuthorChanged,
       onBlockHeightChanged: onBlockHeightChanged,
+      onBlockChanged: onBlockChanged,
       onDeleteBlock: onDeleteBlock,
     );
+  }
+}
+
+class _RecipeImageBlockContent extends StatelessWidget {
+  const _RecipeImageBlockContent({
+    required this.block,
+    required this.onReplaceFirst,
+  });
+
+  final _RecipeEditorBlock block;
+  final VoidCallback onReplaceFirst;
+
+  @override
+  Widget build(BuildContext context) {
+    final alignment = switch (block.mediaAlignment) {
+      _RecipeMediaAlignment.left => Alignment.centerLeft,
+      _RecipeMediaAlignment.center => Alignment.center,
+      _RecipeMediaAlignment.right => Alignment.centerRight,
+    };
+    final widthFactor = switch (block.mediaSize) {
+      _RecipeMediaSize.extraSmall => 0.32,
+      _RecipeMediaSize.small => 0.46,
+      _RecipeMediaSize.medium => 0.62,
+      _RecipeMediaSize.large => 0.8,
+      _RecipeMediaSize.extraLarge => 1.0,
+    };
+
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: block.imageUrls.isEmpty
+            ? _RecipeImagePlaceholder(
+                onPressed: onReplaceFirst,
+                aspectRatio: block.imageMode == _RecipeImageMode.collage
+                    ? 2.4
+                    : 16 / 9,
+                label: block.imageMode == _RecipeImageMode.collage
+                    ? 'Add first photo'
+                    : 'Add photo',
+                hoverLabel: block.imageMode == _RecipeImageMode.collage
+                    ? 'Choose first photo'
+                    : 'Choose photo',
+              )
+            : switch (block.imageMode) {
+                _RecipeImageMode.single => _RecipeImagePreviewTile(
+                  imageUrl: block.imageUrls.first,
+                  onPressed: onReplaceFirst,
+                ),
+                _RecipeImageMode.collage => _RecipeCollagePreview(
+                  imageUrls: block.imageUrls,
+                  onPressed: onReplaceFirst,
+                ),
+                _RecipeImageMode.slider => _RecipeSliderPreview(
+                  imageUrls: block.imageUrls,
+                  autoplay: block.sliderAutoplay,
+                  pace: block.sliderPace,
+                  onPressed: onReplaceFirst,
+                ),
+              },
+      ),
+    );
+  }
+}
+
+class _RecipeImagePlaceholder extends StatefulWidget {
+  const _RecipeImagePlaceholder({
+    required this.onPressed,
+    required this.aspectRatio,
+    required this.label,
+    required this.hoverLabel,
+  });
+
+  final VoidCallback onPressed;
+  final double aspectRatio;
+  final String label;
+  final String hoverLabel;
+
+  @override
+  State<_RecipeImagePlaceholder> createState() =>
+      _RecipeImagePlaceholderState();
+}
+
+class _RecipeImagePlaceholderState extends State<_RecipeImagePlaceholder> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-image-placeholder'),
+        color: palette.searchBarBackground.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: AspectRatio(
+            aspectRatio: widget.aspectRatio,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Column(
+                key: ValueKey(_hovered),
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 38,
+                    color: palette.primaryButtons,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _hovered ? widget.hoverLabel : widget.label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: palette.mainText,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeImagePreviewTile extends StatefulWidget {
+  const _RecipeImagePreviewTile({
+    required this.imageUrl,
+    required this.onPressed,
+  });
+
+  final String imageUrl;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeImagePreviewTile> createState() =>
+      _RecipeImagePreviewTileState();
+}
+
+class _RecipeImagePreviewTileState extends State<_RecipeImagePreviewTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onPressed,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _RecipeNetworkImage(imageUrl: widget.imageUrl),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  color: Colors.black.withValues(alpha: _hovered ? 0.48 : 0),
+                  alignment: Alignment.center,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _hovered ? 1 : 0,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: palette.mainText,
+                          size: 28,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Replace photo',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: palette.mainText,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeCollagePreview extends StatelessWidget {
+  const _RecipeCollagePreview({
+    required this.imageUrls,
+    required this.onPressed,
+  });
+
+  final List<String> imageUrls;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleImages = imageUrls.take(5).toList(growable: false);
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppSpacing.xs),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              final rects = _layoutRects(size, visibleImages.length);
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  for (var index = 0; index < visibleImages.length; index++)
+                    Positioned.fromRect(
+                      rect: rects[index],
+                      child: SizedBox(
+                        key: ValueKey('recipe-collage-image-$index'),
+                        child: _RecipeNetworkImage(
+                          imageUrl: visibleImages[index],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Rect> _layoutRects(Size size, int count) {
+    const gap = 3.0;
+    final width = size.width;
+    final height = size.height;
+
+    if (count <= 1) {
+      return [Rect.fromLTWH(0, 0, width, height)];
+    }
+    if (count == 2) {
+      final itemWidth = (width - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, itemWidth, height),
+        Rect.fromLTWH(itemWidth + gap, 0, itemWidth, height),
+      ];
+    }
+    if (count == 3) {
+      final mainWidth = (width - gap) * 0.62;
+      final sideWidth = width - gap - mainWidth;
+      final sideHeight = (height - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, mainWidth, height),
+        Rect.fromLTWH(mainWidth + gap, 0, sideWidth, sideHeight),
+        Rect.fromLTWH(mainWidth + gap, sideHeight + gap, sideWidth, sideHeight),
+      ];
+    }
+    if (count == 4) {
+      final itemWidth = (width - gap) / 2;
+      final itemHeight = (height - gap) / 2;
+      return [
+        Rect.fromLTWH(0, 0, itemWidth, itemHeight),
+        Rect.fromLTWH(itemWidth + gap, 0, itemWidth, itemHeight),
+        Rect.fromLTWH(0, itemHeight + gap, itemWidth, itemHeight),
+        Rect.fromLTWH(itemWidth + gap, itemHeight + gap, itemWidth, itemHeight),
+      ];
+    }
+
+    final mainWidth = (width - gap) * 0.4;
+    final gridLeft = mainWidth + gap;
+    final gridWidth = width - gridLeft;
+    final itemWidth = (gridWidth - gap) / 2;
+    final itemHeight = (height - gap) / 2;
+    return [
+      Rect.fromLTWH(0, 0, mainWidth, height),
+      Rect.fromLTWH(gridLeft, 0, itemWidth, itemHeight),
+      Rect.fromLTWH(gridLeft + itemWidth + gap, 0, itemWidth, itemHeight),
+      Rect.fromLTWH(gridLeft, itemHeight + gap, itemWidth, itemHeight),
+      Rect.fromLTWH(
+        gridLeft + itemWidth + gap,
+        itemHeight + gap,
+        itemWidth,
+        itemHeight,
+      ),
+    ];
+  }
+}
+
+class _RecipeSliderPreview extends StatefulWidget {
+  const _RecipeSliderPreview({
+    required this.imageUrls,
+    required this.autoplay,
+    required this.pace,
+    required this.onPressed,
+  });
+
+  final List<String> imageUrls;
+  final bool autoplay;
+  final _RecipeSliderPace pace;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeSliderPreview> createState() => _RecipeSliderPreviewState();
+}
+
+class _RecipeSliderPreviewState extends State<_RecipeSliderPreview> {
+  final PageController _pageController = PageController();
+  Timer? _autoplayTimer;
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncAutoplay();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RecipeSliderPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoplay != widget.autoplay ||
+        oldWidget.pace != widget.pace ||
+        oldWidget.imageUrls.length != widget.imageUrls.length) {
+      _page = _page.clamp(0, widget.imageUrls.length - 1);
+      _syncAutoplay();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoplayTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final imageUrls = widget.imageUrls.take(5).toList(growable: false);
+
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: imageUrls.length,
+                onPageChanged: (value) => setState(() => _page = value),
+                itemBuilder: (context, index) => InkWell(
+                  onTap: widget.onPressed,
+                  child: _RecipeNetworkImage(imageUrl: imageUrls[index]),
+                ),
+              ),
+            ),
+          ),
+          if (imageUrls.length > 1)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AppSpacing.xs,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var index = 0; index < imageUrls.length; index++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: index == _page ? 18 : 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: index == _page
+                            ? palette.primaryButtons
+                            : palette.mainText.withValues(alpha: 0.62),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _syncAutoplay() {
+    _autoplayTimer?.cancel();
+    if (!widget.autoplay || widget.imageUrls.length < 2) {
+      return;
+    }
+    final interval = switch (widget.pace) {
+      _RecipeSliderPace.relaxed => const Duration(seconds: 8),
+      _RecipeSliderPace.balanced => const Duration(seconds: 5),
+      _RecipeSliderPace.quick => const Duration(seconds: 3),
+    };
+    _autoplayTimer = Timer.periodic(interval, (_) {
+      if (!mounted || !_pageController.hasClients) {
+        return;
+      }
+      final nextPage = (_page + 1) % widget.imageUrls.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+}
+
+class _RecipeNetworkImage extends StatelessWidget {
+  const _RecipeNetworkImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => ColoredBox(
+        color: palette.searchBarBackground,
+        child: Icon(Icons.broken_image_outlined, color: palette.icons),
+      ),
+    );
+  }
+}
+
+class _RecipeVideoBlockContent extends StatelessWidget {
+  const _RecipeVideoBlockContent({
+    required this.block,
+    required this.onPressed,
+  });
+
+  final _RecipeEditorBlock block;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final alignment = switch (block.mediaAlignment) {
+      _RecipeMediaAlignment.left => Alignment.centerLeft,
+      _RecipeMediaAlignment.center => Alignment.center,
+      _RecipeMediaAlignment.right => Alignment.centerRight,
+    };
+    final widthFactor = switch (block.mediaSize) {
+      _RecipeMediaSize.extraSmall => 0.3,
+      _RecipeMediaSize.small => 0.44,
+      _RecipeMediaSize.medium => 0.6,
+      _RecipeMediaSize.large => 0.78,
+      _RecipeMediaSize.extraLarge => 1.0,
+    };
+
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: block.videoUrl.isEmpty
+            ? _RecipeVideoPlaceholder(onPressed: onPressed)
+            : _RecipeYoutubePreview(
+                videoUrl: block.videoUrl,
+                onPressed: onPressed,
+              ),
+      ),
+    );
+  }
+}
+
+class _RecipeVideoPlaceholder extends StatefulWidget {
+  const _RecipeVideoPlaceholder({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeVideoPlaceholder> createState() =>
+      _RecipeVideoPlaceholderState();
+}
+
+class _RecipeVideoPlaceholderState extends State<_RecipeVideoPlaceholder> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-video-placeholder'),
+        color: palette.searchBarBackground.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: _hovered ? 1.08 : 1,
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: 48,
+                    color: palette.primaryButtons,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  _hovered ? 'Add YouTube link' : 'Video',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: palette.mainText,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeYoutubePreview extends StatefulWidget {
+  const _RecipeYoutubePreview({
+    required this.videoUrl,
+    required this.onPressed,
+  });
+
+  final String videoUrl;
+  final VoidCallback onPressed;
+
+  @override
+  State<_RecipeYoutubePreview> createState() => _RecipeYoutubePreviewState();
+}
+
+class _RecipeYoutubePreviewState extends State<_RecipeYoutubePreview> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final videoId = _youtubeVideoId(widget.videoUrl);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        key: const ValueKey('recipe-youtube-preview'),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onPressed,
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (videoId != null)
+                  _RecipeNetworkImage(
+                    imageUrl:
+                        'https://img.youtube.com/vi/$videoId/hqdefault.jpg',
+                  )
+                else
+                  ColoredBox(color: palette.searchBarBackground),
+                ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
+                Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: _hovered ? 62 : 56,
+                    height: _hovered ? 62 : 56,
+                    decoration: BoxDecoration(
+                      color: palette.primaryButtons,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _hovered ? Icons.edit_rounded : Icons.play_arrow_rounded,
+                      color: palette.mainText,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeYoutubeUrlDialog extends StatefulWidget {
+  const _RecipeYoutubeUrlDialog({required this.initialUrl});
+
+  final String initialUrl;
+
+  @override
+  State<_RecipeYoutubeUrlDialog> createState() =>
+      _RecipeYoutubeUrlDialogState();
+}
+
+class _RecipeYoutubeUrlDialogState extends State<_RecipeYoutubeUrlDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialUrl);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return AlertDialog(
+      key: const ValueKey('recipe-youtube-url-dialog'),
+      backgroundColor: palette.cardsSurface,
+      title: const Text('YouTube video'),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          key: const ValueKey('recipe-youtube-url-field'),
+          controller: _controller,
+          autofocus: true,
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            labelText: 'YouTube URL',
+            hintText: 'https://www.youtube.com/watch?v=...',
+            errorText: _errorText,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Apply')),
+      ],
+    );
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (!_isYoutubeUrl(value)) {
+      setState(() => _errorText = 'Enter a valid YouTube URL.');
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+}
+
+class _RecipeDividerPreview extends StatelessWidget {
+  const _RecipeDividerPreview({
+    required this.style,
+    required this.thickness,
+    required this.color,
+  });
+
+  final _RecipeDividerStyle style;
+  final _RecipeDividerThickness thickness;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('recipe-divider-preview'),
+      height: 28,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _RecipeDividerPainter(
+          style: style,
+          thickness: thickness,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeDividerPainter extends CustomPainter {
+  const _RecipeDividerPainter({
+    required this.style,
+    required this.thickness,
+    required this.color,
+  });
+
+  final _RecipeDividerStyle style;
+  final _RecipeDividerThickness thickness;
+  final Color color;
+
+  double get strokeWidth => switch (thickness) {
+    _RecipeDividerThickness.thin => 1,
+    _RecipeDividerThickness.regular => 2,
+    _RecipeDividerThickness.bold => 4,
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    switch (style) {
+      case _RecipeDividerStyle.solid:
+        canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), paint);
+        break;
+      case _RecipeDividerStyle.dotted:
+        final spacing = math.max(5.0, strokeWidth * 3);
+        for (var x = strokeWidth; x < size.width; x += spacing) {
+          canvas.drawCircle(Offset(x, centerY), strokeWidth / 1.5, paint);
+        }
+        break;
+      case _RecipeDividerStyle.dashed:
+        _drawPattern(canvas, size.width, centerY, paint, const [12, 7]);
+        break;
+      case _RecipeDividerStyle.dashDot:
+        _drawPattern(canvas, size.width, centerY, paint, const [14, 6, 2, 6]);
+        break;
+      case _RecipeDividerStyle.doubleLine:
+        final offset = strokeWidth + 2;
+        canvas
+          ..drawLine(
+            Offset(0, centerY - offset),
+            Offset(size.width, centerY - offset),
+            paint,
+          )
+          ..drawLine(
+            Offset(0, centerY + offset),
+            Offset(size.width, centerY + offset),
+            paint,
+          );
+        break;
+    }
+  }
+
+  void _drawPattern(
+    Canvas canvas,
+    double width,
+    double y,
+    Paint paint,
+    List<double> pattern,
+  ) {
+    var x = 0.0;
+    var patternIndex = 0;
+    var drawing = true;
+    while (x < width) {
+      final segment = pattern[patternIndex % pattern.length];
+      final end = math.min(width, x + segment);
+      if (drawing) {
+        canvas.drawLine(Offset(x, y), Offset(end, y), paint);
+      }
+      x = end;
+      patternIndex += 1;
+      drawing = !drawing;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RecipeDividerPainter oldDelegate) {
+    return oldDelegate.style != style ||
+        oldDelegate.thickness != thickness ||
+        oldDelegate.color != color;
   }
 }
 
@@ -4050,6 +5076,7 @@ class _RecipeEditorInspector extends StatefulWidget {
     required this.onVariantChanged,
     required this.onTextAlignmentChanged,
     required this.onTextSizeChanged,
+    required this.onBlockChanged,
   });
 
   final bool embedded;
@@ -4060,6 +5087,7 @@ class _RecipeEditorInspector extends StatefulWidget {
   final ValueChanged<_RecipeBlockVariant> onVariantChanged;
   final ValueChanged<_RecipeTextAlignment> onTextAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onTextSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   State<_RecipeEditorInspector> createState() => _RecipeEditorInspectorState();
@@ -4081,6 +5109,7 @@ class _RecipeEditorInspectorState extends State<_RecipeEditorInspector> {
       widget.onTextAlignmentChanged;
   ValueChanged<_RecipeTextSize> get onTextSizeChanged =>
       widget.onTextSizeChanged;
+  ValueChanged<_RecipeEditorBlock> get onBlockChanged => widget.onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -4171,6 +5200,7 @@ class _RecipeEditorInspectorState extends State<_RecipeEditorInspector> {
                     block: selectedBlock,
                     onAlignmentChanged: onTextAlignmentChanged,
                     onSizeChanged: onTextSizeChanged,
+                    onBlockChanged: onBlockChanged,
                   ),
               ],
             ),
@@ -4303,15 +5333,41 @@ class _RecipeTextContentInspector extends StatelessWidget {
     required this.block,
     required this.onAlignmentChanged,
     required this.onSizeChanged,
+    required this.onBlockChanged,
   });
 
   final _RecipeEditorBlock block;
   final ValueChanged<_RecipeTextAlignment> onAlignmentChanged;
   final ValueChanged<_RecipeTextSize> onSizeChanged;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    if (block.kind == _RecipeBlockKind.image) {
+      return _RecipeImageContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
+    if (block.kind == _RecipeBlockKind.video) {
+      return _RecipeVideoContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
+    if (block.kind == _RecipeBlockKind.note) {
+      return _RecipeNoteContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
+    if (block.kind == _RecipeBlockKind.divider) {
+      return _RecipeDividerContentInspector(
+        block: block,
+        onBlockChanged: onBlockChanged,
+      );
+    }
     if (!block.kind.supportsTextSettings) {
       return Text(
         'This block has no content presets yet.',
@@ -4353,6 +5409,33 @@ class _RecipeTextContentInspector extends StatelessWidget {
             ],
           ],
         ),
+        if (block.kind == _RecipeBlockKind.quote) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Quote line',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: palette.categoryTags,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              for (final side in _RecipeQuoteLineSide.values) ...[
+                Expanded(
+                  child: _RecipeQuoteLineSideButton(
+                    side: side,
+                    selected: block.quoteLineSide == side,
+                    onPressed: () =>
+                        onBlockChanged(block.copyWith(quoteLineSide: side)),
+                  ),
+                ),
+                if (side != _RecipeQuoteLineSide.values.last)
+                  const SizedBox(width: AppSpacing.xs),
+              ],
+            ],
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text(
           'Text size',
@@ -4406,6 +5489,699 @@ class _RecipeTextContentInspector extends StatelessWidget {
       _RecipeTextSize.large => 'Large',
       _RecipeTextSize.extraLarge => 'Extra large',
     };
+  }
+}
+
+class _RecipeNoteContentInspector extends StatelessWidget {
+  const _RecipeNoteContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final alignments = _RecipeTextAlignment.values
+        .where((alignment) => alignment != _RecipeTextAlignment.justify)
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeNoteTone>(
+          controlKey: 'recipe-note-tone-${block.noteTone.name}',
+          label: 'Note style',
+          value: block.noteTone,
+          values: _RecipeNoteTone.values,
+          labelForValue: (tone) => switch (tone) {
+            _RecipeNoteTone.tip => 'Tip',
+            _RecipeNoteTone.info => 'Information',
+            _RecipeNoteTone.warning => 'Warning',
+            _RecipeNoteTone.important => 'Important',
+          },
+          onChanged: (tone) => onBlockChanged(block.copyWith(noteTone: tone)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Text alignment',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (var index = 0; index < alignments.length; index++) ...[
+              Expanded(
+                child: _RecipeTextAlignmentButton(
+                  alignment: alignments[index],
+                  selected: block.textAlignment == alignments[index],
+                  onPressed: () => onBlockChanged(
+                    block.copyWith(textAlignment: alignments[index]),
+                  ),
+                ),
+              ),
+              if (index < alignments.length - 1)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeTextSize>(
+          controlKey: 'recipe-note-size-${block.textSize.name}',
+          label: 'Text size',
+          value: block.textSize,
+          values: _RecipeTextSize.values,
+          labelForValue: (size) => switch (size) {
+            _RecipeTextSize.extraSmall => 'Extra small',
+            _RecipeTextSize.small => 'Small',
+            _RecipeTextSize.medium => 'Medium',
+            _RecipeTextSize.large => 'Large',
+            _RecipeTextSize.extraLarge => 'Extra large',
+          },
+          onChanged: (size) => onBlockChanged(block.copyWith(textSize: size)),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeDividerContentInspector extends StatelessWidget {
+  const _RecipeDividerContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final colors = _recipeDividerColors(palette);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeDividerStyle>(
+          controlKey: 'recipe-divider-style-${block.dividerStyle.name}',
+          label: 'Line style',
+          value: block.dividerStyle,
+          values: _RecipeDividerStyle.values,
+          labelForValue: (style) => switch (style) {
+            _RecipeDividerStyle.solid => 'Solid',
+            _RecipeDividerStyle.dotted => 'Dotted',
+            _RecipeDividerStyle.dashed => 'Dashed',
+            _RecipeDividerStyle.dashDot => 'Dash-dot',
+            _RecipeDividerStyle.doubleLine => 'Double solid',
+          },
+          onChanged: (style) =>
+              onBlockChanged(block.copyWith(dividerStyle: style)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeDividerThickness>(
+          controlKey: 'recipe-divider-thickness-${block.dividerThickness.name}',
+          label: 'Thickness',
+          value: block.dividerThickness,
+          values: _RecipeDividerThickness.values,
+          labelForValue: (thickness) => switch (thickness) {
+            _RecipeDividerThickness.thin => 'Thin',
+            _RecipeDividerThickness.regular => 'Regular',
+            _RecipeDividerThickness.bold => 'Bold',
+          },
+          onChanged: (thickness) =>
+              onBlockChanged(block.copyWith(dividerThickness: thickness)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Color',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (var index = 0; index < colors.length; index++) ...[
+              _RecipeDividerColorSwatch(
+                index: index,
+                color: colors[index],
+                selected: block.dividerColorIndex == index,
+                onPressed: () =>
+                    onBlockChanged(block.copyWith(dividerColorIndex: index)),
+              ),
+              if (index < colors.length - 1)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeDividerColorSwatch extends StatelessWidget {
+  const _RecipeDividerColorSwatch({
+    required this.index,
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final int index;
+  final Color color;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Tooltip(
+      message: 'Color ${index + 1}',
+      child: InkWell(
+        key: ValueKey('recipe-divider-color-$index'),
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(AppSpacing.xxs),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(AppSpacing.xxs),
+            border: Border.all(
+              color: selected ? palette.primaryButtons : palette.borders,
+              width: selected ? 3 : 1,
+            ),
+          ),
+          child: selected
+              ? Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: palette.pageBackground,
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeVideoContentInspector extends StatelessWidget {
+  const _RecipeVideoContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final invalidUrl =
+        block.videoUrl.isNotEmpty && !_isYoutubeUrl(block.videoUrl);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeMediaAlignmentSelector(
+          selected: block.mediaAlignment,
+          onChanged: (alignment) =>
+              onBlockChanged(block.copyWith(mediaAlignment: alignment)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeMediaSize>(
+          controlKey: 'recipe-video-size-${block.mediaSize.name}',
+          label: 'Video size',
+          value: block.mediaSize,
+          values: _RecipeMediaSize.values,
+          labelForValue: _mediaSizeLabel,
+          onChanged: (size) => onBlockChanged(block.copyWith(mediaSize: size)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'YouTube URL',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextFormField(
+          key: const ValueKey('recipe-video-url-inspector-field'),
+          initialValue: block.videoUrl,
+          onChanged: (value) =>
+              onBlockChanged(block.copyWith(videoUrl: value.trim())),
+          decoration: InputDecoration(
+            hintText: 'https://www.youtube.com/watch?v=...',
+            errorText: invalidUrl ? 'Use a valid YouTube link.' : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _mediaSizeLabel(_RecipeMediaSize size) {
+    return switch (size) {
+      _RecipeMediaSize.extraSmall => 'Extra small',
+      _RecipeMediaSize.small => 'Small',
+      _RecipeMediaSize.medium => 'Medium',
+      _RecipeMediaSize.large => 'Large',
+      _RecipeMediaSize.extraLarge => 'Extra large',
+    };
+  }
+}
+
+class _RecipeImageContentInspector extends StatelessWidget {
+  const _RecipeImageContentInspector({
+    required this.block,
+    required this.onBlockChanged,
+  });
+
+  final _RecipeEditorBlock block;
+  final ValueChanged<_RecipeEditorBlock> onBlockChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final maxImages = block.imageMode == _RecipeImageMode.single ? 1 : 5;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RecipeInspectorDropdown<_RecipeImageMode>(
+          controlKey: 'recipe-image-mode-${block.imageMode.name}',
+          label: 'Image mode',
+          value: block.imageMode,
+          values: _RecipeImageMode.values,
+          labelForValue: _imageModeLabel,
+          onChanged: (mode) {
+            final imageUrls =
+                mode == _RecipeImageMode.single && block.imageUrls.isNotEmpty
+                ? [block.imageUrls.first]
+                : block.imageUrls;
+            onBlockChanged(
+              block.copyWith(imageMode: mode, imageUrls: imageUrls),
+            );
+          },
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeMediaAlignmentSelector(
+          selected: block.mediaAlignment,
+          onChanged: (alignment) =>
+              onBlockChanged(block.copyWith(mediaAlignment: alignment)),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _RecipeInspectorDropdown<_RecipeMediaSize>(
+          controlKey: 'recipe-media-size-${block.mediaSize.name}',
+          label: 'Media size',
+          value: block.mediaSize,
+          values: _RecipeMediaSize.values,
+          labelForValue: _mediaSizeLabel,
+          onChanged: (size) => onBlockChanged(block.copyWith(mediaSize: size)),
+        ),
+        if (block.imageMode == _RecipeImageMode.slider) ...[
+          const SizedBox(height: AppSpacing.md),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Autoplay',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.mainText,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              value: block.sliderAutoplay,
+              onChanged: (value) =>
+                  onBlockChanged(block.copyWith(sliderAutoplay: value)),
+            ),
+          ),
+          if (block.sliderAutoplay) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _RecipeInspectorDropdown<_RecipeSliderPace>(
+              controlKey: 'recipe-slider-pace-${block.sliderPace.name}',
+              label: 'Autoplay pace',
+              value: block.sliderPace,
+              values: _RecipeSliderPace.values,
+              labelForValue: _sliderPaceLabel,
+              onChanged: (pace) =>
+                  onBlockChanged(block.copyWith(sliderPace: pace)),
+            ),
+          ],
+        ],
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Photos',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        for (var index = 0; index < block.imageUrls.length; index++) ...[
+          _RecipeInspectorImageRow(
+            index: index,
+            imageUrl: block.imageUrls[index],
+            onReplace: () => _pickImage(replaceIndex: index),
+            onDelete: () => _deleteImage(index),
+          ),
+          if (index < block.imageUrls.length - 1)
+            const SizedBox(height: AppSpacing.xs),
+        ],
+        if (block.imageUrls.length < maxImages) ...[
+          if (block.imageUrls.isNotEmpty) const SizedBox(height: AppSpacing.xs),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('recipe-image-add-from-inspector'),
+              onPressed: _pickImage,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                block.imageUrls.isEmpty ? 'Upload photo' : 'Add photo',
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickImage({int? replaceIndex}) async {
+    final imageUrl = await pickRecipeHeroImageUrl();
+    if (imageUrl == null) {
+      return;
+    }
+    final imageUrls = [...block.imageUrls];
+    if (replaceIndex != null && replaceIndex < imageUrls.length) {
+      imageUrls[replaceIndex] = imageUrl;
+    } else if (imageUrls.length < 5) {
+      imageUrls.add(imageUrl);
+    }
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  void _deleteImage(int index) {
+    final imageUrls = [...block.imageUrls]..removeAt(index);
+    onBlockChanged(block.copyWith(imageUrls: imageUrls));
+  }
+
+  String _imageModeLabel(_RecipeImageMode mode) {
+    return switch (mode) {
+      _RecipeImageMode.single => 'Single photo',
+      _RecipeImageMode.collage => 'Collage',
+      _RecipeImageMode.slider => 'Slider',
+    };
+  }
+
+  String _mediaSizeLabel(_RecipeMediaSize size) {
+    return switch (size) {
+      _RecipeMediaSize.extraSmall => 'Extra small',
+      _RecipeMediaSize.small => 'Small',
+      _RecipeMediaSize.medium => 'Medium',
+      _RecipeMediaSize.large => 'Large',
+      _RecipeMediaSize.extraLarge => 'Extra large',
+    };
+  }
+
+  String _sliderPaceLabel(_RecipeSliderPace pace) {
+    return switch (pace) {
+      _RecipeSliderPace.relaxed => 'Relaxed',
+      _RecipeSliderPace.balanced => 'Balanced',
+      _RecipeSliderPace.quick => 'Quick',
+    };
+  }
+}
+
+class _RecipeInspectorImageRow extends StatelessWidget {
+  const _RecipeInspectorImageRow({
+    required this.index,
+    required this.imageUrl,
+    required this.onReplace,
+    required this.onDelete,
+  });
+
+  final int index;
+  final String imageUrl;
+  final VoidCallback onReplace;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: palette.searchBarBackground.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.xxs),
+            child: SizedBox(
+              width: 44,
+              height: 36,
+              child: _RecipeNetworkImage(imageUrl: imageUrl),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'Photo ${index + 1}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: palette.mainText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Replace photo ${index + 1}',
+            onPressed: onReplace,
+            icon: const Icon(Icons.refresh_rounded),
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            tooltip: 'Delete photo ${index + 1}',
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecipeMediaAlignmentSelector extends StatelessWidget {
+  const _RecipeMediaAlignmentSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _RecipeMediaAlignment selected;
+  final ValueChanged<_RecipeMediaAlignment> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Alignment',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            for (final alignment in _RecipeMediaAlignment.values) ...[
+              Expanded(
+                child: _RecipeMediaAlignmentButton(
+                  alignment: alignment,
+                  selected: selected == alignment,
+                  onPressed: () => onChanged(alignment),
+                ),
+              ),
+              if (alignment != _RecipeMediaAlignment.values.last)
+                const SizedBox(width: AppSpacing.xs),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeMediaAlignmentButton extends StatelessWidget {
+  const _RecipeMediaAlignmentButton({
+    required this.alignment,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _RecipeMediaAlignment alignment;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final (icon, label) = switch (alignment) {
+      _RecipeMediaAlignment.left => (
+        Icons.align_horizontal_left_rounded,
+        'Left',
+      ),
+      _RecipeMediaAlignment.center => (
+        Icons.align_horizontal_center_rounded,
+        'Center',
+      ),
+      _RecipeMediaAlignment.right => (
+        Icons.align_horizontal_right_rounded,
+        'Right',
+      ),
+    };
+
+    return Tooltip(
+      message: label,
+      child: Material(
+        key: ValueKey('recipe-media-align-${alignment.name}'),
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.24)
+            : palette.searchBarBackground.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: SizedBox(
+            height: 40,
+            child: Icon(
+              icon,
+              size: 19,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipeInspectorDropdown<T extends Object> extends StatelessWidget {
+  const _RecipeInspectorDropdown({
+    this.controlKey,
+    required this.label,
+    required this.value,
+    required this.values,
+    required this.labelForValue,
+    required this.onChanged,
+  });
+
+  final String? controlKey;
+  final String label;
+  final T value;
+  final List<T> values;
+  final String Function(T value) labelForValue;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: palette.categoryTags,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        DropdownButtonFormField<T>(
+          key: ValueKey(
+            controlKey ?? 'recipe-dropdown-$label-${value.hashCode}',
+          ),
+          initialValue: value,
+          isExpanded: true,
+          dropdownColor: palette.navbarBackground,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: palette.searchBarBackground.withValues(alpha: 0.72),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.xs),
+            ),
+          ),
+          items: [
+            for (final option in values)
+              DropdownMenuItem(
+                value: option,
+                child: Text(labelForValue(option)),
+              ),
+          ],
+          onChanged: (nextValue) {
+            if (nextValue != null) {
+              onChanged(nextValue);
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _RecipeQuoteLineSideButton extends StatelessWidget {
+  const _RecipeQuoteLineSideButton({
+    required this.side,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final _RecipeQuoteLineSide side;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final left = side == _RecipeQuoteLineSide.left;
+
+    return Tooltip(
+      message: left ? 'Line on left' : 'Line on right',
+      child: Material(
+        key: ValueKey('recipe-quote-line-${side.name}'),
+        color: selected
+            ? palette.primaryButtons.withValues(alpha: 0.24)
+            : palette.searchBarBackground.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(AppSpacing.xs),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.xs),
+          child: SizedBox(
+            height: 40,
+            child: Icon(
+              left ? Icons.border_left_rounded : Icons.border_right_rounded,
+              size: 20,
+              color: selected ? palette.primaryButtons : palette.icons,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -320,6 +320,231 @@ void main() {
           .text,
       'Chef Sofia',
     );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-quote-line-right')));
+    await tester.pumpAndSettle();
+
+    final quoteSurface = tester.widget<Container>(
+      find.byKey(const ValueKey('quote-4-quote-surface')),
+    );
+    final quoteBorder =
+        (quoteSurface.decoration! as BoxDecoration).border! as Border;
+    expect(quoteBorder.left.style, BorderStyle.none);
+    expect(quoteBorder.right.width, 3);
+  });
+
+  testWidgets('configures photo blocks as collage or autoplay slider', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Photo'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('recipe-editor-block-image-4')),
+        matching: find.byKey(const ValueKey('recipe-image-placeholder')),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Single photo'), findsOneWidget);
+    expect(find.text('Upload photo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('recipe-media-align-center')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-image-mode-single')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Collage').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-image-mode-collage')),
+      findsOneWidget,
+    );
+    expect(find.text('Add first photo'), findsOneWidget);
+    final collagePlaceholder = find.descendant(
+      of: find.byKey(const ValueKey('recipe-editor-block-image-4')),
+      matching: find.byKey(const ValueKey('recipe-image-placeholder')),
+    );
+    expect(
+      tester
+          .widget<AspectRatio>(
+            find.descendant(
+              of: collagePlaceholder,
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio,
+      2.4,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-image-mode-collage')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Slider').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Autoplay'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-slider-pace-balanced')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('configures YouTube video blocks from block and inspector', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Video'));
+    await tester.pumpAndSettle();
+
+    final placeholder = find.byKey(const ValueKey('recipe-video-placeholder'));
+    expect(placeholder, findsOneWidget);
+    expect(
+      tester
+          .widget<AspectRatio>(
+            find.descendant(
+              of: placeholder,
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio,
+      1,
+    );
+
+    await tester.tap(placeholder);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-youtube-url-dialog')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('recipe-youtube-url-field')),
+      'https://example.com/video',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a valid YouTube URL.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('recipe-youtube-url-field')),
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Apply'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-youtube-preview')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-video-url-inspector-field')),
+      findsOneWidget,
+    );
+    expect(find.text('Video size'), findsOneWidget);
+  });
+
+  testWidgets('configures note tone and divider line presets', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _PageTestApp(child: RecipeCreatePage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Blocks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Note'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('note-4-note-surface')), findsOneWidget);
+    expect(find.byKey(const ValueKey('note-4-title')), findsNothing);
+
+    await tester.tap(find.byTooltip('Open block settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-inspector-tab-content')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-note-tone-tip')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Warning').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('recipe-note-tone-warning')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Divider'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('recipe-editor-block-divider-5')),
+        matching: find.byKey(const ValueKey('recipe-divider-preview')),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('recipe-divider-style-solid')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dash-dot').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('recipe-divider-thickness-regular')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bold').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recipe-divider-color-4')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('recipe-divider-style-dashDot')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('recipe-divider-thickness-bold')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('inserts a clicked palette block after the selected block', (
